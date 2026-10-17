@@ -13,7 +13,7 @@ interface Props {
 /** Top-down plan of the intersection: lane bands, vehicles as oriented footprints, 3 s trails, live conflicts. */
 export default function PlanView({ data, conflicts, selected, onSelect, occlusion, label }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const view = useRef({ s: 1, ox: 0, oy: 0 });
+  const view = useRef({ s: 1, ox: 0, oy: 0, vertical: false });
   const [[x0, y0], [x1, y1]] = data.bbox as [[number, number], [number, number]];
 
   const draw = (t: number) => {
@@ -21,19 +21,21 @@ export default function PlanView({ data, conflicts, selected, onSelect, occlusio
     if (!c) return;
     const ctx = fitCanvas(c);
     const W = c.clientWidth, H = c.clientHeight;
-    // Corridor (+y) runs left→right on screen: screen x = y, screen y = -x.
-    const s = Math.min(W / (y1 - y0 + 8), H / (x1 - x0 + 8));
-    const ox = (W - (y1 - y0) * s) / 2 - y0 * s;
-    const oy = (H - (x1 - x0) * s) / 2 + x1 * s;
-    view.current = { s, ox, oy };
-    const P = (x: number, y: number): [number, number] => [ox + y * s, oy - x * s];
+    // Corridor (+y) runs left→right on wide canvases and bottom→top on tall (phone) canvases.
+    const vertical = H > W * 1.1;
+    const s = vertical ? Math.min(W / (x1 - x0 + 8), H / (y1 - y0 + 8)) : Math.min(W / (y1 - y0 + 8), H / (x1 - x0 + 8));
+    const ox = vertical ? (W - (x1 - x0) * s) / 2 - x0 * s : (W - (y1 - y0) * s) / 2 - y0 * s;
+    const oy = vertical ? (H - (y1 - y0) * s) / 2 + y1 * s : (H - (x1 - x0) * s) / 2 + x1 * s;
+    view.current = { s, ox, oy, vertical };
+    const P = (x: number, y: number): [number, number] => (vertical ? [ox + x * s, oy - y * s] : [ox + y * s, oy - x * s]);
 
     ctx.clearRect(0, 0, W, H);
     // metre graticule every 10 m
     ctx.strokeStyle = '#e1e4de'; ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let g = Math.ceil(y0 / 10) * 10; g <= y1; g += 10) { const [a] = P(0, g); ctx.moveTo(a, 0); ctx.lineTo(a, H); }
-    for (let g = Math.ceil(x0 / 10) * 10; g <= x1; g += 10) { const [, b] = P(g, 0); ctx.moveTo(0, b); ctx.lineTo(W, b); }
+    const seg = (a: [number, number], b: [number, number]) => { ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); };
+    for (let g = Math.ceil(y0 / 10) * 10; g <= y1; g += 10) seg(P(x0 - 4, g), P(x1 + 4, g));
+    for (let g = Math.ceil(x0 / 10) * 10; g <= x1; g += 10) seg(P(g, y0 - 4), P(g, y1 + 4));
     ctx.stroke();
 
     // lane bands (10th–90th percentile of observed lateral position)
@@ -71,7 +73,7 @@ export default function PlanView({ data, conflicts, selected, onSelect, occlusio
       ctx.strokeStyle = sel ? '#c98a00' : 'rgba(58,65,72,0.28)'; ctx.lineWidth = sel ? 2 : 1; ctx.stroke();
       // footprint
       const [a, b] = P(p.x, p.y);
-      ctx.save(); ctx.translate(a, b); ctx.rotate(Math.atan2(-Math.cos(p.h), Math.sin(p.h)));
+      ctx.save(); ctx.translate(a, b); ctx.rotate(vertical ? -p.h : Math.atan2(-Math.cos(p.h), Math.sin(p.h)));
       const L = tr.len_m * s, Wd = Math.max(tr.w_m * s, 3);
       ctx.globalAlpha = hidden ? 0.25 : 1;
       ctx.fillStyle = hot.has(id) ? '#c98a00' : sel ? '#14171a' : DIR_COLOR[tr.dir ?? 'NB'] ?? '#3a4148';
@@ -108,8 +110,10 @@ export default function PlanView({ data, conflicts, selected, onSelect, occlusio
 
   const pick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    const { s, ox, oy } = view.current;
-    const y = (e.clientX - r.left - ox) / s, x = (oy - (e.clientY - r.top)) / s;
+    const { s, ox, oy, vertical } = view.current;
+    const cx = e.clientX - r.left, cy = e.clientY - r.top;
+    const x = vertical ? (cx - ox) / s : (oy - cy) / s;
+    const y = vertical ? (oy - cy) / s : (cx - ox) / s;
     const t = Number(e.currentTarget.dataset.t ?? 0);
     let best: TrackT | null = null, bd = 4;
     for (const tr of data.tracks) {

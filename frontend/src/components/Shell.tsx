@@ -71,7 +71,7 @@ export default function Shell() {
         <footer className="colophon">
           <p>
             Roadway, traffic and crash layers © Texas Department of Transportation, used for informational purposes; not an official TxDOT product.
-            FARS: NHTSA, public domain. NGSIM: FHWA, CC BY-SA 3.0. Built by a Texas Tech applicant for the TransTech Lab.
+            FARS: NHTSA, public domain. NGSIM: FHWA, CC BY-SA 3.0. Built as part of an application to the TransTech Lab Graduate Assistant position.
           </p>
           <p><a href="https://github.com/HEPHAISTOS89/roadscope-ai">Source on GitHub</a></p>
         </footer>

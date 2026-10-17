@@ -56,7 +56,7 @@
 }
 @media (max-width: 640px) {
   .atlas-map { min-height: 440px; }
-  .map-readout { right: 12px; max-width: none; }
+  .map-readout { right: 56px; max-width: none; }
   .map-legend { width: auto; right: 12px; }
   .path { grid-template-columns: 1fr; }
   .path li + li { border-left: 0; border-top: 1px solid var(--grid); }

@@ -16,8 +16,8 @@
 .vru-legend i { width: 9px; height: 9px; border-radius: 50%; }
 .vru-readout { left: 12px; top: 12px; max-width: 300px; display: grid; gap: 2px; }
 
-.vru-cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--s6); }
-.vru-heat { margin: 0; display: grid; gap: var(--s2); }
+.vru-cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--s6); align-items: start; }
+.vru-heat { margin: 0; display: grid; gap: var(--s2); align-content: start; }
 .vru-heat-scroll { overflow-x: auto; }
 .vru-heat svg { width: 100%; min-width: 480px; height: auto; display: block; }
 .vru-ax { font: 500 10.5px var(--f-ui); fill: var(--ink-3); }

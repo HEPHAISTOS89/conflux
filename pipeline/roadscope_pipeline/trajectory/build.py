@@ -85,7 +85,7 @@ def main(argv=None):
     for s, row in zip(SITES, index):
         raw = Path(a.cache) / f"{s['location']}_{row['window'][0]}_{row['window'][1]}_zone.json"
         entry = {"id": f"ngsim_{s['location']}", "url": ngsim.SODA,
-                 "licence": "USDOT ITS DataHub NGSIM - public domain (U.S. Government work)",
+                 "licence": "CC BY-SA 3.0 (USDOT ITS DataHub); attribution and share-alike",
                  "records": len(json.loads(raw.read_text())), "fetched_at": now,
                  "sha256": hashlib.sha256(raw.read_bytes()).hexdigest(),
                  "filter": f"location='{s['location']}', int_id={s['int_id']} zone, global_time {row['window']}",

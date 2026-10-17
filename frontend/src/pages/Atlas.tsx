@@ -34,14 +34,14 @@ export default function Atlas() {
     if (net.data) out.push({
       id: 'net', data: net.data as any,
       layers: [
-        { id: 'net-case', type: 'line', paint: { 'line-color': '#fbfbf9', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 13, 9] }, layout: { 'line-cap': 'round' } } as any,
-        { id: 'net-line', type: 'line', paint: { 'line-color': ebColor, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.6, 13, 6] }, layout: { 'line-cap': 'round' } } as any,
+        { id: 'net-case', type: 'line', paint: { 'line-color': '#fbfbf9', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 4.5, 13, 10] }, layout: { 'line-cap': 'round' } } as any,
+        { id: 'net-line', type: 'line', paint: { 'line-color': ebColor, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.6, 13, 7] }, layout: { 'line-cap': 'round' } } as any,
         { id: 'net-hl', type: 'line', filter: ['==', ['get', 'seg_id'], '__none__'], paint: { 'line-color': '#14171a', 'line-width': 8, 'line-opacity': 0.25 } } as any,
       ],
     });
     if (fatal.data) out.push({
       id: 'fatal', data: fatal.data as any,
-      layers: [{ id: 'fatal-pt', type: 'circle', paint: { 'circle-radius': 3, 'circle-color': '#6e120d', 'circle-stroke-color': '#fbfbf9', 'circle-stroke-width': 1, 'circle-opacity': layers.fatal ? 0.9 : 0, 'circle-stroke-opacity': layers.fatal ? 1 : 0 } } as any],
+      layers: [{ id: 'fatal-pt', type: 'circle', paint: { 'circle-radius': 2.4, 'circle-color': '#6e120d', 'circle-stroke-color': '#fbfbf9', 'circle-stroke-width': 0.8, 'circle-opacity': layers.fatal ? 0.75 : 0, 'circle-stroke-opacity': layers.fatal ? 1 : 0 } } as any],
     });
     return out;
   }, [net.data, fatal.data, layers.fatal]);
