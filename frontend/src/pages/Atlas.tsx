@@ -104,7 +104,7 @@ export default function Atlas() {
         <div className="atlas-ts panel">
           <div className="ts-head">
             <h2>Peachtree St at 10th St — 90 s, northbound + southbound</h2>
-            <p className="muted">Every line is one vehicle. Slope is speed; flat runs are queues at the stop line; diamonds are rear-end and crossing conflicts (TTC &lt; 1.5 s, PET &lt; 2 s).</p>
+            <p className="muted">Every line is one vehicle. Slope is speed; flat runs are queues at the stop line; diamonds are traffic conflicts (surrogate safety events) detected with FHWA SSAM thresholds.</p>
           </div>
           {ix.data && cf.data ? (
             <ClockCtx.Provider value={clock}>
@@ -126,7 +126,7 @@ export default function Atlas() {
       <section className="section" aria-labelledby="path">
         <div className="section-head"><h2 id="path">Work through it the way a safety study does</h2></div>
         <ol className="path">
-          <PathStep to="/screening" title="Screen the network" body="Rank segments by crash frequency, rate, critical-rate ratio and EB excess using a calibrated negative binomial SPF." />
+          <PathStep to="/screening" title="Screen the network" body="Rank segments by crash frequency, rate, critical-rate ratio and EB excess using locally estimated, site-type-specific negative binomial SPFs." />
           <PathStep to="/corridors/us-84" title="Diagnose a corridor" body="Read lanes, posted and operating speed, AADT, truck share and crash density against DFO on a straight-line diagram." />
           <PathStep to="/vru" title="Look at who is hit" body="Pedestrian and cyclist crashes by PBCAT type, lighting and hour, the population behind failure-to-yield countermeasures." />
           <PathStep to="/intersections/peachtree-10th" title="Measure conflicts, not just crashes" body="TTC, PET and DRAC on 10 Hz trajectories, a roadside-LiDAR view, and occluded-track repair evaluated against held-out truth." />

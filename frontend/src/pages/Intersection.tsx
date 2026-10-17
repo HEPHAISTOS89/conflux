@@ -35,7 +35,7 @@ export default function IntersectionPage() {
         <h1>Intersection lab</h1>
         <p>
           Proactive safety from trajectories rather than crash history. Vehicle tracks at 10 Hz from the FHWA NGSIM arterial datasets, a stand-in for the
-          roadside-LiDAR trajectories a pole-mounted sensor produces, are screened for rear-end, crossing and lane-change conflicts with time-to-collision,
+          roadside-LiDAR trajectories a pole-mounted sensor produces, are screened for rear-end, crossing and lane-change traffic conflicts (surrogate safety events) with time-to-collision,
           post-encroachment time and deceleration rate to avoid crash.
         </p>
       </header>
@@ -78,7 +78,7 @@ export default function IntersectionPage() {
                 </div>
                 <div className="ix-conf-list">
                   <table className="data">
-                    <thead><tr><th className="r">t (s)</th><th>Type</th><th className="r">TTC</th><th className="r">PET</th><th className="r">DRAC</th></tr></thead>
+                    <thead><tr><th className="r">t (s)</th><th>Type</th><th className="r">TTC</th><th className="r">PET</th><th className="r">DRAC ft/s²</th></tr></thead>
                     <tbody>
                       {conflicts.map((c) => (
                         <tr key={c.id} onClick={() => jump(c)} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && jump(c)} data-active={selected === String(c.a)}>
@@ -86,13 +86,13 @@ export default function IntersectionPage() {
                           <td><span className={`sev sev-${c.severity}`}>{TYPE_LABEL[c.type]}</span></td>
                           <td className="r num">{c.ttc_min != null ? `${c.ttc_min.toFixed(2)} s` : '—'}</td>
                           <td className="r num">{c.pet != null ? `${c.pet.toFixed(2)} s` : '—'}</td>
-                          <td className={`r num ${c.drac_max != null && c.drac_max > 8 ? 'implaus' : ''}`}>{c.drac_max != null ? c.drac_max.toFixed(1) : '—'}</td>
+                          <td className={`r num ${c.drac_max != null && c.drac_max > 8 ? 'implaus' : ''}`}>{c.drac_max != null ? (c.drac_max * 3.281).toFixed(1) : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <p className="ix-foot muted">Click a conflict to jump 1.5 s before it. DRAC in m/s²; values above 8 m/s² exceed tyre–road friction and flag NGSIM position noise rather than a real manoeuvre.</p>
+                <p className="ix-foot muted">Click a conflict to jump 1.5 s before it. DRAC above 26 ft/s² (8 m/s²) exceeds tyre–road friction and flags NGSIM position error rather than a real manoeuvre.</p>
               </div>
             </aside>
           </section>
@@ -123,11 +123,11 @@ function VehicleReadout({ data, id, onClear }: { data: IntersectionT; id: string
           <div className="ix-veh-h"><h3>Vehicle <span className="num">#{tr.id}</span></h3><button className="btn ghost" onClick={onClear}>Clear</button></div>
           <dl className="num">
             <dt>Class · movement</dt><dd>{tr.cls} · {tr.dir} {tr.move}</dd>
-            <dt>Footprint</dt><dd>{nf(tr.len_m, 1)} × {nf(tr.w_m, 1)} m</dd>
+            <dt>Footprint</dt><dd>{nf(tr.len_m * 3.281, 1)} × {nf(tr.w_m * 3.281, 1)} ft</dd>
             <dt>Speed</dt><dd>{p ? `${(p.v * MPS_TO_MPH).toFixed(1)} mph` : 'not in view'}</dd>
-            <dt>Acceleration</dt><dd>{p ? `${p.a.toFixed(2)} m/s²` : '—'}</dd>
+            <dt>Acceleration</dt><dd>{p ? `${(p.a * 3.281).toFixed(1)} ft/s² (${p.a.toFixed(2)} m/s²)` : '—'}</dd>
             <dt>Lane</dt><dd>{p ? p.lane : '—'}</dd>
-            <dt>Position (x, y)</dt><dd>{p ? `${p.x.toFixed(1)}, ${p.y.toFixed(1)} m` : '—'}</dd>
+            <dt>Position (x, y)</dt><dd>{p ? `${(p.x * 3.281).toFixed(0)}, ${(p.y * 3.281).toFixed(0)} ft` : '—'}</dd>
           </dl>
         </>
       ) : <p className="muted">Select a vehicle in the plan or a conflict in the list to inspect its speed, acceleration and lane.</p>}

@@ -1,0 +1,27 @@
+.brief-actions { display: flex; gap: var(--s3); justify-content: flex-end; }
+.sheet-page { background: #fff; border: 1px solid var(--ink); padding: clamp(16px, 3vw, 40px); display: grid; gap: var(--s5); max-width: 1100px; width: 100%; margin: 0 auto; box-shadow: 0 6px 24px rgba(20,23,26,.08); }
+.sheet-head { display: grid; grid-template-columns: 1fr auto; gap: var(--s5); align-items: start; border-bottom: 2px solid var(--ink); padding-bottom: var(--s4); }
+.sheet-head h1 { font-size: clamp(22px, 2.4vw, 30px); }
+.sheet-tb { display: grid; border: 1px solid var(--ink); font-size: 12px; margin: 0; min-width: 220px; }
+.sheet-tb > div { display: grid; grid-template-columns: 70px 1fr; border-top: 1px solid var(--rule); }
+.sheet-tb > div:first-child { border-top: 0; }
+.sheet-tb dt { padding: 4px 8px; color: var(--ink-3); border-right: 1px solid var(--rule); text-transform: uppercase; font-size: 10.5px; letter-spacing: .06em; font-family: var(--f-ui); }
+.sheet-tb dd { margin: 0; padding: 4px 8px; }
+.sheet-page h2 { font-size: 15px; font-weight: 600; letter-spacing: 0; margin-bottom: var(--s2); }
+.sheet-page section { display: grid; gap: var(--s2); }
+.sheet-page table.data { font-size: 12.5px; }
+.sheet-two { grid-template-columns: 1.2fr 1fr; gap: var(--s6) !important; }
+.sheet-diag { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; }
+.sheet-diag ul { margin: 4px 0 0; padding-left: 16px; color: var(--ink-2); }
+.sheet-next { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; }
+.sheet-two p { font-size: 13.5px; margin-bottom: var(--s4); }
+.sheet-foot { border-top: 1px solid var(--rule); padding-top: var(--s3); font-size: 11.5px; }
+@media (max-width: 860px) { .sheet-head, .sheet-two { grid-template-columns: 1fr; } .sheet-page table.data { display: block; overflow-x: auto; } }
+@media print {
+  @page { size: letter landscape; margin: 0.4in; }
+  body { background: #fff; }
+  .rail, .topbar, .colophon, .no-print, .skip { display: none !important; }
+  .shell { display: block; }
+  .page { padding: 0; }
+  .sheet-page { border: 0; box-shadow: none; padding: 0; max-width: none; }
+}

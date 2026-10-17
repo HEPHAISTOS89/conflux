@@ -97,8 +97,8 @@ export default function PlanView({ data, conflicts, selected, onSelect, occlusio
       ctx.strokeStyle = `rgba(201,138,0,${Math.max(0, 0.9 - age)})`; ctx.lineWidth = 2; ctx.stroke();
     }
     // scale bar
-    ctx.fillStyle = '#14171a'; ctx.fillRect(12, H - 18, 10 * s, 2);
-    ctx.font = '11px "Overpass Mono", monospace'; ctx.fillText('10 m', 12, H - 24);
+    ctx.fillStyle = '#14171a'; ctx.fillRect(12, H - 18, 9.144 * s, 2);
+    ctx.font = '11px "Overpass Mono", monospace'; ctx.fillText('30 ft', 12, H - 24);
   };
 
   useClockFrame(draw, [data, conflicts, selected, occlusion]);

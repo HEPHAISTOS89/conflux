@@ -7,7 +7,7 @@ import type { FC, SegmentProps, Spf } from '../lib/types';
 import '../styles/screening.css';
 
 const METHODS = [
-  { id: 'eb_excess', label: 'EB excess', unit: 'crashes / yr', d: 'Empirical Bayes expected minus SPF-predicted crashes per year; corrects regression to the mean (HSM 4.4.2.11).' },
+  { id: 'eb_excess', label: 'EB excess', unit: 'crashes / yr', d: 'Excess expected average crash frequency with Empirical Bayes adjustment: EB-expected minus SPF-predicted crashes per year, the HSM Part B potential-for-safety-improvement (PSI) measure that corrects for regression to the mean.' },
   { id: 'critical_ratio', label: 'Critical rate ratio', unit: 'R / Rc', d: 'Observed rate over critical rate at 95% confidence for the facility group; > 1 flags a statistically high rate.' },
   { id: 'rate', label: 'Crash rate', unit: 'per 100 MVMT', d: 'Crashes per hundred million vehicle-miles travelled; exposure-normalised, biased toward low-volume segments.' },
   { id: 'frequency', label: 'Crash frequency', unit: 'crashes / 9 yr', d: 'Raw count; simple, but ignores exposure and regression to the mean.' },
@@ -69,6 +69,7 @@ export default function ScreeningPage() {
             {GROUPS.map((g) => <option key={g}>{g}</option>)}
           </select>
         </label>
+        <Link to="/brief" className="btn ghost scr-brief">One-page district brief</Link>
         <p className="scr-def muted">{meta.d}</p>
       </div>
 
@@ -91,7 +92,7 @@ export default function ScreeningPage() {
                   </td>
                   <td className="r num">{nf(r.aadt)}</td>
                   <td className="r num">{nf(r.crashes_total)}</td>
-                  <td className="r num strong">{nf(r[FIELD[method]] as number, method === 'frequency' ? 0 : 2)}</td>
+                  <td className="r num strong">{nf(r[FIELD[method]] as number, method === 'frequency' ? 0 : method === 'rate' ? 1 : 2)}</td>
                   <td className="r num">{nf(method === 'eb_excess' ? r.crit_ratio : r.eb_excess, 2)}</td>
                 </tr>
               ))}
@@ -114,7 +115,7 @@ export default function ScreeningPage() {
       <section className="section" aria-labelledby="spf-h">
         <div className="section-head">
           <h2 id="spf-h">Safety performance function</h2>
-          <p>Negative binomial, ln μ = β₀ + β₁ ln AADT + ln L, fitted to {nf(spf.data?.n)} segments</p>
+          <p>Locally estimated negative binomial SPF, ln μ = β₀ + β₁ ln AADT + ln L, {nf(spf.data?.n)} segments</p>
         </div>
         {spf.data && net.data ? <SpfPlot spf={spf.data} feats={net.data.features.map((f) => f.properties)} focus={focus} onPick={(id) => set('seg', id)} /> : <div className="skeleton" style={{ height: 360 }} />}
       </section>

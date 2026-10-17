@@ -161,23 +161,28 @@ export default function Methods() {
 
           <section id="m-ssm" className="section" aria-labelledby="m-ssm-h">
             <div className="section-head"><h2 id="m-ssm-h">4. Surrogate safety measures</h2></div>
-            <p>Computed on 10 Hz trajectories following the FHWA SSAM conventions (Gettman &amp; Head 2003; Gettman et al. 2008).</p>
+            <p>Computed on 10 Hz trajectories following FHWA Surrogate Safety Assessment Model (SSAM) conventions and its default detection thresholds (Gettman et al. 2008). An event is a <em>traffic conflict</em> in the surrogate-safety sense: an interaction whose measures fall below threshold, not an observed crash.</p>
             <dl className="m-defs">
               <dt>Time to collision (TTC)</dt>
               <dd>
                 <Eq label="Time to collision"><math display="block"><mrow><mi>TTC</mi><mo>=</mo><mfrac><mrow><mi>Δ</mi><mi>x</mi></mrow><mrow><msub><mi>v</mi><mi>f</mi></msub><mo>−</mo><msub><mi>v</mi><mi>l</mi></msub></mrow></mfrac><mspace width="1em" /><mtext>for </mtext><msub><mi>v</mi><mi>f</mi></msub><mo>&gt;</mo><msub><mi>v</mi><mi>l</mi></msub></mrow></math></Eq>
-                Rear-end interactions; Δ<i>x</i> is the bumper-to-bumper gap. A conflict is recorded when the minimum TTC
-                is below <span className="num">1.5</span> s (Hayward 1972).
+                Measure introduced by Hayward (1972). Rear-end interactions; Δ<i>x</i> is the bumper-to-bumper gap. Detection:
+                minimum TTC ≤ <span className="num">1.5</span> s, the SSAM default. Severity bins used here: ≤ 0.5 s critical,
+                0.5–1.0 s serious, 1.0–1.5 s moderate (study-specific bins, stated for transparency).
               </dd>
               <dt>Post-encroachment time (PET)</dt>
               <dd>
-                Time between the first road user leaving a conflict zone and the second entering it, evaluated on a
-                <span className="num"> 2</span> m grid over crossing paths. Threshold <span className="num">2.0</span> s (Allen et al. 1978).
+                Measure introduced by Allen, Shin and Cooper (1978): the time between the rear of the first road user
+                leaving the shared conflict zone and the front of the second entering it, with zones taken from the
+                intersection of the two vehicles' swept footprints. Detection: PET ≤ <span className="num">5.0</span> s, the
+                SSAM default. Simultaneous occupancy is kept and flagged (PET = 0) rather than discarded.
               </dd>
               <dt>Deceleration rate to avoid crash (DRAC)</dt>
               <dd>
                 <Eq label="Deceleration rate to avoid crash"><math display="block"><mrow><mi>DRAC</mi><mo>=</mo><mfrac><msup><mrow><mo>(</mo><msub><mi>v</mi><mi>f</mi></msub><mo>−</mo><msub><mi>v</mi><mi>l</mi></msub><mo>)</mo></mrow><mn>2</mn></msup><mrow><mn>2</mn><mo>·</mo><mi>Δ</mi><mi>x</mi></mrow></mfrac></mrow></math></Eq>
-                Threshold <span className="num">3.4</span> m/s², the commonly used value for a hard but controlled stop.
+                Reported as a severity flag, not a detection criterion: DRAC ≥ <span className="num">11.2</span> ft/s²
+                (3.4 m/s²), the AASHTO comfortable deceleration rate used for stopping sight distance. Values above
+                about 26 ft/s² (8 m/s²) exceed tyre–road friction and indicate position error in the source data.
               </dd>
             </dl>
           </section>
@@ -205,7 +210,7 @@ export default function Methods() {
             </div>
             <p className="muted m-small">Truth here is the Savitzky–Golay-smoothed NGSIM track, not raw sensor data, so RMSE
               measures agreement with a smoothed reference. Results are reported as measured, including where the
-              Kalman smoother does not beat linear interpolation. See Luo et al. (2025) for the full-occlusion method.</p>
+              Kalman smoother does not beat linear interpolation. NGSIM position errors are documented by Punzo, Borzacchiello and Ciuffo (2011) and Montanino and Punzo (2015). This evaluation is a generic baseline; it does not reproduce or compare against the full-occlusion repair method of Luo et al. (2025).</p>
           </section>
 
           <section id="m-limits" className="section" aria-labelledby="m-limits-h">
@@ -230,12 +235,15 @@ export default function Methods() {
               <li>AASHTO (2010). <i>Highway Safety Manual</i>, 1st ed. American Association of State Highway and Transportation Officials, Washington, DC.</li>
               <li>Hauer, E. (1997). <i>Observational Before–After Studies in Road Safety</i>. Pergamon, Oxford. See also Hauer, E., Harwood, D. W., Council, F. M., Griffith, M. S. (2002), Estimating safety by the Empirical Bayes method, <i>Transportation Research Record</i> 1784.</li>
               <li>Gettman, D., Pu, L., Sayed, T., Shelby, S. (2008). <i>Surrogate Safety Assessment Model and Validation</i>. FHWA-HRT-08-051, Federal Highway Administration.</li>
-              <li>Hayward, J. C. (1972). Near-miss determination through use of a scale of danger. <i>Highway Research Record</i> 384.</li>
-              <li>Allen, B. L., Shin, B. T., Cooper, P. J. (1978). Analysis of traffic conflicts and collisions. <i>Transportation Research Record</i> 667.</li>
-              <li>Igene, M., Luo, Q., et al. (2024). Integrating LiDAR sensor data into microsimulation model calibration for proactive safety analysis. <i>Sensors</i>.</li>
-              <li>Luo, Q., et al. (2025). Vehicle trajectory repair under (full) occlusion and limited datapoints with roadside LiDAR. <i>Sensors</i>.</li>
-              <li>Zhang, et al., Luo, Q. (2025). Anchor-free vehicle detection and tracking from roadside LiDAR. <i>PLOS ONE</i>.</li>
-              <li>US DOT ITS JPO. Next Generation Simulation (NGSIM) Vehicle Trajectories and Supporting Data. ITS DataHub.</li>
+              <li>Hayward, J. C. (1972). Near-miss determination through use of a scale of danger. <i>Highway Research Record</i> 384, 24–34.</li>
+              <li>Allen, B. L., Shin, B. T., Cooper, P. J. (1978). Analysis of traffic conflicts and collisions. <i>Transportation Research Record</i> 667, 67–74.</li>
+              <li>AASHTO (2018). <i>A Policy on Geometric Design of Highways and Streets</i>, 7th ed. (deceleration rate for stopping sight distance, 11.2 ft/s²).</li>
+              <li>Igene, M., Luo, Q., Jimee, K., Soltanirad, M., Bataineh, T., Liu, H. (2024). Integrating LiDAR sensor data into microsimulation model calibration for proactive safety analysis. <i>Sensors</i> 24(13), 4393. <a href="https://doi.org/10.3390/s24134393">doi:10.3390/s24134393</a></li>
+              <li>Luo, Q., Xu, Z., Zhang, Y., Igene, M., Bataineh, T., Soltanirad, M., Jimee, K., Liu, H. (2025). Vehicle trajectory repair under full occlusion and limited datapoints with roadside LiDAR. <i>Sensors</i> 25(4), 1114. <a href="https://doi.org/10.3390/s25041114">doi:10.3390/s25041114</a></li>
+              <li>Zhang, Y., Luo, Q., Zhang, S., Liu, H., Xie, S. (2025). Anchor-free real-time vehicle tracking using LiDAR data. <i>PLOS ONE</i> 20(5), e0323287. <a href="https://doi.org/10.1371/journal.pone.0323287">doi:10.1371/journal.pone.0323287</a></li>
+              <li>Punzo, V., Borzacchiello, M. T., Ciuffo, B. (2011). On the assessment of vehicle trajectory data accuracy and application to the Next Generation SIMulation (NGSIM) program data. <i>Transportation Research Part C</i> 19(6), 1243–1262. <a href="https://doi.org/10.1016/j.trc.2010.12.007">doi:10.1016/j.trc.2010.12.007</a></li>
+              <li>Montanino, M., Punzo, V. (2015). Trajectory data reconstruction and simulation-based validation against macroscopic traffic patterns. <i>Transportation Research Part B</i> 80, 82–106. <a href="https://doi.org/10.1016/j.trb.2015.06.010">doi:10.1016/j.trb.2015.06.010</a></li>
+              <li>U.S. DOT Federal Highway Administration (2016). Next Generation Simulation (NGSIM) Vehicle Trajectories and Supporting Data. ITS DataHub, CC BY-SA 3.0. <a href="https://doi.org/10.21949/1504477">doi:10.21949/1504477</a></li>
             </ol>
             <p className="m-small"><Link to="/platform">How the data are refreshed</Link></p>
           </section>

@@ -10,6 +10,7 @@ const NAV: { to: string; label: string; hint: string; icon: IconName }[] = [
   { to: '/corridors', label: 'Corridors', hint: 'Straight-line diagrams', icon: 'corridor' },
   { to: '/vru', label: 'Pedestrians & cyclists', hint: 'VRU crashes', icon: 'ped' },
   { to: '/intersections', label: 'Intersection lab', hint: 'Conflicts · repair', icon: 'lidar' },
+  { to: '/brief', label: 'District brief', hint: 'One-page summary', icon: 'sheet' },
   { to: '/methods', label: 'Methods & data', hint: 'Equations · provenance', icon: 'methods' },
   { to: '/platform', label: 'Platform', hint: 'AWS pipeline', icon: 'platform' },
   { to: '/ask', label: 'Ask the data', hint: 'Bedrock analyst', icon: 'ask' },

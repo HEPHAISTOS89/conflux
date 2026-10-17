@@ -44,9 +44,10 @@ export default function TimeSpace({ data, conflicts, dir, selected, label, compa
       ctx.beginPath(); ctx.moveTo(X(s), PAD.t); ctx.lineTo(X(s), H - PAD.b); ctx.stroke();
       if (!compact || s % 30 === 0) ctx.fillText(`${s}s`, X(s) - 8, H - 8);
     }
-    for (let m = Math.ceil(y0 / 20) * 20; m <= y1; m += 20) {
+    for (let f = Math.ceil((y0 * 3.281) / 100) * 100; f <= y1 * 3.281; f += 100) {
+      const m = f / 3.281;
       ctx.beginPath(); ctx.moveTo(PAD.l, Y(m)); ctx.lineTo(W - PAD.r, Y(m)); ctx.stroke();
-      ctx.fillText(`${m}`, 6, Y(m) + 3);
+      ctx.fillText(`${f}`, 6, Y(m) + 3);
     }
     // stop line (intersection centre, y = 0)
     ctx.strokeStyle = '#14171a'; ctx.setLineDash([3, 3]);
@@ -128,7 +129,7 @@ export default function TimeSpace({ data, conflicts, dir, selected, label, compa
           if (e.key === ' ') { e.preventDefault(); clock.toggle(); }
         }}
       />
-      <span className="ts-ylabel">distance along corridor (m)</span>
+      <span className="ts-ylabel">distance along corridor (ft)</span>
     </div>
   );
 }

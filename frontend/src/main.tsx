@@ -13,6 +13,7 @@ const Intersection = lazy(() => import('./pages/Intersection'));
 const Methods = lazy(() => import('./pages/Methods'));
 const Platform = lazy(() => import('./pages/Platform'));
 const Ask = lazy(() => import('./pages/Ask'));
+const Brief = lazy(() => import('./pages/Brief'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 const wrap = (el: React.ReactElement) => <Suspense fallback={<div className="page-loading" aria-busy="true" />}>{el}</Suspense>;
@@ -28,6 +29,7 @@ const router = createBrowserRouter([
       { path: '/vru', element: wrap(<Vru />) },
       { path: '/intersections', element: wrap(<Intersection />) },
       { path: '/intersections/:id', element: wrap(<Intersection />) },
+      { path: '/brief', element: wrap(<Brief />) },
       { path: '/methods', element: wrap(<Methods />) },
       { path: '/platform', element: wrap(<Platform />) },
       { path: '/ask', element: wrap(<Ask />) },

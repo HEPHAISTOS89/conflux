@@ -5,6 +5,7 @@ const PATHS = {
   ped: 'M12 5.5a1.5 1.5 0 1 0 0-.01M10 21l2-6 2 2v4M9 11l3-2 3 3 2 1M12 9v6',
   lidar: 'M12 20V9M8 9h8M12 9l-7-5M12 9l7-5M5 14a7 7 0 0 0 14 0',
   methods: 'M5 4h10l4 4v12H5zM15 4v4h4M8 12h8M8 16h5',
+  sheet: 'M4 4h16v16H4zM4 9h16M9 9v11M14 14h3',
   platform: 'M4 5h16v5H4zM4 14h16v5H4zM7 7.5h.01M7 16.5h.01',
   ask: 'M4 5h16v11H9l-5 4zM8 10h8M8 13h5',
   menu: 'M4 7h16M4 12h16M4 17h16',
