@@ -12,7 +12,7 @@ const GROUPS: [string, [string[], string][]][] = [
     [['2', '3'], 'Plan view / 3D view'],
     [['F'], 'Fullscreen'],
     [['Esc'], 'Clear selection · leave fullscreen'],
-    [['?'], 'This sheet'],
+    [['?'], 'Show or hide shortcuts'],
   ]],
   ['3D camera', [
     [['C'], 'Next camera mode · Shift: previous'],

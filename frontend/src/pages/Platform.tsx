@@ -108,7 +108,7 @@ export default function Platform() {
         <PageHeader
           icon="platform"
           title="Platform"
-          lede="The AWS pipeline that keeps every crash, AADT and trajectory figure on this portal current, and the roadside-LiDAR pilot it is designed to take in."
+          lede="AWS pipeline that refreshes the crash, AADT and trajectory data on this portal, plus the planned roadside-LiDAR pilot lane."
           source={d ? <>Live from <span className="measure">/api/v1/platform/status</span>{d.on_aws ? ' · CloudWatch + S3 run records' : ' · local mode'}</> : 'Reading platform status…'}
           readouts={[
             { label: 'Stages up', value: d ? r.up : null, unit: `/ ${r.of}`, tone: live.verdict.s === 'down' ? 'alert' : 'accent' },
@@ -121,7 +121,7 @@ export default function Platform() {
       </div>
 
       {live.local && (
-        <p className="pf-local" role="status"><Icon name="info" size={16} />Local mode: CloudWatch metrics and S3 run history exist only on AWS, so Lambda rates, the run table and the recovery replay appear on the deployed portal.</p>
+        <p className="pf-local" role="status"><Icon name="info" size={16} />Local mode: CloudWatch metrics and S3 run history are AWS-only. Lambda rates, run table and recovery replay appear on the deployed portal.</p>
       )}
       {st.error && <div className="error-box">Platform status unavailable: {st.error}</div>}
       {d?.errors.length ? <div className="error-box">{d.errors.join('; ')}</div> : null}
@@ -129,18 +129,18 @@ export default function Platform() {
       <section className="section ar" aria-labelledby="ar-h">
         <div className="ar-head">
           <div>
-            <h2 id="ar-h">Living architecture</h2>
-            <p className="ar-why">Comets carry the real volume on each link (runs, records, requests; log-scaled). Select any component for its metrics.</p>
+            <h2 id="ar-h">Architecture</h2>
+            <p className="ar-why">Moving dots scale with volume per link (runs, records, requests; log scale). Select a component for its metrics.</p>
           </div>
           <div className="ar-ctl">
             {rec && (
               <button type="button" className="btn ghost" onClick={replay} disabled={mode?.kind === 'replay'}>
-                <Icon name="reset" size={16} />Replay real recovery
+                <Icon name="reset" size={16} />Replay recovery
               </button>
             )}
             <Select<Target> compact label="Outage at" icon="offline" value={target} options={[...TARGETS]} onChange={(v) => { setTarget(v); if (simOn) setDown(v); }} />
             <button type="button" className={`btn ${simOn ? '' : 'ghost'} ar-simbtn`} aria-pressed={simOn} onClick={toggleSim}>
-              <Icon name={simOn ? 'play' : 'warning'} size={16} />{simOn ? 'Restore service' : 'Simulate an outage'}
+              <Icon name={simOn ? 'play' : 'warning'} size={16} />{simOn ? 'Restore service' : 'Simulate outage'}
             </button>
           </div>
         </div>
@@ -153,15 +153,15 @@ export default function Platform() {
 
         <div className="ar-banner" role="status" aria-live="polite" data-kind={mode?.kind ?? 'live'}>
           {!mode && (
-            <><b>Live</b><span>{d ? <>State read {d.on_aws ? 'from CloudWatch and S3 run records' : 'from the local manifest'} at <span className="measure">{loadedAt}</span> local time. Bedrock and CloudFront are defined but await AWS account verification; the pilot lane is a design.</> : 'Reading platform status…'}</span></>
+            <><b>Live</b><span>{d ? <>Read at <span className="measure">{loadedAt}</span> local time. Bedrock and CloudFront: defined in CDK, awaiting AWS account verification. Pilot lane: planned, not deployed.</> : 'Reading platform status…'}</span></>
           )}
           {mode?.kind === 'sim' && (
             <><b>Simulation</b><span>{mode.phase === 'down'
-              ? `${NODES.find((n) => n.id === down)?.title} taken down in your browser only; upstream items queue in front of it.${motion ? '' : ' Queues are not animated with reduced motion.'}`
-              : `Service restored; the queued backlog drains downstream at an accelerated rate${motion && backlog ? ` (${backlog} left)` : ''}.`} Live AWS state is unchanged.</span></>
+              ? `${NODES.find((n) => n.id === down)?.title} down in this browser only; upstream items queue.${motion ? '' : ' Queues are not animated with reduced motion.'}`
+              : `Service restored; backlog drains at an accelerated rate${motion && backlog ? ` (${backlog} left)` : ''}.`} Live AWS state is unchanged.</span></>
           )}
           {mode?.kind === 'replay' && rec && (
-            <><b>Replay</b><span>Real event: the {rec.job} job failed at {hhmm(finished(rec.failed))} UTC (run <span className="measure">{rec.failed.detail?.run_id}</span>) and succeeded {rec.minutes} min later (run <span className="measure">{rec.recovered.detail?.run_id}</span>). Compressed to 6 s.{mode.phase === 'draining' ? ' Backlog draining.' : ''}</span></>
+            <><b>Replay</b><span>Recorded event: the {rec.job} job failed at {hhmm(finished(rec.failed))} UTC (run <span className="measure">{rec.failed.detail?.run_id}</span>) and succeeded {rec.minutes} min later (run <span className="measure">{rec.recovered.detail?.run_id}</span>). Compressed to 6 s.{mode.phase === 'draining' ? ' Backlog draining.' : ''}</span></>
           )}
         </div>
 
@@ -169,14 +169,14 @@ export default function Platform() {
           <div className="ar-scroll" tabIndex={-1}>
             <FlowDiagram live={live} down={down} downLabel={mode?.kind === 'replay' ? 'Failed · queueing' : 'Down (sim) · queueing'} selected={selected} onSelect={select} motion={motion} onBacklog={setBacklog} />
           </div>
-          <p className="ar-pan"><Icon name="arrow" size={14} />Scroll sideways to see the whole system<span className="ar-pan-m">, or use the list below</span>.</p>
+          <p className="ar-pan"><Icon name="arrow" size={14} />Scroll sideways for the full diagram<span className="ar-pan-m">, or use the list below</span>.</p>
           {selected && selFrom === 'diagram' && <NodePanel key={selected} id={selected} live={live} data={d} simulated={down === selected} onClose={close} />}
         </div>
 
         <div className="ar-list">
           {(['live', 'pilot'] as const).map((lane) => (
             <div key={lane} className="ar-lgroup">
-              <p className="ar-lh">{lane === 'live' ? 'Running now' : 'Pilot design · planned'}</p>
+              <p className="ar-lh">{lane === 'live' ? 'Deployed' : 'Pilot, planned'}</p>
               <ul>
                 {NODES.filter((n) => n.lane === lane).map((n) => {
                   const s = live.nodes[n.id];
@@ -201,9 +201,9 @@ export default function Platform() {
       <div className="pf-lower" ref={lowerRef}>
         <section className="section pf-wide" aria-labelledby="pf-runs" data-r="1">
           <h2 id="pf-runs">Pipeline runs</h2>
-          <p className="pf-why">Every job writes a run record to S3; failures stay visible.</p>
+          <p className="pf-why">One S3 run record per job, failures included.</p>
           {st.loading && <div className="skeleton pf-skel" />}
-          {d && runs.length === 0 && <p className="pf-empty"><Icon name="info" size={16} />No run records in local mode; the deployed portal lists every ingest and worker job here.</p>}
+          {d && runs.length === 0 && <p className="pf-empty"><Icon name="info" size={16} />No run records in local mode.</p>}
           {runs.length > 0 && (
             <div className="pf-scroll" data-ui>
               <table className="data">
@@ -229,7 +229,7 @@ export default function Platform() {
 
         <section className="section" aria-labelledby="pf-fresh" data-r="2">
           <h2 id="pf-fresh">Data freshness</h2>
-          <p className="pf-why">Records per source in the curated manifest, with the licence each carries.</p>
+          <p className="pf-why">Records per source in the curated manifest; licence on hover.</p>
           {sources.length > 0 && (
             <div className="pf-scroll" data-ui>
               <table className="data">
@@ -264,7 +264,7 @@ export default function Platform() {
               <li key={l.item}><span>{l.item}</span><small>{l.basis}</small><span className="measure">{l.usd < 0.01 && l.usd > 0 ? '< 0.01' : l.usd.toFixed(2)}</span></li>
             ))}
           </ul>
-          {!live.cost.metered && <p className="pf-empty"><Icon name="info" size={16} />Lambda and API lines need CloudWatch; locally only the fixed parts are shown.</p>}
+          {!live.cost.metered && <p className="pf-empty"><Icon name="info" size={16} />Lambda and API lines need CloudWatch; local mode shows fixed costs only.</p>}
         </section>
 
         <section className="section" aria-labelledby="pf-guard" data-r="4">

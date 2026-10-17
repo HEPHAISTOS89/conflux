@@ -86,7 +86,7 @@ const KA_SPEC: MetricSpec = {
   formula: 'KA share = (K + A) / N;  95% CI: Wilson score',
   source: 'TxDOT CRIS crash severity (KABCO), as recorded by the reporting officer',
   citation: 'FHWA KABCO scale (MMUCC 5th ed.); Wilson (1927) score interval',
-  note: 'Small groups carry wide intervals: compare whiskers, not just dots.',
+  note: 'Small groups have wide intervals; compare the whiskers.',
 };
 const COUNT_SPEC: MetricSpec = {
   name: 'Crash count', provenance: 'observed', unit: 'crashes, 2021–2023',
@@ -290,7 +290,7 @@ export default function Vru() {
         icon="ped"
         title="Pedestrian and cyclist crashes"
         lede={agg.n
-          ? <>{pct(agg.ka, agg.n)}% of {nf(agg.n)} crashes killed or seriously injured the person walking or riding; {pct(agg.unlit, agg.n)}% happened on dark, unlit roads. Candidates for field review, not findings of cause.</>
+          ? <>{pct(agg.ka, agg.n)}% of {nf(agg.n)} crashes were fatal or suspected serious injury (KA); {pct(agg.unlit, agg.n)}% occurred on dark, unlit roads.</>
           : pts.loading ? 'Loading crash records…' : 'No crashes match these filters.'}
         source={<>TxDOT CRIS · Lubbock County, on and off system · {year ?? span} <ProvChip kind="observed" /></>}
         readouts={[
@@ -299,7 +299,7 @@ export default function Vru() {
           { label: 'Dark, unlit', value: agg.n ? (100 * agg.unlit) / agg.n : null, unit: '%', digits: 1 },
           { label: <span title="Share of timed crashes in the busiest 3-hour window">Peak {pk.n > 0 ? <span className="measure">{hh(pk.start)}–{hh(pk.start + 3)} h</span> : 'window'}</span>, value: pk.timed ? (100 * pk.n) / pk.timed : null, unit: '%', digits: 1 },
         ]}
-        actions={<button type="button" className="btn ghost" onClick={exportCsv} disabled={!feats.length}><Icon name="download" size={16} />Crashes CSV</button>}
+        actions={<button type="button" className="btn ghost" onClick={exportCsv} disabled={!feats.length}><Icon name="download" size={16} />Download CSV</button>}
       />
 
       <section className="section vru-mapsec" aria-labelledby="vru-map-h" ref={mapRef}>
@@ -376,7 +376,7 @@ export default function Vru() {
 
       <div className="vru-grid" ref={gridRef}>
         <section className="section vru-card vru-wide" aria-labelledby="vru-hd" data-r="1">
-          <SecHead id="vru-hd" icon="clock" title="When they happen" why="Hour of week, all filters applied. The peak window is where enforcement, signal timing and warning pilots buy the most."
+          <SecHead id="vru-hd" icon="clock" title="Hour of week" why="Crashes by day and hour, all filters applied. Peak: busiest 3-hour window."
             actions={<><ExportBtn kind="png" onClick={() => heatFig.current && downloadPNG(`roadscope-vru-hour-of-week-${suffix}.png`, heatFig.current, caption)} />
               <ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-hour-of-week-${suffix}.csv`, heat.grid.flatMap((r, d) => r.map((v, h) => ({ dow: DOW[d], hour: h, crashes: v }))))} /></>} />
           <div className="vru-heat-wrap">
@@ -385,7 +385,7 @@ export default function Vru() {
               <aside className="vru-peak" aria-label="Peak window">
                 <span className="vru-peak-k"><Icon name="target" size={16} />Peak 3-hour window</span>
                 <span className="vru-peak-v measure">{hh(pk.start)}:00–{hh(pk.start + 3)}:00</span>
-                <span className="vru-peak-s"><span className="num">{pk.n}</span> of <span className="num">{pk.timed}</span> timed crashes (<span className="num">{pct(pk.n, pk.timed)}</span>%; a uniform day would give <span className="num">12.5</span>%)</span>
+                <span className="vru-peak-s"><span className="num">{pk.n}</span> of <span className="num">{pk.timed}</span> timed crashes (<span className="num">{pct(pk.n, pk.timed)}</span>%; uniform: <span className="num">12.5</span>%)</span>
                 <span className="vru-peak-s">KA share in window <b className="num">{pct(pk.ka, pk.n)}%</b> vs <span className="num">{pct(agg.ka, agg.n)}%</span> overall</span>
               </aside>
             )}
@@ -394,12 +394,12 @@ export default function Vru() {
             {heat.unk > 0 && <><span className="num">{heat.unk}</span> without a recorded time are omitted. </>}
             {heat.noonGap
               ? <><Icon name="warning" size={14} /> No crash is recorded at 12:00–12:59 while <span className="num">{heat.midnight}</span> are at 00:00–00:59: the source time field likely codes noon as “12 AM”.</>
-              : <>The source has no “12 PM” times: a “12 AM” crash recorded in daylight is read as noon, dark ones stay at midnight.</>}
+              : <>The source has no “12 PM” times. “12 AM” crashes in daylight are read as noon; in darkness, as midnight.</>}
           </p>
         </section>
 
         <section className="section vru-card" aria-labelledby="vru-lt" data-r="2">
-          <SecHead id="vru-lt" icon="moon" title="Day and night" why="Severity by CRIS light condition. Unlit darkness is where roadway lighting is a proven countermeasure."
+          <SecHead id="vru-lt" icon="moon" title="Light condition" why="KA share by CRIS light condition. Roadway lighting is an FHWA Proven Safety Countermeasure."
             actions={<><ExportBtn kind="png" onClick={() => lightFig.current && downloadPNG(`roadscope-vru-light-${suffix}.png`, lightFig.current, caption)} />
               <ExportBtn kind="csv" onClick={() => rowsCsv('light', lightRows)} /></>} />
           <Breakdown ref={lightFig} rows={lightRows} overall={overallShare} selected={focus?.kind === 'light' ? focus.key : null}
@@ -407,7 +407,7 @@ export default function Vru() {
         </section>
 
         <section className="section vru-card" aria-labelledby="vru-sp" data-r="3">
-          <SecHead id="vru-sp" icon="gauge" title="Posted speed and severity" why="Survival falls steeply with impact speed; posted limit is the network proxy CRIS records."
+          <SecHead id="vru-sp" icon="gauge" title="Posted speed and severity" why="Posted limit as recorded in CRIS, a network proxy for impact speed."
             actions={<><ExportBtn kind="png" onClick={() => speedFig.current && downloadPNG(`roadscope-vru-speed-${suffix}.png`, speedFig.current, caption)} />
               <ExportBtn kind="csv" onClick={() => rowsCsv('posted-speed', speedRows)} /></>} />
           <Breakdown ref={speedFig} rows={speedRows} overall={overallShare} selected={focus?.kind === 'speed' ? focus.key : null} unit="mph"
@@ -415,7 +415,7 @@ export default function Vru() {
         </section>
 
         <section className="section vru-card" aria-labelledby="vru-fy" data-r="4">
-          <SecHead id="vru-fy" icon="sign" title="Failure to yield" why="Pedestrian crashes only. Motorist-yield crashes are the ones a driver-yielding warning addresses directly."
+          <SecHead id="vru-fy" icon="sign" title="Failure to yield" why="Pedestrian crashes only. Driver-yielding treatments target motorist failure to yield."
             actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-failure-to-yield-${ysrc}-${suffix}.csv`, yieldRows.out.map((y) => ({ source: ysrc === 'pbcat' ? 'PBCAT crash type' : 'CRIS contributing factor', group: y.label, crashes: y.n, ka: y.ka, ka_share_pct: y.n ? +(100 * y.ka / y.n).toFixed(1) : '', of_pedestrian_crashes: yieldRows.peds })))} />} />
           <div className="seg vru-ysrc" role="group" aria-label="Yield classification source">
             <button type="button" aria-pressed={ysrc === 'pbcat'} onClick={() => { setYsrc('pbcat'); if (focus?.kind === 'yield') setFocus(null); }}>PBCAT crash type</button>
@@ -426,7 +426,7 @@ export default function Vru() {
         </section>
 
         <section className="section vru-card" aria-labelledby="vru-pb" data-r="5">
-          <SecHead id="vru-pb" icon="ped" title={<>Ten most frequent <Term k="PBCAT" /> types</>} why="Pre-crash manoeuvre typing; the bar is crashes, the red part KA."
+          <SecHead id="vru-pb" icon="ped" title={<>Ten most frequent <Term k="PBCAT" /> types</>} why="Pre-crash manoeuvre type. Bar: crashes; red: KA."
             actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-pbcat-${suffix}.csv`, agg.pbcat.map(([k, e]) => ({ pbcat: k, crashes: e.n, ka: e.ka })))} />} />
           <ol className="vru-bars" data-ui>
             {agg.pbcat.map(([k, e]) => (
@@ -447,8 +447,7 @@ export default function Vru() {
       </div>
 
       <footer className="vru-source">
-        <span className="vru-src-row"><Icon name="db" size={15} />TxDOT Crash Records Information System (CRIS), Active Transportation Crashes layer, {span} <ProvChip kind="observed" /></span>
-        <span className="vru-src-row"><Icon name="methods" size={15} />KA shares, Wilson intervals, peak window and groupings computed in this portal <ProvChip kind="derived" /></span>
+        <span className="vru-src-row"><Icon name="methods" size={15} />KA shares, Wilson intervals, peak window and groupings computed from CRIS records <ProvChip kind="derived" /></span>
         <span className="muted">Informational use only; crash records are protected from discovery and use in litigation (23 U.S.C. §407). Counts are not exposure-adjusted rates. <MetricInfo spec={COUNT_SPEC} /></span>
       </footer>
     </div>
@@ -539,8 +538,8 @@ function Breakdown({ ref, rows, overall, selected, onPick, label, unit, loading,
       </div>
       </div>
       <p className="vru-bd-read" aria-live="polite">
-        {show ? (() => { const [lo, hi] = wilson(show.ka, show.n); return <><b>{show.label}{unit && show.key !== 'unk' ? ` ${unit}` : ''}</b> · <span className="num">{show.n}</span> crashes, <span className="num">{show.ka}</span> KA (<span className="num">{pct(show.ka, show.n)}%</span>, CI <span className="num">{nf(100 * lo, 0)}–{nf(100 * hi, 0)}%</span>){selected === show.key ? ' · filtering the page' : ''}</>; })()
-          : <>Vertical rule: overall KA share <span className="num">{nf(100 * overall, 1)}%</span>. Click a row to filter the page.</>}
+        {show ? (() => { const [lo, hi] = wilson(show.ka, show.n); return <><b>{show.label}{unit && show.key !== 'unk' ? ` ${unit}` : ''}</b> · <span className="num">{show.n}</span> crashes, <span className="num">{show.ka}</span> KA (<span className="num">{pct(show.ka, show.n)}%</span>, CI <span className="num">{nf(100 * lo, 0)}–{nf(100 * hi, 0)}%</span>){selected === show.key ? ' · filter on' : ''}</>; })()
+          : <>Vertical rule: overall KA share <span className="num">{nf(100 * overall, 1)}%</span>. Click a row to filter.</>}
       </p>
     </div>
   );
@@ -570,7 +569,7 @@ function YieldSpot({ rows, peds, both, src, selected, onPick }: {
       </div>
       <table className="data vru-yctx">
         <caption className="sr-only">Context of yield-coded pedestrian crashes</caption>
-        <thead><tr><th>Share of crashes that were…</th>{rows.map((r) => <th key={r.key} className="r">{r.short}</th>)}</tr></thead>
+        <thead><tr><th>Share of crashes</th>{rows.map((r) => <th key={r.key} className="r">{r.short}</th>)}</tr></thead>
         <tbody>
           {([['dark', 'In darkness (lit or unlit)', 'moon'], ['mid', 'Not at an intersection', 'path'], ['fast', 'On roads posted ≥ 40 mph', 'gauge']] as const).map(([k, l, ic]) => (
             <tr key={k}>
@@ -581,8 +580,8 @@ function YieldSpot({ rows, peds, both, src, selected, onPick }: {
         </tbody>
       </table>
       <p className="vru-ynote muted">
-        Of <span className="num">{peds}</span> pedestrian crashes in view. {src === 'pbcat'
-          ? 'PBCAT types are assigned from the crash narrative and diagram.'
+        <span className="num">{peds}</span> pedestrian crashes in view. {src === 'pbcat'
+          ? 'PBCAT type assigned from the crash narrative and diagram.'
           : <>Officer-coded contributing factors; up to three per crash{both ? <>, so <span className="num">{both}</span> count in both groups</> : ''}.</>}
       </p>
     </div>

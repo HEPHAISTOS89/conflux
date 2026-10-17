@@ -88,7 +88,7 @@ export default function Ask() {
     setQ('');
     const t0 = performance.now();
     let out: Omit<Turn, 'id' | 'q'>;
-    try { out = await ask(text); } catch (e) { out = { error: `Network error: ${(e as Error).message}. Check your connection and retry.` }; }
+    try { out = await ask(text); } catch (e) { out = { error: `Network error: ${(e as Error).message}.` }; }
     out.ms = performance.now() - t0;
     if (out.res) setModel({ state: out.res.fallback ? 'fallback' : 'bedrock', id: out.res.model });
     setTurns((t) => t.map((x) => (x.id === id ? { ...x, ...out } : x)));
@@ -102,7 +102,7 @@ export default function Ask() {
   const chip = model.state === 'bedrock'
     ? <span className="status" data-s="ok"><Icon name="bedrock" size={14} />Bedrock · <span className="measure">{model.id}</span></span>
     : model.state === 'fallback'
-      ? <span className="status" data-s="warn"><Icon name="warning" size={14} />Deterministic fallback in use</span>
+      ? <span className="status" data-s="warn"><Icon name="warning" size={14} />Rule-based fallback</span>
       : <span className="status" data-s="warn"><Icon name="bedrock" size={14} />Bedrock awaiting AWS account verification</span>;
 
   return (
@@ -110,7 +110,7 @@ export default function Ask() {
       <PageHeader
         icon="ask"
         title="Ask the data"
-        lede="Plain-language questions answered from RoadScope's curated tables through named tools. Every tool call and cited table is shown; nothing is answered from memory."
+        lede="Questions answered from RoadScope's curated tables through named tools. Each answer lists its tool calls and cited tables."
         source="Bedrock Converse with tool use; rule-based fallback over the same tools"
         actions={chip}
         readouts={[
@@ -121,7 +121,7 @@ export default function Ask() {
       />
 
       <form className="ask-form" onSubmit={onSubmit} data-ui data-r="2" data-busy={busy || undefined} aria-busy={busy}>
-        <label htmlFor="ask-q" className="ask-label"><Icon name="ask" size={16} />Your question</label>
+        <label htmlFor="ask-q" className="ask-label"><Icon name="ask" size={16} />Question</label>
         <textarea
           id="ask-q" ref={area} rows={2} maxLength={MAX} value={q} disabled={busy}
           placeholder="Which segments have a critical-rate ratio above 1.5?"
@@ -144,7 +144,7 @@ export default function Ask() {
       </form>
 
       <section className="section ask-try" aria-labelledby="ask-sugg" data-r="3">
-        <h2 id="ask-sugg">Start from a question the tools can answer</h2>
+        <h2 id="ask-sugg">Example questions</h2>
         <ul className="ask-sugg">
           {SUGGESTED.map((s) => (
             <li key={s.q}>
@@ -191,7 +191,7 @@ function TurnView({ t, busy, onRetry }: { t: Turn; busy: boolean; onRetry: () =>
       {(t.limited || t.error) && (
         <div className="error-box ask-err">
           <Icon name="warning" size={16} />
-          <span>{t.limited ? `Rate limited. ${t.limited}` : `The question could not be answered. ${t.error}`}</span>
+          <span>{t.limited ? `Rate limited. ${t.limited}` : `Request failed. ${t.error}`}</span>
           <button type="button" className="btn ghost" onClick={onRetry} disabled={busy}><Icon name="reset" size={15} />Retry</button>
         </div>
       )}

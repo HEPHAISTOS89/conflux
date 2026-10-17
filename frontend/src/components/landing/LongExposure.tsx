@@ -317,7 +317,7 @@ export default function LongExposure({ ix, conflicts }: { ix: IntersectionT; con
   return (
     <div className="lx" ref={wrap} data-ui>
       <canvas ref={cvs} className="lx-canvas" role="img"
-        aria-label={`Long exposure of ${ix.tracks.length} real vehicle trajectories at ${ix.name} over ${D} seconds, replayed at ${RATE} times speed. White trails are headlights facing the camera, red trails tail lights; ${total} surrogate-safety conflicts flare amber where they occurred, ${crit} of them critical.`} />
+        aria-label={`Long exposure of ${ix.tracks.length} vehicle trajectories at ${ix.name}, ${D} s replayed at ${RATE}×. Light trails: headlights. Red trails: tail lights. Amber: ${total} SSAM conflicts, ${crit} critical.`} />
       <div className="lx-bar">
       <div className="lx-hud" aria-hidden="true">
         <span><small>t</small><b className="measure" ref={(el) => { hud.current.t = el; }}>00.0</b><small>/ {D} s</small></span>
@@ -326,7 +326,7 @@ export default function LongExposure({ ix, conflicts }: { ix: IntersectionT; con
         <span data-tone="crit"><small>Critical</small><b className="measure" ref={(el) => { hud.current.k = el; }}>0</b></span>
       </div>
       <button type="button" className="lx-play" onClick={() => setPlaying((p) => !p)}
-        aria-label={playing ? 'Pause the replay' : 'Play the replay'}>
+        aria-label={playing ? 'Pause replay' : 'Play replay'}>
         <Icon name={playing ? 'pause' : 'play'} size={16} weight="fill" />
         <span>{playing ? 'Pause' : 'Play'}</span>
       </button>

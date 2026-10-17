@@ -4,10 +4,10 @@ import { Icon } from './Icon';
 export type Provenance = 'observed' | 'derived' | 'simulated' | 'public';
 
 const PROV: Record<Provenance, { label: string; tip: string }> = {
-  observed: { label: 'Observed', tip: 'Measured in the field and reported as recorded (crash reports, counts, trajectories).' },
-  derived: { label: 'Derived', tip: 'Computed in this portal from observed data with the method shown.' },
-  simulated: { label: 'Simulated', tip: 'Synthetic or modelled: not a field observation.' },
-  public: { label: 'Public', tip: 'Published by an agency; used as released.' },
+  observed: { label: 'Observed', tip: 'Field record as reported: crash reports, counts, trajectories.' },
+  derived: { label: 'Derived', tip: 'Computed from observed data; method in the info panel.' },
+  simulated: { label: 'Simulated', tip: 'Modelled, not a field observation.' },
+  public: { label: 'Public', tip: 'Agency publication, used as released.' },
 };
 
 /** Provenance chip: one look everywhere so a reviewer can tell observed from derived or simulated at a glance. */

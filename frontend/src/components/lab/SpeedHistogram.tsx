@@ -66,7 +66,7 @@ export default function SpeedHistogram({ data }: { data: IntersectionT }) {
           <button className="btn ghost" onClick={() => downloadCSV(`${data.id}-spot-speeds-${dist}ft.csv`, [
             ...s.nb.map((v) => ({ site: data.id, direction: 'NB', spot_line_ft: dist, speed_mph: v.toFixed(2) })),
             ...s.sb.map((v) => ({ site: data.id, direction: 'SB', spot_line_ft: dist, speed_mph: v.toFixed(2) })),
-          ])}><Icon name="download" size={15} /> CSV</button>
+          ])}><Icon name="download" size={15} /> Download CSV</button>
         </div>
       </div>
       <div className="spd-fig">

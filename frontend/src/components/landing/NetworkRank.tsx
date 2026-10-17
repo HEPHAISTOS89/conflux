@@ -14,7 +14,7 @@ type MKey = 'eb_excess' | 'crit_ratio' | 'rate_100mvmt';
 const MEASURES: { id: MKey; label: string; unit: string; d: number; spec: MetricSpec }[] = [
   { id: 'eb_excess', label: 'EB excess', unit: '/yr', d: 2, spec: { name: 'Excess expected crashes (EB)', formula: <>E − μ, with E = w·μ + (1 − w)·N</>, threshold: 'flagged when E − μ > 0; confirmed when also R/Rc > 1', unit: 'crashes / yr', provenance: 'derived', source: 'TxDOT CRIS 2021–2023 · TxDOT AADT · Roadway Inventory', citation: 'AASHTO Highway Safety Manual (2010), Part B, ch. 4' } },
   { id: 'crit_ratio', label: 'Critical ratio', unit: '', d: 2, spec: { name: 'Critical rate ratio', formula: <>observed rate / critical rate (95%)</>, threshold: '> 1 flags the segment', provenance: 'derived', source: 'TxDOT CRIS 2021–2023 · TxDOT AADT', citation: 'AASHTO Highway Safety Manual (2010), Part B, ch. 4' } },
-  { id: 'rate_100mvmt', label: 'Crash rate', unit: '/100 MVMT', d: 1, spec: { name: 'Crash rate', formula: <>N × 10⁸ / (365 · Y · AADT · L)</>, unit: 'crashes per 100 million vehicle-miles', provenance: 'derived', source: 'TxDOT CRIS 2021–2023 · TxDOT AADT', note: 'A rate favours low-volume segments; read it with EB excess.' } },
+  { id: 'rate_100mvmt', label: 'Crash rate', unit: '/100 MVMT', d: 1, spec: { name: 'Crash rate', formula: <>N × 10⁸ / (365 · Y · AADT · L)</>, unit: 'crashes per 100 million vehicle-miles', provenance: 'derived', source: 'TxDOT CRIS 2021–2023 · TxDOT AADT', note: 'Biased toward low-volume segments; read with EB excess.' } },
 ];
 
 /** The county network, ranked: switch the screening measure and the map and its top five re-rank together. */
@@ -63,8 +63,8 @@ export default function NetworkRank() {
   return (
     <section ref={ref} className="nr" aria-labelledby="nr-h">
       <div className="nr-side">
-        <h2 id="nr-h" data-r="1">{miles ? `${nf(miles)} miles, ranked` : 'The network, ranked'}</h2>
-        <p data-r="2">Every Lubbock County state-system segment, {nf(feats.length)} of them, screened for pedestrian and cyclist crashes with HSM Part B methods.</p>
+        <h2 id="nr-h" data-r="1">{miles ? `Network screening, ${nf(miles)} mi` : 'Network screening'}</h2>
+        <p data-r="2">{nf(feats.length)} Lubbock County state-system segments, screened for pedestrian and cyclist crashes (HSM Part B).</p>
         <div className="nr-ctl" data-r="3">
           <div className="nr-switch" role="group" aria-label="Screening measure" data-ui>
             {MEASURES.map((m) => <button key={m.id} type="button" aria-pressed={mk === m.id} onClick={() => setMk(m.id)}>{m.label}</button>)}
@@ -93,7 +93,7 @@ export default function NetworkRank() {
           onHover={(f) => setHover((f?.properties as Seg | undefined)?.seg_id ?? null)}
           onClick={(_, f) => nav(`/screening?seg=${encodeURIComponent((f.properties as Seg).seg_id)}`)}
         />
-        <Link to="/screening" className="nr-open">Open the full screening <Icon name="arrow" size={16} /></Link>
+        <Link to="/screening" className="nr-open">Open network screening <Icon name="arrow" size={16} /></Link>
       </div>
     </section>
   );

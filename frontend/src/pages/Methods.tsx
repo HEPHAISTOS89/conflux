@@ -131,7 +131,7 @@ export default function Methods() {
       <PageHeader
         icon="methods"
         title="Methods and data"
-        lede="What each number measures, its formula and threshold, where the inputs come from, and where each method stops."
+        lede="Formula, threshold, input data and limitations for every metric on the portal."
         source={meta.data ? `Manifest built ${date(meta.data.generated_at)} · Lubbock County roadway and crashes; NGSIM Los Angeles and Atlanta trajectories` : 'Loading manifest…'}
         readouts={[
           { label: 'Metrics', value: METRICS.length },
@@ -178,11 +178,11 @@ export default function Methods() {
             {meta.data && (
               <div className="m-row-actions">
                 <button type="button" className="btn ghost" onClick={() => downloadCSV('roadscope-data-manifest.csv', meta.data!.sources.map((x) => ({ source: x.id, provenance: srcProv(x.id), licence: x.licence, records: x.records, fetched_at: x.fetched_at, sha256: x.sha256 ?? '', url: x.url })))}>
-                  <Icon name="download" size={16} />Manifest CSV
+                  <Icon name="download" size={16} />Download manifest CSV
                 </button>
               </div>
             )}
-            {meta.data && <p className="m-small">Manifest generated <span className="num">{date(meta.data.generated_at)}</span>; SHA-256 truncated, full hash on hover.</p>}
+            {meta.data && <p className="m-small">SHA-256 truncated to 12 characters; full hash on hover.</p>}
           </Sec>
 
           <Sec id="m-screening">
@@ -191,7 +191,7 @@ export default function Methods() {
               Outcome: <strong>{spf.data?.outcome ?? 'on-system pedestrian, cyclist and e-scooter crashes (TxDOT CRIS via the Active Transportation Crashes layer), all KABCO severities'}</strong>,
               <span className="num"> {spf.data?.crash_period ?? '2021–2023'}</span> (<i>Y</i> = <span className="num">{spf.data?.crash_years ?? 3}</span> years).
               Crashes snap (≤ 5 m) to the nearest segment, which carries length-weighted AADT and a Roadway Inventory site type
-              (urban/rural × functional class). Three HSM (2010) Part B measures follow.</p>
+              (urban/rural × functional class). Ranking measures follow HSM (2010) Part B.</p>
             <h3>Crash rate</h3>
             <Eq label="Crash rate per 100 million vehicle-miles">
               <math display="block">
@@ -232,7 +232,7 @@ export default function Methods() {
             {spf.loading && <div className="skeleton m-skel" />}
             {spf.data && <SpfTable s={spf.data} />}
             <p className="muted m-small">Coefficients on ln μ; speed in posted mph. With 24–56 crashes per site type, standard errors are wide
-              and the urban minor arterial ln AADT term is not distinguishable from zero: screening baselines, not causal models.
+              and the urban minor arterial ln AADT term is not distinguishable from zero. Use as screening baselines; they are not causal models.
               Fallback GOF (0–2 crashes) is not informative.</p>
           </Sec>
 
@@ -347,7 +347,7 @@ function Catalogue() {
           ))}
         </div>
         <button type="button" className="btn ghost" onClick={() => downloadCSV('roadscope-metric-catalogue.csv', METRICS.map((m) => ({ metric: m.name, abbr: m.abbr ?? '', family: m.family, formula: m.formula.replace(/\n/g, '; '), threshold: typeof m.threshold === 'string' ? m.threshold : '', unit: m.unit, data: m.data, provenance: m.provenance, reference: m.cite })))}>
-          <Icon name="download" size={16} />Catalogue CSV
+          <Icon name="download" size={16} />Download catalogue CSV
         </button>
       </div>
       <ul className="m-cat" aria-live="polite">

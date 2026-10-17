@@ -25,18 +25,18 @@ export interface NodeDef {
 
 export const NODES: NodeDef[] = [
   { id: 'iam', lane: 'live', band: true, x: 0, y: ROW.band, w: VB_W, h: 40, title: 'IAM', service: 'AWS IAM', icon: 'iam', flow: 'curated',
-    role: 'Each component runs as its own role with only the actions and S3 prefixes it needs: the API reads curated/*, ingest writes raw/* and curated/*, the worker adds jobs/*, the scheduler may only start one instance.',
+    role: 'One role per component, limited to the actions and S3 prefixes it needs: API reads curated/*, ingest writes raw/* and curated/*, worker adds jobs/*, scheduler can start one instance only.',
     spec: '4 roles · S3 prefix-scoped grants · Bedrock limited to one inference profile · scheduler trust bound to this account (aws:SourceAccount)',
     cost: 'No charge.' },
   { id: 'sched', lane: 'live', x: C(0), y: ROW.r0, w: 170, title: 'Weekly trigger', service: 'EventBridge', icon: 'schedule', flow: 'ingest',
-    role: 'Fires the ingest Lambda every Monday so crash, AADT, roadway-inventory, speed and FARS extracts stay current.',
+    role: 'Runs the ingest Lambda every Monday to refresh crash, AADT, roadway-inventory, speed and FARS extracts.',
     spec: 'cron(0 8 ? * MON *) UTC · target retries 2', cost: 'Scheduled rules are free.' },
   { id: 'ingest', lane: 'live', x: C(1), y: ROW.r0, title: 'Lambda · ingest', service: 'AWS Lambda', icon: 'lambda', flow: 'ingest',
     role: 'Pulls TxDOT ArcGIS layers and NHTSA FARS, checksums each extract, then runs HSM screening and fits the NB SPF + Empirical Bayes; writes raw/ and curated/ objects and a run record.',
     spec: 'Python 3.13 · arm64 · 1024 MB · 15 min timeout · AWS SDK for pandas layer · DLQ (SQS) after 2 retries',
-    cost: 'Billed per GB-second; a weekly run of ~10 s is a fraction of a cent.' },
+    cost: 'Billed per GB-second; a ~10 s weekly run costs under US$0.01.' },
   { id: 's3', lane: 'live', x: C(2), y: ROW.r1, title: 'S3 data lake', service: 'Amazon S3', icon: 'db', flow: 'curated',
-    role: 'Single source of truth: raw/ extracts as fetched, curated/ outputs the API serves, runs/ records for every job, jobs/ bundle for the worker.',
+    role: 'raw/ extracts as fetched, curated/ outputs served by the API, runs/ record per job, jobs/ bundle for the worker.',
     spec: 'SSE-S3 · versioned · public access blocked · TLS only · noncurrent versions expire after 30 d',
     cost: 'Storage is well under 1 GB; not metered on this page.' },
   { id: 'api', lane: 'live', x: C(3), y: ROW.r1, title: 'Lambda · API', service: 'FastAPI on Lambda', icon: 'lambda', flow: 'api',
@@ -44,17 +44,17 @@ export const NODES: NodeDef[] = [
     spec: 'Python 3.13 · arm64 · 1024 MB · 15 s timeout · JSON logs',
     cost: 'Billed per request and GB-second; the estimate below uses the p95 duration as an upper bound.' },
   { id: 'apigw', lane: 'live', x: C(4), y: ROW.r1, title: 'API Gateway', service: 'HTTP API', icon: 'gauge', flow: 'api',
-    role: 'Public HTTPS front door for the API Lambda; Vercel rewrites /api/* here.',
+    role: 'Public HTTPS endpoint for the API Lambda; Vercel rewrites /api/* here.',
     spec: 'Stage throttle 20 req/s, burst 40 · $default stage, auto-deploy',
     cost: 'US$1.00 per million requests.' },
   { id: 'vercel', lane: 'live', x: C(5), y: ROW.r1, w: 175, title: 'Dashboard', service: 'Vercel · React', icon: 'platform', flow: 'api',
-    role: 'This portal: a static React build on Vercel’s edge, proxying /api to API Gateway.',
+    role: 'This portal: static React build on Vercel, proxying /api to API Gateway.',
     spec: 'React 19 + Vite · app shell revalidated on every visit',
     cost: 'Hobby plan; no AWS cost.' },
   { id: 'cf', lane: 'live', x: C(4), y: ROW.r0, title: 'CloudFront', service: 'Amazon CloudFront', icon: 'edge', flow: 'api',
     role: 'Edge cache in front of an IAM-authenticated Lambda Function URL, replacing API Gateway once enabled.',
     spec: 'Defined in CDK (cdk deploy -c edge=cloudfront) · OAC · 300 s cache · Price Class 100 · awaiting AWS account verification',
-    cost: 'Not deployed, so no cost yet.' },
+    cost: 'Not deployed; no cost.' },
   { id: 'scheduler', lane: 'live', x: C(0), y: ROW.r2, w: 170, title: 'Monthly trigger', service: 'EventBridge', icon: 'schedule', flow: 'ingest',
     role: 'Starts the batch worker on the 1st of each month through the EC2 StartInstances universal target.',
     spec: 'cron(0 9 1 * ? *) UTC · role may start only this instance', cost: 'First 14 million invocations per month are free.' },
@@ -63,7 +63,7 @@ export const NODES: NodeDef[] = [
     spec: 't4g.small · Amazon Linux 2023 arm64 · 12 GB gp3 encrypted · IMDSv2 · stops on shutdown + idle-CPU alarm backstop',
     cost: 'Billed only while running; the stopped volume costs about US$0.96 a month.' },
   { id: 'bedrock', lane: 'live', x: C(4), y: ROW.r2, title: 'Bedrock analyst', service: 'Amazon Bedrock', icon: 'bedrock', flow: 'ai',
-    role: 'Answers questions on the Ask page by calling the API’s own tools. Until model access is granted, a deterministic in-Lambda analyst answers from the same tools.',
+    role: 'Answers Ask-page questions through the API tools. Until model access is granted, a deterministic in-Lambda analyst uses the same tools.',
     spec: 'Claude Haiku 4.5 via the us. inference profile · awaiting AWS account verification · fallback active',
     cost: 'Zero while the fallback is active; rate-limited to 10 questions/min per client plus a daily cap.' },
   { id: 'cw', lane: 'live', band: true, x: 0, y: ROW.cw, w: VB_W, h: 44, title: 'CloudWatch', service: 'Amazon CloudWatch', icon: 'pulse', flow: 'metrics',
@@ -77,7 +77,7 @@ export const NODES: NodeDef[] = [
     spec: 'Planned · needs site, mounting permit and power/backhaul', cost: 'Hardware is outside the AWS budget.' },
   { id: 'edgeu', lane: 'pilot', x: C(1), y: ROW.p0, title: 'Edge unit', service: 'Roadside computer', icon: 'scan', flow: 'plan',
     role: 'Background filtering, clustering, tracking and pedestrian classification on site; sends object lists, never raw point clouds.',
-    spec: 'Planned · trajectories at 10 Hz with track confidence', cost: 'Upload of object lists only keeps transfer small.' },
+    spec: 'Planned · trajectories at 10 Hz with track confidence', cost: 'Object lists only; small transfer volume.' },
   { id: 'beacon', lane: 'pilot', x: C(1), y: ROW.p1, title: 'Warning beacon', service: 'Local actuation', icon: 'alert', flow: 'plan',
     role: 'Triggers the pedestrian warning (e.g. an RRFB) from the edge unit, independent of the cloud.',
     spec: 'Planned · local loop, target under 100 ms', cost: 'No cloud dependency.' },
@@ -326,7 +326,7 @@ export function deriveLive(d: PlatformStatus | undefined, nowMs = Date.now()): L
     chip: local ? 'Bypassed locally' : `${apiInv != null ? compact(apiInv) : '—'} req · cap 20/s`,
     metrics: [['Throttle', '20 req/s, burst 40'], [`Requests (${win} d)`, apiInv != null ? `${compact(apiInv)} (= API Lambda invocations)` : '—']],
     source: local ? 'Dev server proxies /api straight to uvicorn' : 'Stage settings; requests counted from Lambda invocations' });
-  set('vercel', { state: 'ok', chip: local ? 'Vite dev server' : 'Deployment live', metrics: [['You are here', local ? 'localhost' : 'roadscope-ai-demo.vercel.app']], source: 'This page' });
+  set('vercel', { state: 'ok', chip: local ? 'Vite dev server' : 'Deployment live', metrics: [['Host', local ? 'localhost' : 'roadscope-ai-demo.vercel.app']], source: 'This page' });
   set('cf', { state: 'pending', sub: 'Awaiting AWS verification', chip: 'Defined in CDK', metrics: [['Status', 'In CDK, not deployed'], ['Enable with', 'cdk deploy -c edge=cloudfront']], source: 'Stack definition' });
   set('bedrock', { state: 'pending', sub: 'Awaiting AWS verification', chip: 'Fallback active', metrics: [['Model', 'Claude Haiku 4.5 (inference profile)'], ['Answers now from', 'Deterministic analyst in the API Lambda']], source: 'Deployment record (docs/DEPLOY.md)' });
   set('cw', { state: d?.metrics ? 'ok' : 'idle', chip: d?.metrics ? `Dashboard + 4 alarms · ${win}-day window` : local ? 'AWS only · not in local mode' : 'Metrics unavailable',
@@ -375,8 +375,8 @@ export function deriveLive(d: PlatformStatus | undefined, nowMs = Date.now()): L
   const verdict: Live['verdict'] = !d ? { s: 'idle', text: 'Checking…' }
     : down.length ? { s: 'down', text: `${down.map((id) => NODE[id].title).join(', ')} failing` }
     : warn.length ? { s: 'warn', text: `Errors on ${warn.map((id) => NODE[id].title).join(', ')}` }
-    : local ? { s: 'idle', text: 'Local mode · no AWS signal' }
-    : { s: 'ok', text: 'All running stages nominal' };
+    : local ? { s: 'idle', text: 'Local mode, no AWS metrics' }
+    : { s: 'ok', text: 'All deployed stages up' };
   const lastIngestH = li ? hrs(finished(li), nowMs) : pub.length ? hrs(pub.map((s) => s.fetched_at).sort().at(-1), nowMs) : null;
 
   return { local, nodes, edges, recovery: findRecovery(runs), cost: { total, lines, metered },

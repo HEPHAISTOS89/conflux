@@ -35,23 +35,23 @@ function Hero() {
     <section className="lx-hero" aria-labelledby="hero-h">
       <div className="lx-copy">
         <h1 id="hero-h" className="lx-h">
-          <span className="mask-line"><span>Read the road</span></span>
-          <span className="mask-line"><span>before the crash.</span></span>
+          <span className="mask-line"><span>Lubbock County</span></span>
+          <span className="mask-line"><span>road safety</span></span>
         </h1>
         <div className="lx-side after-mask">
-          <p className="lx-lede">Network screening and surrogate safety measures for Lubbock County, computed from public crash, traffic and trajectory data.</p>
+          <p className="lx-lede">HSM Part B network screening and SSAM conflict analysis on public TxDOT, NHTSA and FHWA data.</p>
           <div className="lx-act">
-            <Link to="/intersections/peachtree-10th" className="btn lx-btn">Open the intersection lab <Icon name="arrow" size={16} /></Link>
-            <Link to="/screening" className="lx-link">Screen the network</Link>
+            <Link to="/intersections/peachtree-10th" className="btn lx-btn">Open intersection lab <Icon name="arrow" size={16} /></Link>
+            <Link to="/screening" className="lx-link">Open network screening</Link>
           </div>
         </div>
       </div>
       <figure className="lx-stage">
         {ix.data && cf.data ? <LongExposure ix={ix.data} conflicts={cf.data} />
-          : ix.error || cf.error ? <div className="lx-fallback">The trajectory replay could not load. <Link to="/intersections/peachtree-10th">Open the lab</Link></div>
-            : <div className="lx-fallback" aria-busy="true">Exposing 90 seconds of trajectories…</div>}
+          : ix.error || cf.error ? <div className="lx-fallback">Trajectory replay unavailable. <Link to="/intersections/peachtree-10th">Open intersection lab</Link></div>
+            : <div className="lx-fallback" aria-busy="true">Loading 90 s of trajectories…</div>}
         <figcaption className="lx-cap">
-          <span>Every trail is one of {ix.data ? ix.data.tracks.length : '…'} real vehicles at Peachtree St & 10th St (NGSIM, 10 Hz), replayed at 4×. {theme === 'light' ? 'Ink' : 'White'}: headlights. Red: tail lights. Amber: SSAM conflicts.</span>
+          <span>{ix.data ? ix.data.tracks.length : '…'} vehicle trajectories, Peachtree St & 10th St, Atlanta. NGSIM, 10 Hz, replayed at 4×. {theme === 'light' ? 'Ink' : 'White'}: headlights. Red: tail lights. Amber: SSAM conflicts.</span>
           <ProvChip kind="observed" />
         </figcaption>
       </figure>
@@ -72,19 +72,18 @@ function Close() {
       <figure className="cl-photo" data-r="1">
         <img src="/photos/marsha-sharp-freeway-light-trails.webp" width={1600} height={1067} loading="lazy" decoding="async"
           alt="Long exposure of night traffic on the Marsha Sharp Freeway in Lubbock: headlights and tail lights drawn as trails." />
-        <figcaption>Marsha Sharp Freeway, Lubbock, as a camera sees it. The exposure at the top of this page is the same picture, computed from trajectories. Photo: Ihavenoidea49, CC0, via Wikimedia Commons.</figcaption>
+        <figcaption>Marsha Sharp Freeway, Lubbock. Photo: Ihavenoidea49, CC0.</figcaption>
       </figure>
       <div className="cl-body">
-        <h2 id="cl-h" className="cl-say" data-r="2">Replay the 90 seconds, conflict by conflict, from any angle.</h2>
+        <h2 id="cl-h" className="cl-say" data-r="2">Conflict replay in plan view and 3D</h2>
         <div className="cl-act" data-r="3">
-          <Link to="/intersections/peachtree-10th" className="btn lx-btn">Open the intersection lab <Icon name="arrow" size={16} /></Link>
+          <Link to="/intersections/peachtree-10th" className="btn lx-btn">Open intersection lab <Icon name="arrow" size={16} /></Link>
           <form className="cl-corr" onSubmit={(e) => { e.preventDefault(); nav(`/corridors/${id}`); }}>
-            <span>or read a corridor</span>
+            <span>or open a corridor</span>
             <Select compact label="Corridor" icon="corridor" value={id} options={opts} onChange={setId} />
-            <button type="submit" className="cl-go" aria-label="Open the corridor diagram"><Icon name="arrow" size={18} /></button>
+            <button type="submit" className="cl-go" aria-label="Open corridor diagram"><Icon name="arrow" size={18} /></button>
           </form>
         </div>
-        <p className="cl-src" data-r="4">Data: TxDOT CRIS, AADT, Roadway Inventory and Statewide Speed (© TxDOT, informational use) · NHTSA FARS (public domain) · FHWA NGSIM Peachtree St (CC BY-SA 3.0). NGSIM is from Atlanta and stands in for roadside LiDAR trajectories.</p>
       </div>
     </section>
   );

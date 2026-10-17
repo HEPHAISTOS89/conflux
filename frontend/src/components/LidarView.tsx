@@ -36,7 +36,7 @@ export default function LidarView(props: Props) {
     return (
       <div className="lidar lidar-fallback">
         <PlanView data={props.data} conflicts={props.conflicts} label={props.label.replace('Simulated roadside LiDAR point cloud', 'Plan view')} />
-        <p className="lidar-nogl" role="status"><Icon name="warning" size={16} /> This browser has no WebGL2, so the 3D view is replaced by the plan view. All readouts, the timeline and the conflict table keep working.</p>
+        <p className="lidar-nogl" role="status"><Icon name="warning" size={16} /> No WebGL2 in this browser; showing the plan view. Readouts, timeline and conflict table are unaffected.</p>
       </div>
     );
   }
@@ -115,7 +115,7 @@ function Lidar3D({ data, conflicts, label }: Props) {
     return (
       <div className="lidar lidar-fallback">
         <PlanView data={data} conflicts={conflicts} label={label} />
-        <p className="lidar-nogl" role="status"><Icon name="warning" size={16} /> The 3D view could not start a WebGL context; showing the plan view instead.</p>
+        <p className="lidar-nogl" role="status"><Icon name="warning" size={16} /> WebGL context failed to start; showing the plan view.</p>
       </div>
     );
   }

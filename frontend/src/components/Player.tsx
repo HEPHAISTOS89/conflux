@@ -56,7 +56,7 @@ export default function Player({ label = 'Replay', conflicts }: { label?: string
           <button key={r} aria-pressed={c.rate === r} onClick={() => c.setRate(r)}>{r === 0.25 ? '¼' : r === 0.5 ? '½' : r}×</button>
         ))}
       </div>
-      <span className="player-warp" data-on={(c.playing && warp < 0.99) || undefined} aria-live="polite" title="Playback slows around the selected conflict so the near-miss can be read">
+      <span className="player-warp" data-on={(c.playing && warp < 0.99) || undefined} aria-live="polite" title="Playback slows to 0.35× within ±0.6 s of the selected conflict">
         {c.playing && warp < 0.99 ? <><Icon name="alert" size={14} /> near-miss <span className="measure">{(c.rate * warp).toFixed(2)}×</span></> : null}
       </span>
     </div>

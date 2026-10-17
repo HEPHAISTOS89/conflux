@@ -87,7 +87,7 @@ export default function CommandPalette() {
               <span className="cmdk-hint num">{it.hint}</span>
             </li>
           ))}
-          {!hits.length && <li className="cmdk-empty">Nothing matches “{q}”.</li>}
+          {!hits.length && <li className="cmdk-empty">No match for “{q}”.</li>}
         </ul>
         <div className="cmdk-foot"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>Esc</kbd> close</div>
       </div>

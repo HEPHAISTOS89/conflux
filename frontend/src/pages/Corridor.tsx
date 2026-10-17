@@ -207,7 +207,7 @@ export default function CorridorPage() {
       <PageHeader
         icon="corridor"
         title={name.split(' (')[0]}
-        lede={<>{name.includes('(') ? `${name.split(' (')[1].replace(')', '')}: ` : ''}lanes, speeds, volume, trucks and ped/bike crashes every quarter mile on one <Term k="DFO" /> axis.</>}
+        lede={<>{name.includes('(') ? `${name.split(' (')[1].replace(')', '')}: ` : ''}lanes, speed, AADT, trucks and ped/bike crashes at 0.25-mi stations by <Term k="DFO" />.</>}
         source={<>Roadway Inventory 2024 · AADT · Statewide Speed 2024 · CRIS 2021–2023 · <ProvChip kind="public" /></>}
         readouts={[
           { label: <span className="rd-l">Crash density <MetricInfo spec={SPECS.density} align="right" /></span>, value: stats.density, unit: '/mi/yr', digits: 2, tone: 'alert' },
@@ -215,9 +215,9 @@ export default function CorridorPage() {
           { label: <span className="rd-l">Operating speed <MetricInfo spec={SPECS.speed} align="right" /></span>, value: stats.op, unit: stats.posted != null ? `mph · ${nf(stats.posted, 0)} posted` : 'mph', digits: 1, tone: stats.op != null && stats.posted != null && stats.op > stats.posted ? 'alert' : undefined },
         ]}
         actions={<>
-          <button type="button" className="btn ghost" onClick={exportCsv} disabled={!st.length}><Icon name="download" size={16} /><span>CSV</span></button>
-          <button type="button" className="btn ghost" onClick={exportSld} disabled={!st.length}><Icon name="image" size={16} /><span>PNG</span></button>
-          <button type="button" className="btn ghost" onClick={share} aria-live="polite"><Icon name={copied ? 'check' : 'link'} size={16} /><span>{copied ? 'Copied' : 'Link'}</span></button>
+          <button type="button" className="btn ghost" onClick={exportCsv} disabled={!st.length}><Icon name="download" size={16} /><span>Download CSV</span></button>
+          <button type="button" className="btn ghost" onClick={exportSld} disabled={!st.length}><Icon name="image" size={16} /><span>Download PNG</span></button>
+          <button type="button" className="btn ghost" onClick={share} aria-live="polite"><Icon name={copied ? 'check' : 'link'} size={16} /><span>{copied ? 'Copied' : 'Copy link'}</span></button>
         </>}
       />
 
@@ -311,7 +311,7 @@ export default function CorridorPage() {
                   <dt>Peak AADT</dt><dd className="measure">{nf(cor.data.summary.aadt_max)} veh/d</dd>
                   <dt>Mean truck share</dt><dd className="measure">{nf(cor.data.summary.truck_pct_mean, 1)}%</dd>
                 </dl>
-                <p className="muted cor-tip">Hover the diagram or the scatter to read a station.</p>
+                <p className="muted cor-tip">Hover the diagram or scatter to read a station.</p>
               </>
             ) : null}
           </div>
@@ -320,8 +320,8 @@ export default function CorridorPage() {
 
       <section className="section cor-sc-sec" aria-labelledby="sc-h">
         <div className="cor-sec-h">
-          <h2 id="sc-h"><Icon name="gauge" size={22} />Where speed and crashes coincide</h2>
-          <p>Each quarter-mile station: operating speed against ped/bike crash density, with the posted limit as reference. Linked to the diagram above.</p>
+          <h2 id="sc-h"><Icon name="gauge" size={22} />Operating speed and ped/bike crash density</h2>
+          <p>One dot per 0.25-mi station, linked to the diagram.</p>
         </div>
         {st.length ? <SpeedScatter st={st} cur={cur} pin={pin} onHover={setHov} onPick={pick} id={id} name={name} /> : !cor.error && <div className="skeleton" style={{ height: 380 }} aria-label="Loading scatter" />}
       </section>
@@ -367,7 +367,7 @@ function SpeedScatter({ st, cur, pin, onHover, onPick, id, name }: { st: St[]; c
           <button aria-pressed={mode === 'delta'} onClick={() => setMode('delta')}>Operating − posted</button>
         </div>
         <span className="sc-stat">ρ <b className="measure">{rho == null ? '—' : rho.toFixed(2)}</b><MetricInfo spec={SPECS.rho} /> <span className="muted">n = {pts.length} stations · {above} above posted</span></span>
-        <button type="button" className="btn ghost" onClick={save}><Icon name="image" size={16} /><span>PNG</span></button>
+        <button type="button" className="btn ghost" onClick={save}><Icon name="image" size={16} /><span>Download PNG</span></button>
       </div>
       <div ref={box}>
         <div ref={ref}>
@@ -395,13 +395,13 @@ function SpeedScatter({ st, cur, pin, onHover, onPick, id, name }: { st: St[]; c
                 </g>
               );
             })()}
-            <text x={W - P.r} y={H - 6} textAnchor="end" className="sc-axis">{mode === 'abs' ? 'Operating speed, mph (dashed: posted limits present)' : 'Operating minus posted speed, mph'}</text>
+            <text x={W - P.r} y={H - 6} textAnchor="end" className="sc-axis">{mode === 'abs' ? 'Operating speed, mph (dashed: posted limits)' : 'Operating minus posted speed, mph'}</text>
             <text x={0} y={12} className="sc-axis">Ped/bike crashes per mi per yr</text>
           </svg>
         </div>
       </div>
       <p className="sc-key" aria-hidden="true"><span><i data-k="hit" />crashes, at or below posted</span><span><i data-k="over" />crashes, above posted</span><span><i data-k="none" />no crash</span></p>
-      <p className="sc-foot muted">Stations inherit the density of their one-mile screened segment, so dots stack in runs; ρ is descriptive, not a test. Operating speed from TxDOT Statewide Speed 2024.</p>
+      <p className="sc-foot muted">Stations inherit the crash density of their one-mile segment, so dots stack in runs. ρ is descriptive only. Speed: TxDOT Statewide Speed 2024.</p>
     </div>
   );
 }

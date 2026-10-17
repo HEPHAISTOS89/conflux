@@ -46,7 +46,7 @@ const DRAC_SPEC: MetricSpec = {
   formula: 'DRAC = (v_f − v_l)² / (2 · gap), maximum over the event',
   threshold: 'Flag at ≥ 11.2 ft/s² (3.4 m/s²); reported with TTC events, not a detection criterion',
   citation: 'AASHTO (2018) Green Book, 7th ed.',
-  note: 'Dotted values exceed tyre–road friction (≈ 26 ft/s²): a position error, not a manoeuvre.',
+  note: 'Dotted: above tyre–road friction (≈ 26 ft/s²), likely position error.',
 };
 
 export default function IntersectionPage() {
@@ -104,7 +104,7 @@ export default function IntersectionPage() {
     <div className="page ixlab">
       <PageHeader
         icon="signal" title="Intersection lab"
-        lede="Rear-end, crossing and lane-change conflicts screened by TTC, PET and DRAC on 10 Hz vehicle trajectories, replayed as a roadside-LiDAR scene."
+        lede="Rear-end, crossing and lane-change conflicts screened by TTC, PET and DRAC on 10 Hz vehicle trajectories. 3D view: simulated roadside LiDAR."
         source={<>FHWA NGSIM vehicle trajectories · USDOT ITS DataHub · {site} · 90 s window · vehicles only</>}
         readouts={[
           { label: 'Conflicts', value: ready ? counts.n : null },
@@ -138,7 +138,7 @@ export default function IntersectionPage() {
                 </div>
                 <Player conflicts={conflicts} />
                 <div className="ix-view-tools">
-                  <button className="btn ghost ic" onClick={exportView} title="Export this view as PNG" aria-label="Export view as PNG"><Icon name="image" size={16} /></button>
+                  <button className="btn ghost ic" onClick={exportView} title="Download view as PNG" aria-label="Download view as PNG"><Icon name="image" size={16} /></button>
                   <button className="btn ghost ic" onClick={() => setHelp(true)} title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><Icon name="help" size={16} /></button>
                   <button className="btn ghost ic" onClick={toggleFs} aria-pressed={fs} title={fs ? 'Leave fullscreen (F or Esc)' : 'Fullscreen (F)'} aria-label={fs ? 'Leave fullscreen' : 'Fullscreen'}><Icon name={fs ? 'exitFullscreen' : 'fullscreen'} size={16} /></button>
                 </div>
@@ -161,7 +161,7 @@ export default function IntersectionPage() {
                       { value: 'all', label: 'All types', hint: String(all.length) },
                       ...(['rear_end', 'crossing', 'lane_change'] as const).map((k) => ({ value: k, label: TYPE_LABEL[k], hint: String(all.filter((c) => c.type === k).length) })),
                     ]} />
-                    <button className="btn ghost ic" onClick={exportCsv} title="Export these conflicts as CSV" aria-label="Export conflicts as CSV"><Icon name="download" size={16} /></button>
+                    <button className="btn ghost ic" onClick={exportCsv} title="Download conflicts as CSV" aria-label="Download conflicts as CSV"><Icon name="download" size={16} /></button>
                   </div>
                 </div>
                 {/* header outside the scroller so the methodology popovers are not clipped */}
@@ -190,7 +190,7 @@ export default function IntersectionPage() {
                     </tbody>
                   </table>
                 </div>
-                <p className="ix-foot muted">DRAC in ft/s². Dotted values exceed tyre–road friction (26 ft/s²): a position error, not a manoeuvre.</p>
+                <p className="ix-foot muted">DRAC in ft/s². Dotted: above tyre–road friction (26 ft/s²), likely position error.</p>
               </div>
             </aside>
           </Reveal>
@@ -198,8 +198,8 @@ export default function IntersectionPage() {
           <Reveal className="section" aria-labelledby="ts-h">
             <div className="section-head" data-r="1">
               <h2 id="ts-h">Time–space diagram</h2>
-              <p className="ix-ts-sub">Shockwaves and queue discharge along the corridor; drag to scrub.</p>
-              <button className="btn ghost" onClick={exportTs} title="Export the time–space diagram as PNG" aria-label="Export time–space diagram as PNG"><Icon name="image" size={16} /> PNG</button>
+              <p className="ix-ts-sub">Shockwaves and queue discharge along the corridor. Drag to scrub time.</p>
+              <button className="btn ghost" onClick={exportTs} title="Download time–space diagram as PNG" aria-label="Download time–space diagram as PNG"><Icon name="image" size={16} /> Download PNG</button>
             </div>
             <div className="panel ix-ts" data-ui data-r="2"><TimeSpace data={ix.data!} conflicts={cf.data!} label="Time–space diagram; drag to scrub time, click a line to select a vehicle" /></div>
           </Reveal>
@@ -210,7 +210,7 @@ export default function IntersectionPage() {
         <Reveal className="section" aria-labelledby="spd-h">
           <div className="section-head" data-r="1">
             <h2 id="spd-h">Approach spot speeds</h2>
-            <p>The speeds drivers bring to the conflict zone, northbound against southbound.</p>
+            <p>Northbound and southbound approach speeds, 5 mph bins, 85th percentile marked.</p>
           </div>
           <div className="panel" data-r="2"><SpeedHistogram data={ix.data!} /></div>
         </Reveal>

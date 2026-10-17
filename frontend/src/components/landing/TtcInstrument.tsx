@@ -42,8 +42,8 @@ export default function TtcInstrument() {
   return (
     <section ref={ref} className="ti" aria-labelledby="ti-h">
       <div className="ti-head" data-r="1">
-        <h2 id="ti-h">Move the threshold</h2>
-        <p>Peachtree St at 10th St, Atlanta: 90 s of NGSIM trajectories at 10 Hz, a stand-in for roadside LiDAR tracks. FHWA SSAM detects a rear-end conflict while <Term k="TTC">TTC</Term> stays at or below {def.toFixed(1)} s.</p>
+        <h2 id="ti-h">TTC detection threshold</h2>
+        <p>Peachtree St & 10th St, Atlanta. 90 s of NGSIM trajectories, 10 Hz, standing in for roadside LiDAR. SSAM rear-end detection: <Term k="TTC">TTC</Term> ≤ {def.toFixed(1)} s.</p>
       </div>
       <div className="ti-read" data-r="2">
         <p className="ti-count" aria-live="polite">
@@ -69,7 +69,7 @@ export default function TtcInstrument() {
         <div className="ti-foot">
           <span className="ti-legend">
             {(['critical', 'serious', 'moderate'] as const).map((k) => <span key={k}><i style={{ background: SEV_VAR[k] }} />{k}</span>)}
-            <span><i data-k="beyond" />admitted above SSAM 1.5 s</span><span><i data-k="off" />outside threshold</span>
+            <span><i data-k="beyond" />counted above SSAM 1.5 s</span><span><i data-k="off" />outside threshold</span>
           </span>
           <ProvChip kind="derived" />
           <MetricInfo align="right" spec={{
@@ -81,7 +81,7 @@ export default function TtcInstrument() {
           }} />
         </div>
       </div>
-      <Link to="/intersections/peachtree-10th" className="ti-go" data-r="4">Replay these conflicts in the intersection lab <Icon name="arrow" size={16} /></Link>
+      <Link to="/intersections/peachtree-10th" className="ti-go" data-r="4">Open intersection lab <Icon name="arrow" size={16} /></Link>
     </section>
   );
 }

@@ -8,8 +8,6 @@
 .scr-controls .seg button { display: inline-flex; align-items: center; gap: 7px; font-size: 15px; padding: 8px 14px; }
 .scr-def { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 15.5px; color: var(--ink-2); max-width: none !important; animation: def-in 320ms var(--ease-out) backwards; }
 .scr-def > .icon { color: var(--accent); }
-.scr-def-top { margin-left: auto; color: var(--ink-3); }
-.scr-def-top b { color: var(--ink); font-weight: var(--w-strong); }
 @keyframes def-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 .scr-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--s4); }
@@ -129,7 +127,6 @@ td.strong { font-weight: 600; }
 @media (max-width: 1100px) { .scr-grid { grid-template-columns: 1fr; } .scr-map { min-height: 440px; } }
 @media (max-width: 1000px) { .spf-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) {
-  .scr-def-top { margin-left: 0; width: 100%; }
   .scr-def > .icon { display: none; }
   .scr-table-wrap .opt { display: none; }
   .scr-table-wrap { max-height: 56vh; }

@@ -67,7 +67,7 @@ export default function Hud({ data, conflicts }: { data: IntersectionT; conflict
     return (
       <div className="hud hud-empty" role="status">
         <Icon name="crosshair" size={16} />
-        <span>Click a vehicle to read its kinematics. <span className="muted">NGSIM: vehicles only, no pedestrian tracks.</span></span>
+        <span>Select a vehicle for its kinematics. <span className="muted">NGSIM has no pedestrian tracks.</span></span>
       </div>
     );
   }

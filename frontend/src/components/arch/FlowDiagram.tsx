@@ -152,11 +152,11 @@ export default function FlowDiagram({ live, down, downLabel = 'Down · queueing'
       </defs>
 
       {/* Lanes */}
-      <text x={0} y={22} className="ar-lane">Running now</text>
+      <text x={0} y={22} className="ar-lane">Deployed</text>
       <text x={VB_W} y={22} className="ar-lane-note" textAnchor="end">AWS us-east-2 · account-level budget alarm</text>
       <rect x={-2} y={ROW.pilotHead - 24} width={VB_W + 4} height={VB_H - ROW.pilotHead + 22} rx={18} className="ar-pilot-bg" />
-      <text x={18} y={ROW.pilotHead + 6} className="ar-lane">Pilot design</text>
-      <text x={VB_W - 18} y={ROW.pilotHead + 6} className="ar-lane-note" textAnchor="end">Planned · roadside-LiDAR pedestrian warning · nothing below runs yet</text>
+      <text x={18} y={ROW.pilotHead + 6} className="ar-lane">Pilot</text>
+      <text x={VB_W - 18} y={ROW.pilotHead + 6} className="ar-lane-note" textAnchor="end">Planned roadside-LiDAR pedestrian warning; not deployed</text>
 
       {/* Edges */}
       {EDGES.map((e) => {

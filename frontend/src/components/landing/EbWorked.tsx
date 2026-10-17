@@ -28,8 +28,8 @@ export default function EbWorked() {
   return (
     <section ref={ref} className="eb" aria-labelledby="eb-h">
       <div className="eb-col">
-        <h2 id="eb-h" data-r="1">Rank one, worked by hand</h2>
-        <p data-r="2">{s ? <>{s.name}, DFO {nf(s.dfo_from, 1)} to {nf(s.dfo_to, 1)}: {(s.site_type ?? '').toLowerCase()}, {nf(s.lanes)} lanes, {nf(s.speed_limit)} mph posted, {nf(s.aadt)} vehicles a day.</> : 'Loading the rank-one segment.'}</p>
+        <h2 id="eb-h" data-r="1">Empirical Bayes estimate, rank 1 segment</h2>
+        <p data-r="2">{s ? <>{s.name}, DFO {nf(s.dfo_from, 1)} to {nf(s.dfo_to, 1)}: {(s.site_type ?? '').toLowerCase()}, {nf(s.lanes)} lanes, {nf(s.speed_limit)} mph posted, {nf(s.aadt)} vehicles a day.</> : 'Loading rank 1 segment…'}</p>
       </div>
 
       <div className="eb-line" data-r="3" data-ui>
@@ -38,7 +38,7 @@ export default function EbWorked() {
 
       <ol className="eb-steps eb-col">
         <li data-r="3">
-          <p className="eb-say">First, the <Term k="SPF">SPF</Term> predicts what a typical {s?.site_type?.toLowerCase() ?? 'segment'} would see.</p>
+          <p className="eb-say"><Term k="SPF">SPF</Term> prediction, typical {s?.site_type?.toLowerCase() ?? 'segment'}</p>
           <div className="eb-calc" data-ui>
             <span className="measure">μ = exp({model ? [nf(model.coef.const, 3), ...model.spec.map((k) => `${model.coef[k] < 0 ? '−' : '+'} ${nf(Math.abs(model.coef[k]), 3)}·${COEF_LABEL[k] ?? k}`)].join(' ') : 'b₀ + b₁·ln AADT'}) · L</span>
             <b className="measure">{nf(mu, 2)} crashes / yr</b>
@@ -46,21 +46,21 @@ export default function EbWorked() {
           </div>
         </li>
         <li data-r="4">
-          <p className="eb-say">Then CRIS says what it did see.</p>
+          <p className="eb-say">Observed crashes, TxDOT CRIS</p>
           <div className="eb-calc" data-ui>
             <span className="measure">N = {nf(s?.crashes_total)} crashes / {nf(Y)} yr ({s?.crash_period ?? '2021–2023'})</span>
             <b className="measure">{nf(N, 2)} crashes / yr</b>
           </div>
         </li>
         <li data-r="4">
-          <p className="eb-say">Empirical Bayes weighs the two by how much the model can be trusted.</p>
+          <p className="eb-say">EB weight from SPF overdispersion k</p>
           <div className="eb-calc" data-ui>
             <span className="measure">w = 1 / (1 + (k/L)·μ·Y) = 1 / (1 + {model ? nf(model.k / L, 3) : 'k/L'} × {nf(mu, 2)} × {nf(Y)})</span>
             <b className="measure">w = {nf(w, 2)}</b>
           </div>
         </li>
         <li data-r="5" className="eb-last">
-          <p className="eb-say">The difference is the potential for safety improvement.</p>
+          <p className="eb-say">EB expected crashes; excess over μ is the potential for safety improvement</p>
           <div className="eb-calc eb-result" data-ui>
             <span className="measure">E = {nf(w, 2)} × {nf(mu, 2)} + {nf(w == null ? null : 1 - w, 2)} × {nf(N, 2)} = {nf(E, 2)}; &nbsp;E − μ</span>
             <b className="measure">{nf(s?.eb_excess, 2)} excess / yr</b>
@@ -68,7 +68,7 @@ export default function EbWorked() {
           <div className="eb-meta">
             <ProvChip kind="derived" />
             <MetricInfo spec={{ name: 'Empirical Bayes expected crashes', formula: spf.data?.eb ?? 'E = w·μ + (1−w)·N', unit: 'crashes / yr', provenance: 'derived', threshold: 'flagged when E − μ > 0; confirmed when also R/Rc > 1', source: 'TxDOT CRIS 2021–2023 (on-system ped/bike), TxDOT AADT, Roadway Inventory', citation: 'AASHTO Highway Safety Manual (2010), Part B ch. 4 and Part C appendix', note: `Negative binomial SPF fitted per site type by maximum likelihood; overdispersion per mile, k_seg = k/L.` }} />
-            {s && <Link to={`/screening?seg=${encodeURIComponent(s.seg_id)}`}>Open this segment <Icon name="arrow" size={16} /></Link>}
+            {s && <Link to={`/screening?seg=${encodeURIComponent(s.seg_id)}`}>Open segment <Icon name="arrow" size={16} /></Link>}
           </div>
         </li>
       </ol>

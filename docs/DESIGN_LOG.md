@@ -59,3 +59,32 @@ Rebuilt `/` from scratch (src/pages/Atlas.tsx, src/styles/atlas.css, src/compone
 - **Sections.** Verdict ledger (flagged = EB excess > 0, confirmed = flagged and R/Rc > 1, rank one, K+A ped/bike, critical conflicts) each linked to evidence with provenance → TTC threshold instrument (SSM sensitivity counts, TTC × DRAC scatter, AASHTO 11.2 ft/s² line, roving-tabindex radiogroup) → ranked network map with measure switch synced to a top-five list → rank-one segment worked through EB (SPF coefficients, k/L, w, shrinkage number line that animates N → E) → close with the Lubbock photograph (CC0) as the bookend, lab action and corridor picker.
 - **Gates.** lint.mjs 0/0; inspect.mjs 0 FAIL at 1440/1024/390 (`--allow mono`: owner rule, measurements in mono). Remaining WARNs defended: 1 photograph site-wide (owner constraint), no footage, JetBrains Mono for measurements, size count includes the shell. Headless interaction run: TTC steps 31→51, arrow keys, measure switch re-ranks, hover highlight, MetricInfo, EB animation, pause; console clean. tsc + build pass.
 - **Scores** (hierarchy / typography / icons / data clarity / technical accuracy / motion / exposure-as-3D / a11y / perf / polish / wow): before 6/6/7/6/6/5/4/7/7/5/5 → round 1 8/8/8/8/9/8/8/8/8/7.5/8.5 → round 3 9/9/9/9/9.5/9/9/9/9/9/9.5.
+
+## Copy cleanup — Atlas, landing sections, shell (2026-10-17)
+Text only; design, numbers, links and behaviour unchanged. Prose in the edited strings cut 37% (458 → 288 words).
+- Hero H1 "Read the road / before the crash." → "Lubbock County / road safety" (factual title; a longer second line clipped inside the non-wrapping mask line at 1440, so it stays two short lines).
+- EB steps "First, the SPF predicts what a typical … would see." / "Then CRIS says what it did see." → "SPF prediction, typical …" / "Observed crashes, TxDOT CRIS".
+- Close H2 "Replay the 90 seconds, conflict by conflict, from any angle." → "Conflict replay in plan view and 3D"; photo caption trimmed to "Marsha Sharp Freeway, Lubbock. Photo: Ihavenoidea49, CC0."; duplicate data/licence paragraph removed (shell footer carries licences; dead `.cl-src` CSS removed).
+- Section heads "The verdict" / "Move the threshold" / "437 miles, ranked" / "Rank one, worked by hand" → "Summary of findings" / "TTC detection threshold" / "Network screening, 437 mi" / "Empirical Bayes estimate, rank 1 segment".
+- Footer: "Built as part of an application to the TransTech Lab Graduate Assistant position." removed; buttons unified to "Open intersection lab", "Open network screening", "Open segment".
+- Verified headless Chromium at 1440 and 390, light and dark: no horizontal overflow, mask lines unclipped, console clean. tsc + build pass.
+
+## Copy cleanup — Intersection lab, Methods, Platform, Roadmap, Ask, 404
+
+Text-only pass (no design, data or behaviour changes). Removed meta-sentences, poetic cadence and decorative labels. Buttons now read "Download …". One provenance line per block.
+
+- Platform h2: "Living architecture" + "Comets carry the real volume on each link…" → "Architecture" + "Moving dots scale with volume per link (runs, records, requests; log scale). Select a component for its metrics."
+- Platform lane labels: "Running now" / "Pilot design · planned" → "Deployed" / "Pilot, planned"; the live banner no longer repeats the header's CloudWatch/S3 source.
+- Roadmap: "Craft pass on every page: … until it reaches 9/10" → "Page QA: Layout, accessibility and console checks on every page."; lede "…Nothing planned is shown as working." → "Portal components by status, from live features to the planned roadside-LiDAR pilot."
+- Ask: "…Every tool call and cited table is shown; nothing is answered from memory." → "Each answer lists its tool calls and cited tables."; "Start from a question the tools can answer" → "Example questions".
+- Intersection: "The speeds drivers bring to the conflict zone, northbound against southbound." → "Northbound and southbound approach speeds, 5 mph bins, 85th percentile marked."; 404 "No sheet at this address … These are the sheets that are." → "Page not found".
+
+Verified on a vite preview of the build (API proxied to the deployed gateway): 1440 and 390 px, light and dark, no horizontal overflow, console clean, 3D view renders. tsc, build and 17 tests pass.
+
+## Copy cleanup — Screening, Corridor, Brief, VRU (2026-10-17)
+Text only; numbers, formulas, links and behaviour unchanged. Edited strings cut ~37% (326 → 206 words). Buttons unified: "Download CSV", "Download PNG", "Copy link", "Open county brief", "Open network screening", "Open corridor diagram".
+- Screening: "Leads: <segment>" chip removed (repeats table row 1; dead `.scr-def-top` CSS removed). "Rank stability: which sites survive every measure" + "…sites that drop out are artefacts of one measure." → "Rank stability across four measures" + "Top 12 by EB excess, re-ranked under the other three HSM Part B measures."
+- Corridor: "Where speed and crashes coincide" → "Operating speed and ped/bike crash density"; "…ρ is descriptive, not a test." → "ρ is descriptive only."
+- Brief: verdict "…carry more pedestrian and bicyclist crashes than their safety performance function predicts… Start with X" → "…have expected ped/bike crashes above the SPF prediction; N also exceed the critical rate. Highest EB excess: X". "Ten sites to diagnose first" → "Top 10 sites by EB excess"; "Who is hurt, countywide" → "Countywide VRU crashes, all roads"; "Technical appendix follows." removed.
+- VRU: "When they happen" + "…where enforcement, signal timing and warning pilots buy the most." → "Hour of week" + "Crashes by day and hour, all filters applied. Peak: busiest 3-hour window."; lede "…killed or seriously injured the person walking or riding… Candidates for field review, not findings of cause." → "…were fatal or suspected serious injury (KA)…"; duplicate CRIS source row in the page footer removed (header carries it).
+- Verified headless Chromium on a vite preview of the build (API proxied to the gateway) at 1440 and 390, light and dark: no page-level horizontal scroll, console clean. tsc + build pass.

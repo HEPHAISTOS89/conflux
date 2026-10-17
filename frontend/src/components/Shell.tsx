@@ -47,7 +47,7 @@ export default function Shell() {
         </div>
       </header>
 
-      <nav id="rail" className="rail" aria-label="Sheets">
+      <nav id="rail" className="rail" aria-label="Main navigation">
         <NavLink to="/" className="brand rail-brand" aria-label="RoadScope home">
           <Mark /> <span>RoadScope</span>
         </NavLink>
@@ -85,8 +85,8 @@ export default function Shell() {
         <CommandPalette />
         <footer className="colophon">
           <p>
-            Roadway, traffic and crash layers © Texas Department of Transportation, used for informational purposes; not an official TxDOT product.
-            FARS: NHTSA, public domain. NGSIM: FHWA, CC BY-SA 3.0. Built as part of an application to the TransTech Lab Graduate Assistant position.
+            Roadway, traffic and crash data © TxDOT, informational use; not an official TxDOT product.
+            FARS: NHTSA, public domain. NGSIM: FHWA, CC BY-SA 3.0.
           </p>
           <p><a href="https://github.com/HEPHAISTOS89/roadscope-ai">Source on GitHub</a></p>
         </footer>

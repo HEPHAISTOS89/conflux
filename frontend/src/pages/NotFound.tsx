@@ -9,14 +9,14 @@ const LINKS: [string, string, string, IconName][] = [
   ['/vru', 'Pedestrians and cyclists', 'CRIS VRU crashes by severity, light and speed', 'ped'],
   ['/intersections', 'Intersection lab', 'Trajectories, TTC / PET conflicts, repair', 'lidar'],
   ['/methods', 'Methods and data', 'Formulas, thresholds, sources and licences', 'methods'],
-  ['/ask', 'Ask the data', 'Questions answered through named tools', 'ask'],
+  ['/ask', 'Ask the data', 'Questions answered from the curated tables', 'ask'],
 ];
 
 export default function NotFound() {
   const { pathname } = useLocation();
   return (
     <div className="page">
-      <PageHeader icon="help" title="No sheet at this address" lede={<>Nothing is published at <code className="measure">{pathname}</code>. These are the sheets that are.</>} />
+      <PageHeader icon="help" title="Page not found" lede={<>Nothing is published at <code className="measure">{pathname}</code>.</>} />
       <ul className="nf-links">
         {LINKS.map(([to, t, d, ic]) => (
           <li key={to}>

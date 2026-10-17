@@ -34,7 +34,7 @@
 [data-flow='plan'] { --fl: var(--fl-plan); }
 
 .ar-banner { min-height: 44px; display: flex; gap: 10px; align-items: baseline; font-size: 14.5px; color: var(--ink-2); }
-.ar-banner b { flex: none; font-family: var(--f-measure); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; background: var(--caution); color: var(--paper); }
+.ar-banner b { flex: none; font-size: 13px; font-weight: var(--w-strong); padding: 3px 8px; border-radius: 5px; background: var(--caution); color: var(--paper); }
 .ar-banner[data-kind='replay'] b { background: var(--fl-api); }
 .ar-banner[data-kind='live'] b { background: var(--go); }
 .ar-banner[data-kind='live'] { background: var(--sheet); }
@@ -45,7 +45,7 @@
 .ar-scroll { overflow-x: auto; padding: clamp(14px, 2vw, 28px); outline: none; scrollbar-width: thin; }
 .ar-svg { display: block; width: 100%; min-width: 1040px; height: auto; overflow: visible; }
 
-.ar-lane { font: 600 15px var(--f-measure); letter-spacing: 0.1em; text-transform: uppercase; fill: var(--ink-2); }
+.ar-lane { font: 600 15px var(--f-ui); letter-spacing: -0.01em; fill: var(--ink-2); }
 .ar-lane-note { font: 400 14px var(--f-ui); fill: var(--ink-3); }
 .ar-pilot-bg { fill: none; stroke: var(--rule); stroke-width: 1.5; stroke-dasharray: 6 7; }
 
@@ -112,7 +112,7 @@
 .ar-flowtag i { width: 14px; height: 3px; border-radius: 2px; background: var(--fl); }
 .ar-role { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
 .ar-panel section { display: grid; gap: 8px; }
-.ar-panel h4 { margin: 0; font-size: 12px; font-family: var(--f-measure); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+.ar-panel h4 { margin: 0; font-size: 13px; color: var(--ink-3); font-weight: var(--w-strong); }
 .ar-dl { margin: 0; display: grid; gap: 1px; border-radius: 10px; overflow: hidden; }
 .ar-dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; background: var(--sheet); font-size: 14px; }
 .ar-dl dt { color: var(--ink-3); }
@@ -136,7 +136,7 @@
 
 /* Phone list (diagram stays available in its scroller above) */
 .ar-list { display: none; gap: var(--s5); }
-.ar-lh { margin: 0 0 8px; font: 500 12.5px var(--f-measure); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.ar-lh { margin: 0 0 8px; font-size: 13px; font-weight: var(--w-strong); color: var(--ink-3); }
 .ar-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .ar-list li > button { width: 100%; display: grid; grid-template-columns: 36px 1fr; gap: 4px 12px; align-items: center; text-align: left; padding: 10px 12px; border: 1.5px solid transparent; border-radius: 12px; background: var(--sheet); color: var(--ink); cursor: pointer; font: inherit; }
 .ar-list li > button[aria-pressed='true'] { border-color: var(--fl); }

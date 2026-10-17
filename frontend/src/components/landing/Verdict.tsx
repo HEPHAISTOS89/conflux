@@ -27,17 +27,17 @@ export default function Verdict() {
   const crit = (cf.data ?? []).filter((c) => c.severity === 'critical' && !c.overlap).length;
 
   const rows: Row[] = [
-    { icon: 'alert', value: scr.data ? String(flagged) : null, unit: `of ${nf(scr.data?.total ?? items.length)}`, text: `segments flagged for pedestrian and cyclist crashes above their SPF (EB excess > 0); ${confirmed} confirmed by a critical rate ratio above 1`, basis: `HSM Part B, Empirical Bayes · CRIS ${yrs}`, prov: 'derived', to: '/screening', cta: 'Screening' },
-    { icon: 'target', value: t ? t.name : null, unit: t ? `DFO ${nf(t.dfo_from, 1)}–${nf(t.dfo_to, 1)}` : undefined, text: t ? `ranks first, with ${nf(t.eb_excess, 2)} excess crashes a year on ${nf(t.aadt)} vehicles a day` : 'ranks first', basis: `${t?.site_type ?? 'Site-type'} SPF · TxDOT AADT`, prov: 'derived', to: t ? `/screening?seg=${encodeURIComponent(t.seg_id)}` : '/screening', cta: 'Segment' },
-    { icon: 'pedestrian', value: ka == null ? null : String(ka), unit: 'K + A', text: `pedestrians and cyclists killed or seriously injured on Lubbock County state roads, ${yrs}`, basis: 'TxDOT CRIS crash reports, KABCO', prov: 'observed', to: '/vru', cta: 'Crashes' },
-    { icon: 'intersection', value: cf.data ? String(crit) : null, unit: 'in 90 s', text: 'critical conflicts at Peachtree St & 10th St, with position-overlap flags set aside as likely data error', basis: 'NGSIM trajectories · FHWA SSAM thresholds', prov: 'derived', to: '/intersections/peachtree-10th', cta: 'Conflicts' },
+    { icon: 'alert', value: scr.data ? String(flagged) : null, unit: `of ${nf(scr.data?.total ?? items.length)}`, text: `segments with pedestrian and cyclist EB excess > 0; ${confirmed} also with R/Rc > 1`, basis: `HSM Part B, Empirical Bayes · CRIS ${yrs}`, prov: 'derived', to: '/screening', cta: 'Screening' },
+    { icon: 'target', value: t ? t.name : null, unit: t ? `DFO ${nf(t.dfo_from, 1)}–${nf(t.dfo_to, 1)}` : undefined, text: t ? `rank 1: ${nf(t.eb_excess, 2)} excess crashes/yr at AADT ${nf(t.aadt)}` : 'rank 1', basis: `${t?.site_type ?? 'Site-type'} SPF · TxDOT AADT`, prov: 'derived', to: t ? `/screening?seg=${encodeURIComponent(t.seg_id)}` : '/screening', cta: 'Segment' },
+    { icon: 'pedestrian', value: ka == null ? null : String(ka), unit: 'K + A', text: `pedestrians and cyclists killed or seriously injured, Lubbock County state roads, ${yrs}`, basis: 'TxDOT CRIS crash reports, KABCO', prov: 'observed', to: '/vru', cta: 'Crashes' },
+    { icon: 'intersection', value: cf.data ? String(crit) : null, unit: 'in 90 s', text: 'critical conflicts, Peachtree St & 10th St; position-overlap flags excluded as likely data error', basis: 'NGSIM trajectories · FHWA SSAM thresholds', prov: 'derived', to: '/intersections/peachtree-10th', cta: 'Conflicts' },
   ];
 
   return (
     <section ref={ref} className="vd" aria-labelledby="vd-h">
-      <h2 id="vd-h" data-r="1">The verdict</h2>
+      <h2 id="vd-h" data-r="1">Summary of findings</h2>
       <table className="vd-table" data-r="2">
-        <caption className="sr-only">Four findings, each linked to the page with its evidence</caption>
+        <caption className="sr-only">Summary of findings with links to source pages</caption>
         <tbody>
           {rows.map((r) => (
             <tr key={r.cta}>

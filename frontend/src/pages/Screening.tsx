@@ -66,10 +66,10 @@ const SPECS: Record<'eb_excess' | 'critical_ratio' | 'rate' | 'frequency' | 'spf
 };
 
 const METHODS: { id: MethodId; label: string; short: string; d: string; icon: IconName }[] = [
-  { id: 'eb_excess', label: 'EB excess', short: 'EB excess', d: 'Expected minus SPF-predicted crashes per year: the HSM potential for safety improvement.', icon: 'target' },
-  { id: 'critical_ratio', label: 'Critical rate ratio', short: 'R/Rc', d: 'Observed over critical rate at 95% confidence; above 1 is statistically high.', icon: 'warning' },
-  { id: 'rate', label: 'Crash rate', short: 'Rate', d: 'Crashes per 100 million vehicle-miles; favours low-volume segments.', icon: 'gauge' },
-  { id: 'frequency', label: 'Crash frequency', short: 'Count', d: 'Raw three-year count; ignores exposure and regression to the mean.', icon: 'rank' },
+  { id: 'eb_excess', label: 'EB excess', short: 'EB excess', d: 'EB expected minus SPF-predicted crashes per year (HSM potential for safety improvement).', icon: 'target' },
+  { id: 'critical_ratio', label: 'Critical rate ratio', short: 'R/Rc', d: 'Observed over critical rate, 95% confidence. Above 1 is high.', icon: 'warning' },
+  { id: 'rate', label: 'Crash rate', short: 'Rate', d: 'Crashes per 100 MVMT. Favours low-volume segments.', icon: 'gauge' },
+  { id: 'frequency', label: 'Crash frequency', short: 'Count', d: 'Three-year count. Ignores exposure and regression to the mean.', icon: 'rank' },
 ];
 type MethodId = 'eb_excess' | 'critical_ratio' | 'rate' | 'frequency';
 const FIELD: Record<MethodId, keyof SegmentProps> = { eb_excess: 'eb_excess', critical_ratio: 'crit_ratio', rate: 'rate_100mvmt', frequency: 'crashes_total' };
@@ -215,14 +215,13 @@ export default function ScreeningPage() {
 
   const methodHead = method === 'eb_excess' ? <Term k="EB excess" /> : method === 'critical_ratio' ? <Term k="Critical ratio">R/Rc</Term> : method === 'rate' ? 'Per 100 MVMT' : 'Crashes, 3 yr';
   const dp = method === 'frequency' ? 0 : method === 'rate' ? 1 : 2;
-  const top1 = rows[0];
 
   return (
     <div className="page screening">
       <PageHeader
         icon="rank"
         title="Network screening"
-        lede={<>{nf(scr.data?.total)} one-mile state-system segments in Lubbock County, ranked by on-system pedestrian and bicyclist crashes.</>}
+        lede={<>{nf(scr.data?.total)} one-mile on-system segments in Lubbock County, ranked by pedestrian and bicyclist crashes.</>}
         source={<>TxDOT CRIS 2021–2023 · Roadway Inventory 2024 · AADT · <ProvChip kind="derived" /></>}
         readouts={[
           { label: <span className="rd-l">Sites flagged <MetricInfo spec={SPECS.eb_excess} align="right" /></span>, value: scr.data ? head.flagged : null, unit: `of ${nf(rows.length)}`, tone: 'alert' },
@@ -231,10 +230,10 @@ export default function ScreeningPage() {
           { label: <span className="rd-l">Network rate <MetricInfo spec={SPECS.rate} align="right" /></span>, value: head.rate, unit: '/100 MVMT', digits: 2 },
         ]}
         actions={<>
-          <button type="button" className="btn ghost" onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={16} /><span>CSV</span></button>
-          <button type="button" className="btn ghost" onClick={exportFig} disabled={!rows.length}><Icon name="image" size={16} /><span>PNG</span></button>
-          <button type="button" className="btn ghost" onClick={share} aria-live="polite"><Icon name={copied === 'ok' ? 'check' : 'link'} size={16} /><span>{copied === 'ok' ? 'Copied' : copied === 'fail' ? 'Copy blocked' : 'Link'}</span></button>
-          <Link to="/brief" className="btn ghost"><Icon name="sheet" size={16} /><span>County brief</span></Link>
+          <button type="button" className="btn ghost" onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={16} /><span>Download CSV</span></button>
+          <button type="button" className="btn ghost" onClick={exportFig} disabled={!rows.length}><Icon name="image" size={16} /><span>Download PNG</span></button>
+          <button type="button" className="btn ghost" onClick={share} aria-live="polite"><Icon name={copied === 'ok' ? 'check' : 'link'} size={16} /><span>{copied === 'ok' ? 'Copied' : copied === 'fail' ? 'Copy blocked' : 'Copy link'}</span></button>
+          <Link to="/brief" className="btn ghost"><Icon name="sheet" size={16} /><span>Open county brief</span></Link>
         </>}
       />
 
@@ -248,7 +247,6 @@ export default function ScreeningPage() {
       <p className="scr-def" key={method}>
         <Icon name={meta.icon} size={16} /><span>{meta.d}</span>
         <MetricInfo spec={SPECS[method]} />
-        {top1 && <span className="scr-def-top">Leads: <b>{top1.name}</b> <span className="measure">DFO {nf(top1.dfo_from, 1)}–{nf(top1.dfo_to, 1)}</span></span>}
       </p>
 
       <section className="scr-grid" ref={gridRef} aria-label="Ranking and map">
@@ -315,8 +313,8 @@ export default function ScreeningPage() {
 
       <section className="section scr-stab" aria-labelledby="stab-h" ref={stabRef}>
         <div className="scr-sec-h" data-r="1">
-          <h2 id="stab-h"><Icon name="trend" size={22} />Rank stability: which sites survive every measure</h2>
-          <p>The top 12 by {meta.label}, re-ranked under the three other HSM Part B measures. Sites that stay in the top {TOP} under all four are robust; sites that drop out are artefacts of one measure.</p>
+          <h2 id="stab-h"><Icon name="trend" size={22} />Rank stability across four measures</h2>
+          <p>Top {N_STAB} by {meta.label}, re-ranked under the other three HSM Part B measures.</p>
         </div>
         <div data-r="2">
           {scr.data ? <RankStability rows={rows} method={method} focus={focus} onPick={(id) => select(id, true)} group={group} />
@@ -327,7 +325,7 @@ export default function ScreeningPage() {
       <section className="section scr-spf" aria-labelledby="spf-h" ref={spfRef}>
         <div className="scr-sec-h" data-r="1">
           <h2 id="spf-h"><Icon name="methods" size={22} /><Term k="SPF">Safety performance functions</Term> by site type <MetricInfo spec={SPECS.spf} /></h2>
-          <p>Negative binomial fits behind the EB ranking, with a CURE plot to check the fit along AADT.</p>
+          <p>NB2 models used in the EB ranking. The CURE plot checks fit along AADT.</p>
         </div>
         <div data-r="2">
           {spf.error ? <div className="error-box">Models unavailable: {spf.error}</div>
@@ -356,8 +354,8 @@ function SegmentCard({ s, rank, onFit, onClose }: { s: Row; rank?: number; onFit
         <dt><Term k="Critical ratio" /></dt><dd data-hi={(s.crit_ratio ?? 0) > 1 || undefined}>{nf(s.crit_ratio, 2)}</dd>
       </dl>
       <div className="seg-card-a">
-        <button type="button" className="btn ghost" onClick={onFit}><Icon name="fit" size={16} /><span>Fit map</span></button>
-        {corridor && <Link className="btn ghost" to={`/corridors/${corridor}`}><Icon name="corridor" size={16} /><span>Corridor diagram</span></Link>}
+        <button type="button" className="btn ghost" onClick={onFit}><Icon name="fit" size={16} /><span>Fit map to segment</span></button>
+        {corridor && <Link className="btn ghost" to={`/corridors/${corridor}`}><Icon name="corridor" size={16} /><span>Open corridor diagram</span></Link>}
       </div>
     </div>
   );
@@ -446,7 +444,7 @@ function RankStability({ rows, method, focus, onPick, group }: { rows: Row[]; me
       <div className="stab-bar">
         <span className="stab-verdict"><b className="measure">{nRobust}</b> of {top.length} robust <span className="muted">· top {TOP} under all four measures</span></span>
         <span className="stab-key" aria-hidden="true"><i className="k-robust" />robust <i className="k-frag" />measure-dependent</span>
-        <button type="button" className="btn ghost" onClick={save}><Icon name="image" size={16} /><span>PNG</span></button>
+        <button type="button" className="btn ghost" onClick={save}><Icon name="image" size={16} /><span>Download PNG</span></button>
       </div>
       <div ref={box} className="stab-fig">
         <div ref={ref}>
@@ -494,7 +492,7 @@ function RankStability({ rows, method, focus, onPick, group }: { rows: Row[]; me
             {order.map((m) => { const M = METHODS.find((x) => x.id === m)!; const v = cur[FIELD[m]] as number | null; return <span key={m} className="stab-chip"><span>{M.short}</span><b className="measure">#{ranks[m].get(cur.seg_id) ?? '—'}</b><span className="measure muted">{nf(v, m === 'frequency' ? 0 : m === 'rate' ? 1 : 2)}</span></span>; })}
             {robust(cur.seg_id) ? <span className="status" data-s="ok"><Icon name="ok" size={14} />robust</span> : <span className="status" data-s="warn"><Icon name="warning" size={14} />measure-dependent</span>}
           </>
-        ) : <span className="muted">Hover or tap a line to read its four ranks; click to select the segment on the map.</span>}
+        ) : <span className="muted">Hover or tap a line for its four ranks. Click to select the segment.</span>}
       </p>
     </div>
   );
@@ -521,7 +519,7 @@ function SiteTypes({ spf }: { spf: SpfFull }) {
         <div className="seg" role="group" aria-label="Site type">
           {fitted.map(([k, v]) => <button key={k} aria-pressed={k === sel} onClick={() => setSel(k)}>{k} <small className="measure">{v.segments}</small></button>)}
         </div>
-        <button type="button" className="btn ghost" onClick={save}><Icon name="image" size={16} /><span>PNG</span></button>
+        <button type="button" className="btn ghost" onClick={save}><Icon name="image" size={16} /><span>Download PNG</span></button>
       </div>
       <div className="spf-grid">
         <div>
@@ -588,7 +586,7 @@ function Cure({ pts, label, k, outside }: { pts: [number, number, number][]; lab
         <text x={X(pts[0][0]) + 4} y={Y(pts[0][2]) - 6} className="tick band-l">+2σ*</text>
         <path key={label} d={line((p) => p[1])} className="cum" />
         <circle cx={X(pk[0])} cy={Y(pk[1])} r={3.5} className="pk" />
-        <text x={Math.min(W - P.r - 4, X(pk[0]) + 8)} y={Y(pk[1]) + (pk[1] > 0 ? -8 : 16)} className="tick ann" textAnchor={X(pk[0]) > W * 0.7 ? 'end' : 'start'}>max |Σ| {Math.abs(pk[1]).toFixed(1)} at {fmtK(pk[0])} veh/d</text>
+        <text x={X(pk[0]) > W * 0.5 ? Math.min(W - P.r - 4, X(pk[0]) - 8) : X(pk[0]) + 8} y={Y(pk[1]) + (pk[1] > 0 ? -8 : 16)} className="tick ann" textAnchor={X(pk[0]) > W * 0.5 ? 'end' : 'start'}>max |Σ| {Math.abs(pk[1]).toFixed(1)} at {fmtK(pk[0])} veh/d</text>
         {[ym * 0.9, 0, -ym * 0.9].map((v) => <text key={v} x={P.l - 8} y={Y(v) + 5} className="tick" textAnchor="end">{v > 0 ? '+' : v < 0 ? '−' : ''}{Math.abs(v).toFixed(1)}</text>)}
         <text x={W - P.r} y={H - 4} className="axis" textAnchor="end">AADT, veh/day (log scale)</text>
         {h && (
@@ -600,7 +598,7 @@ function Cure({ pts, label, k, outside }: { pts: [number, number, number][]; lab
       </svg>
       <figcaption className="cure-read" aria-live="polite">
         {h ? <span className="measure">AADT {h[0].toLocaleString()} veh/d · Σ residual {h[1] >= 0 ? '+' : '−'}{Math.abs(h[1]).toFixed(2)} · ±2σ* {h[2].toFixed(2)} {Math.abs(h[1]) > h[2] ? '· outside band' : ''}</span>
-          : <span className="muted">Hover to read a point. Inside the dashed ±2σ* band ≈ unbiased along AADT.</span>}
+          : <span className="muted">Hover to read a point. Inside the dashed ±2σ* band: no systematic bias along AADT.</span>}
       </figcaption>
     </figure>
   );

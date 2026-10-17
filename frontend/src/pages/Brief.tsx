@@ -99,28 +99,28 @@ export default function Brief() {
             title="Lubbock County ped/bike safety brief"
             lede={scr.data && lead ? (
               <span className="verdict">
-                <b>{v.flagged.length}</b> of {nf(items.length)} state-system miles carry more pedestrian and bicyclist crashes than their safety performance function predicts; <b>{v.confirmed.length}</b> are also statistically high.
-                {' '}Start with <b>{lead.name}, DFO {nf(lead.dfo_from, 1)}–{nf(lead.dfo_to, 1)}</b>.
+                <b>{v.flagged.length}</b> of {nf(items.length)} state-system miles have expected ped/bike crashes above the SPF prediction; <b>{v.confirmed.length}</b> also exceed the critical rate.
+                {' '}Highest EB excess: <b>{lead.name}, DFO {nf(lead.dfo_from, 1)}–{nf(lead.dfo_to, 1)}</b>.
               </span>
-            ) : 'Loading the county verdict…'}
+            ) : 'Loading screening results…'}
             source={<>TxDOT District 05 · County 152 · CRIS 2021–2023 · HSM Part B (EB) · build {date ?? '…'} · <ProvChip kind="derived" /></>}
             readouts={[
               { label: <span className="rd-l">Sites flagged <MetricInfo spec={SPECS.eb} align="right" /></span>, value: scr.data ? v.flagged.length : null, unit: 'mi', tone: 'alert' },
               { label: <span className="rd-l">Confirmed <MetricInfo spec={SPECS.cr} align="right" /></span>, value: scr.data ? v.confirmed.length : null, unit: 'EB + R/Rc' },
-              { label: 'Excess at flagged', value: scr.data ? v.excessSum : null, unit: 'crashes/yr', digits: 1 },
+              { label: 'EB excess, flagged', value: scr.data ? v.excessSum : null, unit: 'crashes/yr', digits: 1 },
               { label: 'Fatal + serious (KA)', value: ka, unit: 'all roads, 3 yr', tone: 'alert' },
             ]}
             actions={<span className="no-print brief-actions">
-              <button type="button" className="btn" onClick={() => window.print()}><Icon name="sheet" size={16} /><span>Print / PDF</span></button>
-              <button type="button" className="btn ghost" onClick={exportCsv} disabled={!v.flagged.length}><Icon name="download" size={16} /><span>CSV</span></button>
-              <button type="button" className="btn ghost" onClick={share} aria-live="polite"><Icon name={copied ? 'check' : 'link'} size={16} /><span>{copied ? 'Copied' : 'Link'}</span></button>
-              <Link to="/screening" className="btn ghost"><Icon name="rank" size={16} /><span>Screening</span></Link>
+              <button type="button" className="btn" onClick={() => window.print()}><Icon name="sheet" size={16} /><span>Print brief</span></button>
+              <button type="button" className="btn ghost" onClick={exportCsv} disabled={!v.flagged.length}><Icon name="download" size={16} /><span>Download CSV</span></button>
+              <button type="button" className="btn ghost" onClick={share} aria-live="polite"><Icon name={copied ? 'check' : 'link'} size={16} /><span>{copied ? 'Copied' : 'Copy link'}</span></button>
+              <Link to="/screening" className="btn ghost"><Icon name="rank" size={16} /><span>Open network screening</span></Link>
             </span>}
           />
         </div>
 
         <section data-r="2" aria-labelledby="top-h">
-          <h2 id="top-h"><Icon name="target" size={20} />Ten sites to diagnose first</h2>
+          <h2 id="top-h"><Icon name="target" size={20} />Top 10 sites by EB excess</h2>
           <div className="sheet-table">
             <table className="data">
               <thead><tr><th className="r">#</th><th>Route · DFO, mi</th><th className="opt site-c">Site</th><th className="r opt"><Term k="AADT" /></th><th className="r">Obs./yr</th><th className="r opt"><Term k="SPF">SPF/yr</Term></th><th className="bar-h"><Term k="EB excess">Excess/yr</Term></th><th className="r"><Term k="Critical ratio">R/Rc</Term></th><th className="r" title="Top 25 under EB excess, R/Rc, crash rate and crash frequency">Robust</th></tr></thead>
@@ -147,7 +147,7 @@ export default function Brief() {
 
         <section className="sheet-two" data-r="3">
           <div>
-            <h2><Icon name="search" size={20} />What to examine at the top sites</h2>
+            <h2><Icon name="search" size={20} />Diagnostic prompts, top 5 sites</h2>
             <ol className="sheet-diag">
               {top.slice(0, 5).map((r, i) => (
                 <li key={r.seg_id} style={{ '--i': i } as React.CSSProperties}>
@@ -167,10 +167,10 @@ export default function Brief() {
         </div>
           </div>
           <div className="sheet-vru">
-            <h2><Icon name="ped" size={20} />Who is hurt, countywide</h2>
+            <h2><Icon name="ped" size={20} />Countywide VRU crashes, all roads</h2>
             {vru.data ? (
               <>
-                <p className="vru-lede"><b className="measure">{nf(vru.data.total)}</b> pedestrian, bicyclist and e-scooter crashes on all roads, {vru.data.years.join('–')}; <b className="measure">{nf(ka)}</b> fatal or suspected serious.</p>
+                <p className="vru-lede"><b className="measure">{nf(vru.data.total)}</b> pedestrian, bicyclist and e-scooter crashes, {vru.data.years.join('–')}; <b className="measure">{nf(ka)}</b> fatal or suspected serious injury (KA).</p>
                 <div className="kabco" role="img" aria-label={`KABCO severity: ${['K', 'A', 'B', 'C', 'O'].map((k) => `${k} ${vru.data!.by_severity[k] ?? 0}`).join(', ')}`}>
                   {['K', 'A', 'B', 'C', 'O'].map((k) => <span key={k} style={{ flex: vru.data!.by_severity[k] ?? 0, background: SEV_COLOR[k] }} title={`${SEV_LABEL[k]}: ${vru.data!.by_severity[k] ?? 0}`} />)}
                 </div>
@@ -189,7 +189,7 @@ export default function Brief() {
         </section>
 
 
-        <footer className="sheet-foot">Flags sites for investigation, not cause. Not an official TxDOT product. Technical appendix follows.</footer>
+        <footer className="sheet-foot">Screening flags sites for investigation and does not establish cause. Not an official TxDOT product.</footer>
 
         <section className="appendix" aria-labelledby="app-h">
           <h2 id="app-h"><Icon name="methods" size={20} />Technical appendix</h2>
