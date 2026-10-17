@@ -23,3 +23,9 @@ backend/.venv313/bin/uvicorn app.main:app --reload --port 8000 --app-dir backend
 ```
 
 The frontend runs with a deterministic local fixture when `VITE_API_BASE_URL` is unset. Copy `.env.example` for deployment configuration. See [`infra/README.md`](infra/README.md) for Vercel/AWS readiness and evidence boundaries.
+
+## Live demo
+
+Static frontend demo: https://roadscope-ai-demo.vercel.app
+
+The live page currently uses the deterministic fixture fallback. The AWS API is not connected until an HTTPS API endpoint and CORS allowlist are configured.
