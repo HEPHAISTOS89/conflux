@@ -4,7 +4,7 @@ import './styles.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 const FALLBACK = {
-  id: 'ngsim-i80-demo', name: 'I-80 merge · evidence replay', location: 'Emeryville, CA',
+  id: 'ngsim-i80-demo', name: 'I-80 merge / evidence replay', location: 'Emeryville, CA',
   duration_s: 8.9, sample_rate_hz: 10, provenance: 'Synthetic demonstration fixture inspired by FHWA NGSIM.',
   vehicles: [
     { id:'V-01', type:'car', lane:1, color:'#1f6feb', trajectory:Array.from({length:90},(_,i)=>({t:i/10,x:38+i*.55,y:.2,speed:30,heading:0})) },
@@ -54,7 +54,7 @@ function App(){
     <main className="page">
       <section className="page-heading">
         <div><p className="kicker">Road safety intelligence</p><h1>{tab==='Replay'?'Trajectory replay':tab}</h1><p className="lede">Inspect vehicle movement, conflict timing and model evidence in one shared view.</p></div>
-        <div className="scenario-select"><span>Scenario</span><strong>{scenario.name}</strong><small>{scenario.location} · {scenario.duration_s}s</small></div>
+        <div className="scenario-select"><span>Scenario</span><strong>{scenario.name}</strong><small>{scenario.location} / {scenario.duration_s}s</small></div>
       </section>
       <section className="stats" aria-label="Scenario summary">
         <Metric label="Risk index" value={summary.risk_index?.toFixed(2)} note="Model score / 1.00" emphasis/>
@@ -81,17 +81,17 @@ function App(){
           </div>
         </div>
         <aside className="analysis-panel" id="vehicle">
-          <div className="analysis-head"><div><p className="section-label">Selected vehicle</p><h2>{active?.id||'—'}</h2></div><span className="vehicle-type">{active?.type}</span></div>
-          <div className="vehicle-data"><Data label="Speed" value={`${pos.speed?.toFixed(1)||'—'} mph`}/><Data label="Lane" value={`0${active?.lane||'—'}`}/><Data label="Position" value={`${pos.x?.toFixed(0)||'—'} / ${pos.y?.toFixed(0)||'—'}`}/></div>
+          <div className="analysis-head"><div><p className="section-label">Selected vehicle</p><h2>{active?.id||'-'}</h2></div><span className="vehicle-type">{active?.type}</span></div>
+          <div className="vehicle-data"><Data label="Speed" value={`${pos.speed?.toFixed(1)||'-'} mph`}/><Data label="Lane" value={`0${active?.lane||'-'}`}/><Data label="Position" value={`${pos.x?.toFixed(0)||'-'} / ${pos.y?.toFixed(0)||'-'}`}/></div>
           <div className="micro-chart"><div className="chart-title"><span>Speed profile</span><strong>{summary.avg_speed_mph} mph avg.</strong></div><svg viewBox="0 0 320 90" role="img" aria-label="Selected vehicle speed over time"><polyline points={(active?.trajectory||[]).filter((_,i)=>i%5===0).map((p,i)=>`${i*18},${78-Math.min(60,p.speed*1.5)}`).join(' ')} fill="none" stroke="#222" strokeWidth="2"/><line x1="0" y1="72" x2="320" y2="72" stroke="#ddd"/></svg></div>
           <p className="evidence-note"><strong>Evidence boundary.</strong> This demonstration uses a deterministic synthetic fixture inspired by NGSIM. It does not represent a live roadway decision.</p>
         </aside>
       </section>
       <section className="event-section" id="events">
-        <div className="section-head"><div><p className="section-label">Review queue</p><h2>Detected interactions</h2></div>{firstCritical&&<button className="text-button" onClick={()=>{setSelected(firstCritical.vehicle_ids[0]);setTime(firstCritical.t);setPlaying(false)}}>Jump to highest risk →</button>}</div>
-        <div className="event-table" role="table"><div className="table-row table-header" role="row"><span>Event</span><span>Vehicles</span><span>Time</span><span>Score</span><span>Status</span></div>{scenario.events.map(e=><button className="table-row" role="row" key={e.id} onClick={()=>{setSelected(e.vehicle_ids[0]);setTime(e.t);setPlaying(false)}}><span><b>{kindLabel[e.kind]||e.kind}</b><small>{e.description}</small></span><span>{e.vehicle_ids.join(' · ')}</span><span>{e.t.toFixed(1)}s</span><span>{Math.round(e.score*100)}</span><span><i className={`severity ${e.severity}`}/>{severityLabel[e.severity]}</span></button>)}</div>
+        <div className="section-head"><div><p className="section-label">Review queue</p><h2>Detected interactions</h2></div>{firstCritical&&<button className="text-button" onClick={()=>{setSelected(firstCritical.vehicle_ids[0]);setTime(firstCritical.t);setPlaying(false)}}>Jump to highest risk -></button>}</div>
+        <div className="event-table" role="table"><div className="table-row table-header" role="row"><span>Event</span><span>Vehicles</span><span>Time</span><span>Score</span><span>Status</span></div>{scenario.events.map(e=><button className="table-row" role="row" key={e.id} onClick={()=>{setSelected(e.vehicle_ids[0]);setTime(e.t);setPlaying(false)}}><span><b>{kindLabel[e.kind]||e.kind}</b><small>{e.description}</small></span><span>{e.vehicle_ids.join(' / ')}</span><span>{e.t.toFixed(1)}s</span><span>{Math.round(e.score*100)}</span><span><i className={`severity ${e.severity}`}/>{severityLabel[e.severity]}</span></button>)}</div>
       </section>
-      <footer id="evidence"><span>{scenario.provenance}</span><span>API {source} · RoadScope prototype</span></footer>
+      <footer id="evidence"><span>{scenario.provenance}</span><span>API {source} / RoadScope prototype</span></footer>
     </main>
   </div>
 }
