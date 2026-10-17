@@ -1,0 +1,145 @@
+{
+  "sources": [
+    {
+      "id": "aadt",
+      "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TxDOT_AADT/FeatureServer/0",
+      "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
+      "records": 5785,
+      "fetched_at": "2026-10-17T06:53:16+00:00",
+      "sha256": "ed9eb6b483376d884857d37ea894e7d3ad1e739e2174ce0817e12e3a517e46f7"
+    },
+    {
+      "id": "active_transportation_crashes",
+      "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Active_Transportation_Crashes_f8c8e/FeatureServer/1",
+      "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
+      "records": 307,
+      "fetched_at": "2026-10-17T06:53:23+00:00",
+      "sha256": "5fa3bd5d0be83b94cb5315e081cf5d4033482ae02cffd3afe179a6b162ae66fc"
+    },
+    {
+      "id": "fars_2018",
+      "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2018/National/FARS2018NationalCSV.zip",
+      "licence": "Public domain (US Government work, NHTSA FARS)",
+      "records": 24,
+      "fetched_at": "2026-10-17T06:56:23+00:00",
+      "sha256": "bd0c5473e3f0eaf44c3236000225e5ca90070884684d1b69036062b2ddbdaf2e"
+    },
+    {
+      "id": "fars_2019",
+      "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2019/National/FARS2019NationalCSV.zip",
+      "licence": "Public domain (US Government work, NHTSA FARS)",
+      "records": 58,
+      "fetched_at": "2026-10-17T06:56:24+00:00",
+      "sha256": "0974abb92cfb04fa022631a838a3f46555025f2b011ee78ecad15bcf86c60f31"
+    },
+    {
+      "id": "fars_2020",
+      "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2020/National/FARS2020NationalCSV.zip",
+      "licence": "Public domain (US Government work, NHTSA FARS)",
+      "records": 38,
+      "fetched_at": "2026-10-17T06:56:24+00:00",
+      "sha256": "b2806902b3da9b45c632499f82e1c74fd108238ae7f67e108ebf40360ee4c9c3"
+    },
+    {
+      "id": "fars_2021",
+      "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2021/National/FARS2021NationalCSV.zip",
+      "licence": "Public domain (US Government work, NHTSA FARS)",
+      "records": 59,
+      "fetched_at": "2026-10-17T06:56:24+00:00",
+      "sha256": "743c19a13884614430d295289e655c5ad32b0a025a11e5b2149dfb57acae389b"
+    },
+    {
+      "id": "fars_2022",
+      "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2022/National/FARS2022NationalCSV.zip",
+      "licence": "Public domain (US Government work, NHTSA FARS)",
+      "records": 49,
+      "fetched_at": "2026-10-17T06:56:25+00:00",
+      "sha256": "989448d7a2f3964264c96a3cdb220f6c413c782a33eb759781f520c5acb5f744"
+    },
+    {
+      "id": "fars_2023",
+      "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2023/National/FARS2023NationalCSV.zip",
+      "licence": "Public domain (US Government work, NHTSA FARS)",
+      "records": 51,
+      "fetched_at": "2026-10-17T06:56:25+00:00",
+      "sha256": "edde841eb493e55751961b36bac2d1ce8750f601cb8e6e183a525723bb62bab0"
+    },
+    {
+      "id": "ngsim_lankershim",
+      "title": "NGSIM Lankershim vehicle trajectories",
+      "url": "https://data.transportation.gov/resource/8ect-6jqj.json",
+      "filter": "location='lankershim', int_id=2 zone, global_time [1118937024000, 1118937114000]",
+      "fetched": "2026-10-17T06:55:53+00:00",
+      "outputs": [
+        "intersections/lankershim-main.json",
+        "intersections/lankershim-main_conflicts.json",
+        "intersections/lankershim-main_repair.json"
+      ]
+    },
+    {
+      "id": "ngsim_peachtree",
+      "title": "NGSIM Peachtree vehicle trajectories",
+      "url": "https://data.transportation.gov/resource/8ect-6jqj.json",
+      "filter": "location='peachtree', int_id=1 zone, global_time [1163540000, 1163630000]",
+      "fetched": "2026-10-17T06:55:53+00:00",
+      "outputs": [
+        "intersections/peachtree-10th.json",
+        "intersections/peachtree-10th_conflicts.json",
+        "intersections/peachtree-10th_repair.json"
+      ]
+    },
+    {
+      "id": "roadway_inventory",
+      "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Roadway_Inventory_2024/FeatureServer/0",
+      "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
+      "records": 11156,
+      "fetched_at": "2026-10-17T06:53:22+00:00",
+      "sha256": "d7f242a9e0ff464affd86a7737fd54b3c7b34b6d4c6096d77ccc99356458d5fb"
+    },
+    {
+      "id": "segment_crash",
+      "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Segment_Crash__Results_9a0c7/FeatureServer/243",
+      "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
+      "records": 443,
+      "fetched_at": "2026-10-17T06:53:15+00:00",
+      "sha256": "c120ec706f020d36aef1b2a1eb15f616671e9db62e84dfe01320d082158494e7"
+    },
+    {
+      "id": "speed_2024",
+      "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TxDOT_Statewide_Speed_2024/FeatureServer/0",
+      "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
+      "records": 2738,
+      "fetched_at": "2026-10-17T06:53:23+00:00",
+      "sha256": "4df73d52e0a2b0dd18ad791ad365f70fc325a2bce40d61e06d6396aad43019b9"
+    }
+  ],
+  "metrics": {
+    "segments": 443,
+    "segments_screened": 395,
+    "segments_with_crashes": 86,
+    "segment_crashes_total": 823,
+    "segment_crash_years": 9,
+    "spf_b0": -12.7127,
+    "spf_b1": 1.2275,
+    "spf_k": 7.2041,
+    "corridors": 7,
+    "vru_crashes": 307,
+    "vru_ka": 86,
+    "vru_by_severity": {
+      "A": 44,
+      "B": 120,
+      "O": 9,
+      "C": 92,
+      "K": 42
+    },
+    "vru_by_mode": {
+      "ped": 220,
+      "bike": 78,
+      "scooter": 9
+    },
+    "fatal_crashes": 278,
+    "fatalities": 301,
+    "fatal_years": "2018-2023"
+  },
+  "generated_at": "2026-10-17T06:56:25+00:00"
+}

@@ -1,0 +1,3230 @@
+{
+ "form": "N=exp(b0)\u00b7AADT^b1\u00b7L",
+ "units": "crashes per year; L in miles",
+ "estimation": "NB2 maximum likelihood (statsmodels); offset ln L + ln Y; Y = 9",
+ "b0": -12.712740313832365,
+ "b1": 1.2274746008676167,
+ "k": 7.20407684255566,
+ "se_b0": 1.081877446510016,
+ "se_b1": 0.12228065400313386,
+ "n": 395,
+ "crashes": 792,
+ "aic": 893.9529147541734,
+ "loglik": -443.9764573770867,
+ "by_class": {
+  "Principal arterial": {
+   "segments": 94,
+   "crashes": 371,
+   "mean_rate": 9.6585,
+   "b0": -20.40127147558163,
+   "b1": 2.0609281685898626,
+   "k": 5.6014440592705865,
+   "se_b0": 4.900514443324136,
+   "se_b1": 0.5217286915008702,
+   "n": 94,
+   "aic": 351.97711966777047,
+   "loglik": -172.98855983388523,
+   "converged": true,
+   "fitted": true
+  },
+  "Minor arterial": {
+   "segments": 72,
+   "crashes": 194,
+   "mean_rate": 12.2432,
+   "b0": -11.549782476462356,
+   "b1": 1.1567545466274358,
+   "k": 7.6346920056988905,
+   "se_b0": 3.662406399333312,
+   "se_b1": 0.4257770072987063,
+   "n": 72,
+   "aic": 212.94692520578997,
+   "loglik": -103.47346260289498,
+   "converged": true,
+   "fitted": true
+  },
+  "Collector/Local": {
+   "segments": 170,
+   "crashes": 18,
+   "mean_rate": 2.9661,
+   "fitted": false,
+   "reason": "too few segments/crashes; pooled SPF used"
+  },
+  "Interstate/Freeway": {
+   "segments": 59,
+   "crashes": 209,
+   "mean_rate": 3.3647,
+   "b0": -10.767982407572667,
+   "b1": 0.9430275936583038,
+   "k": 2.9954006284602954,
+   "se_b0": 4.13284529937885,
+   "se_b1": 0.4028208066266482,
+   "n": 59,
+   "aic": 253.2106679654112,
+   "loglik": -123.6053339827056,
+   "converged": true,
+   "fitted": true
+  }
+ },
+ "points": [
+  {
+   "seg_id": "FM0179-KG_04_012",
+   "aadt": 8583,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1765,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0179-KG_04_018",
+   "aadt": 5304,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1961,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_002",
+   "aadt": 5335,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1974,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_006",
+   "aadt": 2086,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0358,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0179-KG_03_011",
+   "aadt": 915,
+   "len_mi": 1.0116,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0132,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0179-KG_03_009",
+   "aadt": 305,
+   "len_mi": 1.0116,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0034,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0179-KG_04_004",
+   "aadt": 3060,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0211,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_004",
+   "aadt": 2756,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.092,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0179-KG_04_013",
+   "aadt": 8147,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.111,
+   "pred_per_yr": 0.1585,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_008",
+   "aadt": 1337,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0207,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0040-KG_01_010",
+   "aadt": 1074,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0158,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0179-KG_04_011",
+   "aadt": 8885,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1896,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_014",
+   "aadt": 486,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.006,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0040-KG_01_013",
+   "aadt": 486,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.006,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0179-KG_04_016",
+   "aadt": 6260,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2375,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_009",
+   "aadt": 1068,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0157,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0179-KG_04_003",
+   "aadt": 2844,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0181,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0179-KG_04_002",
+   "aadt": 3151,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0224,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0179-KG_03_010",
+   "aadt": 657,
+   "len_mi": 1.0116,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0088,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0179-KG_04_008",
+   "aadt": 7114,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.1199,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_001",
+   "aadt": 3647,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1271,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_011",
+   "aadt": 981,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0142,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0179-KG_04_014",
+   "aadt": 10832,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.2852,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0179-KG_04_009",
+   "aadt": 10443,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.111,
+   "pred_per_yr": 0.2645,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_007",
+   "aadt": 2086,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0358,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0179-KG_04_015",
+   "aadt": 13015,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.4163,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0179-KG_04_005",
+   "aadt": 3105,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0217,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0179-KG_04_007",
+   "aadt": 5078,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0598,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0179-KG_04_017",
+   "aadt": 5304,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1961,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0179-KG_04_001",
+   "aadt": 2815,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0177,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_005",
+   "aadt": 2086,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0358,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0040-KG_01_003",
+   "aadt": 5017,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1839,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0040-KG_01_012",
+   "aadt": 486,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.006,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0179-KG_04_010",
+   "aadt": 10905,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2891,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0179-KG_04_006",
+   "aadt": 4808,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0535,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM0400-KG_01_065",
+   "aadt": 2333,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_047",
+   "aadt": 1396,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0218,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_063",
+   "aadt": 1539,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0246,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_055",
+   "aadt": 1295,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0199,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_066",
+   "aadt": 2333,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_050",
+   "aadt": 1755,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0289,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_054",
+   "aadt": 1350,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.021,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_064",
+   "aadt": 1729,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0284,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_046",
+   "aadt": 1396,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0218,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_061",
+   "aadt": 1581,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0254,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_058",
+   "aadt": 1593,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0257,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_049",
+   "aadt": 1503,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0239,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_062",
+   "aadt": 1539,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0246,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_059",
+   "aadt": 1748,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0288,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_053",
+   "aadt": 1355,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0211,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_048",
+   "aadt": 1396,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0218,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_060",
+   "aadt": 1748,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0288,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_057",
+   "aadt": 1315,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0203,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_051",
+   "aadt": 1755,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0289,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_052",
+   "aadt": 1653,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0269,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_067",
+   "aadt": 2333,
+   "len_mi": 0.627,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0257,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0400-KG_01_056",
+   "aadt": 1295,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0199,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0789-KG_02_014",
+   "aadt": 849,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0119,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0789-KG_03_004",
+   "aadt": 321,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0036,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0789-KG_02_015",
+   "aadt": 849,
+   "len_mi": 0.614,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0073,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0789-KG_02_010",
+   "aadt": 843,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0118,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0835-KG_009",
+   "aadt": 1575,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0253,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0835-KG_005",
+   "aadt": 4429,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1592,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0789-KG_02_013",
+   "aadt": 849,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0119,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0835-KG_004",
+   "aadt": 4089,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1451,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0835-KG_002",
+   "aadt": 6361,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.444,
+   "pred_per_yr": 0.242,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0789-KG_02_011",
+   "aadt": 849,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0119,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0835-KG_007",
+   "aadt": 3770,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1321,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0789-KG_03_002",
+   "aadt": 244,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0026,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0789-KG_03_005",
+   "aadt": 321,
+   "len_mi": 0.968,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0035,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0789-KG_02_009",
+   "aadt": 783,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0107,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0835-KG_006",
+   "aadt": 4429,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1592,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0835-KG_001",
+   "aadt": 13926,
+   "len_mi": 1.0,
+   "obs_per_yr": 1.334,
+   "pred_per_yr": 0.5989,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0835-KG_008",
+   "aadt": 1762,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0291,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0789-KG_02_012",
+   "aadt": 849,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0119,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0789-KG_03_001",
+   "aadt": 242,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0025,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0835-KG_003",
+   "aadt": 2823,
+   "len_mi": 1.0,
+   "obs_per_yr": 1.556,
+   "pred_per_yr": 0.0945,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM0835-KG_011",
+   "aadt": 545,
+   "len_mi": 0.787,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0054,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0835-KG_010",
+   "aadt": 545,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0069,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM0789-KG_03_003",
+   "aadt": 321,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0036,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1264-KG_02_009",
+   "aadt": 6848,
+   "len_mi": 1.0113,
+   "obs_per_yr": 1.889,
+   "pred_per_yr": 0.2665,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1264-KG_02_003",
+   "aadt": 1122,
+   "len_mi": 1.0113,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0169,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_015",
+   "aadt": 1392,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0218,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_006",
+   "aadt": 934,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0133,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_003",
+   "aadt": 249,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0026,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1527-KG_001",
+   "aadt": 140,
+   "len_mi": 1.044,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0014,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_019",
+   "aadt": 1098,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0163,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1264-KG_02_002",
+   "aadt": 944,
+   "len_mi": 1.0113,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0137,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1264-KG_02_001",
+   "aadt": 941,
+   "len_mi": 1.0113,
+   "obs_per_yr": 1.0,
+   "pred_per_yr": 0.0136,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_021",
+   "aadt": 570,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0073,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1264-KG_02_008",
+   "aadt": 8123,
+   "len_mi": 1.0113,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3247,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1294-KG_02_004",
+   "aadt": 356,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_013",
+   "aadt": 1967,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0333,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_023",
+   "aadt": 557,
+   "len_mi": 0.585,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_011",
+   "aadt": 1251,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0191,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_012",
+   "aadt": 1506,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.024,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_022",
+   "aadt": 557,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0071,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_002",
+   "aadt": 192,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0019,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_008",
+   "aadt": 1548,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0248,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_017",
+   "aadt": 1464,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0231,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_020",
+   "aadt": 580,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0074,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_014",
+   "aadt": 1738,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0286,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1264-KG_02_005",
+   "aadt": 2988,
+   "len_mi": 1.0113,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0562,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_009",
+   "aadt": 1472,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0233,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1527-KG_002",
+   "aadt": 140,
+   "len_mi": 1.044,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0014,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_007",
+   "aadt": 2010,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0342,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_005",
+   "aadt": 400,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0047,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_016",
+   "aadt": 1423,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0224,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1264-KG_02_004",
+   "aadt": 2224,
+   "len_mi": 1.0113,
+   "obs_per_yr": 1.0,
+   "pred_per_yr": 0.0391,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1264-KG_01_006",
+   "aadt": 273,
+   "len_mi": 1.0037,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.003,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_018",
+   "aadt": 1464,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0231,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1264-KG_02_007",
+   "aadt": 4389,
+   "len_mi": 1.0113,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1593,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1264-KG_01_005",
+   "aadt": 273,
+   "len_mi": 1.0037,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.003,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1264-KG_02_006",
+   "aadt": 3077,
+   "len_mi": 1.0113,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0583,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1294-KG_02_010",
+   "aadt": 1393,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0218,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_007",
+   "aadt": 1005,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0146,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_001",
+   "aadt": 355,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_02_005",
+   "aadt": 1120,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0167,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_003",
+   "aadt": 2746,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0919,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1585-KG_05_014",
+   "aadt": 3372,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1166,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_01_023",
+   "aadt": 1114,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0166,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_008",
+   "aadt": 1014,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0147,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_04_019",
+   "aadt": 3366,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0643,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_018",
+   "aadt": 2210,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0715,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1585-KG_05_002",
+   "aadt": 2746,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0919,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_01_010",
+   "aadt": 1727,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0284,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_012",
+   "aadt": 10383,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.4282,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_01_019",
+   "aadt": 701,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0094,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_04_020",
+   "aadt": 3366,
+   "len_mi": 0.588,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0378,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_008",
+   "aadt": 9377,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3806,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_02_007",
+   "aadt": 907,
+   "len_mi": 0.805,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0104,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_021",
+   "aadt": 791,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0109,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_02_006",
+   "aadt": 907,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0129,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_006",
+   "aadt": 6794,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.111,
+   "pred_per_yr": 0.2622,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_01_017",
+   "aadt": 359,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_016",
+   "aadt": 3372,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1166,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_01_015",
+   "aadt": 633,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0083,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_006",
+   "aadt": 1005,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0146,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_04_018",
+   "aadt": 2824,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0519,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_009",
+   "aadt": 1174,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0177,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_018",
+   "aadt": 359,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_005",
+   "aadt": 355,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_004",
+   "aadt": 5168,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.191,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_01_003",
+   "aadt": 355,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_02_002",
+   "aadt": 621,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0081,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_012",
+   "aadt": 635,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0083,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_011",
+   "aadt": 1540,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0246,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_002",
+   "aadt": 355,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_024",
+   "aadt": 1154,
+   "len_mi": 0.58,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.01,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_020",
+   "aadt": 1847,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0581,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1585-KG_05_017",
+   "aadt": 2769,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0928,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1585-KG_05_019",
+   "aadt": 2020,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0644,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1585-KG_05_010",
+   "aadt": 11948,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5037,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1585-KG_05_013",
+   "aadt": 8119,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3222,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_01_014",
+   "aadt": 635,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0083,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_007",
+   "aadt": 8741,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.3509,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_01_022",
+   "aadt": 1096,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0162,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_015",
+   "aadt": 3372,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1166,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_01_013",
+   "aadt": 635,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0083,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_020",
+   "aadt": 726,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0098,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_02_001",
+   "aadt": 621,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0081,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_01_004",
+   "aadt": 355,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0041,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_011",
+   "aadt": 11948,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5037,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_02_003",
+   "aadt": 1301,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.02,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1729-KG_02_004",
+   "aadt": 1464,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0231,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_005",
+   "aadt": 6219,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2367,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1729-KG_01_016",
+   "aadt": 611,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0079,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM1585-KG_05_001",
+   "aadt": 2746,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0919,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1585-KG_05_021",
+   "aadt": 1847,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0581,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM1585-KG_05_009",
+   "aadt": 11224,
+   "len_mi": 1.004,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.4685,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2378-KG_017",
+   "aadt": 797,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.011,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_016",
+   "aadt": 799,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.011,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2255-KG_007",
+   "aadt": 26084,
+   "len_mi": 1.0,
+   "obs_per_yr": 5.444,
+   "pred_per_yr": 1.2378,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2641-KG_002",
+   "aadt": 487,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.006,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_006",
+   "aadt": 330,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0037,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_004",
+   "aadt": 296,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0033,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2641-KG_017",
+   "aadt": 4193,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1494,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2641-KG_007",
+   "aadt": 896,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0127,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2528-KG_02_008",
+   "aadt": 1260,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0193,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2255-KG_001",
+   "aadt": 2522,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.083,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2378-KG_008",
+   "aadt": 626,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0082,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2255-KG_005",
+   "aadt": 18615,
+   "len_mi": 1.0,
+   "obs_per_yr": 1.111,
+   "pred_per_yr": 0.8379,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2528-KG_02_015",
+   "aadt": 11097,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.666,
+   "pred_per_yr": 0.2997,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM2641-KG_016",
+   "aadt": 4164,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1482,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2641-KG_014",
+   "aadt": 2701,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.778,
+   "pred_per_yr": 0.0898,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2641-KG_018",
+   "aadt": 1049,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0301,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2528-KG_02_016",
+   "aadt": 17703,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.7848,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM2528-KG_02_017",
+   "aadt": 21885,
+   "len_mi": 0.486,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5905,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM2641-KG_021",
+   "aadt": 920,
+   "len_mi": 0.784,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0203,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2528-KG_02_011",
+   "aadt": 2269,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0396,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2641-KG_012",
+   "aadt": 2061,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0657,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2378-KG_005",
+   "aadt": 272,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0029,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_015",
+   "aadt": 991,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0144,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2641-KG_019",
+   "aadt": 1049,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0301,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2528-KG_02_009",
+   "aadt": 1648,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0268,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2528-KG_02_013",
+   "aadt": 6114,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0877,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM2255-KG_004",
+   "aadt": 8862,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3551,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2378-KG_003",
+   "aadt": 295,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0032,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2641-KG_006",
+   "aadt": 907,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0129,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_014",
+   "aadt": 991,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0144,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2255-KG_009",
+   "aadt": 26523,
+   "len_mi": 0.66,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.8329,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2641-KG_003",
+   "aadt": 680,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.009,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_012",
+   "aadt": 713,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0096,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2641-KG_009",
+   "aadt": 1101,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0163,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2528-KG_02_014",
+   "aadt": 9014,
+   "len_mi": 1.0,
+   "obs_per_yr": 1.334,
+   "pred_per_yr": 0.1953,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM2528-KG_02_005",
+   "aadt": 904,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0128,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_011",
+   "aadt": 576,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0074,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2528-KG_02_006",
+   "aadt": 904,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0128,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_013",
+   "aadt": 991,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0144,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2641-KG_011",
+   "aadt": 1827,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0572,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2641-KG_004",
+   "aadt": 680,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.009,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2641-KG_015",
+   "aadt": 3158,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.1076,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2255-KG_006",
+   "aadt": 21611,
+   "len_mi": 1.0,
+   "obs_per_yr": 2.334,
+   "pred_per_yr": 0.9957,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2378-KG_018",
+   "aadt": 797,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.011,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_001",
+   "aadt": 273,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.003,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2641-KG_020",
+   "aadt": 1049,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0301,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2255-KG_003",
+   "aadt": 5885,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.667,
+   "pred_per_yr": 0.2211,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2641-KG_013",
+   "aadt": 2324,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.0755,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2378-KG_002",
+   "aadt": 273,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.003,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2528-KG_02_010",
+   "aadt": 2252,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0393,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_010",
+   "aadt": 634,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0083,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2902-KG_005",
+   "aadt": 202,
+   "len_mi": 1.0424,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0021,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2902-KG_004",
+   "aadt": 202,
+   "len_mi": 1.0424,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0021,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2255-KG_008",
+   "aadt": 24917,
+   "len_mi": 1.0,
+   "obs_per_yr": 1.111,
+   "pred_per_yr": 1.174,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2255-KG_002",
+   "aadt": 5864,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.2202,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2641-KG_008",
+   "aadt": 895,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0127,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2528-KG_02_012",
+   "aadt": 2921,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.054,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_007",
+   "aadt": 332,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0038,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2641-KG_010",
+   "aadt": 1580,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0483,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "FM2528-KG_02_007",
+   "aadt": 1251,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0191,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2378-KG_009",
+   "aadt": 634,
+   "len_mi": 1.0019,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0083,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM2641-KG_005",
+   "aadt": 777,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0106,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM3523-KG_003",
+   "aadt": 1771,
+   "len_mi": 1.0402,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0304,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM3020-KG_002",
+   "aadt": 443,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0053,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM3431-KG_003",
+   "aadt": 476,
+   "len_mi": 0.997,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0058,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM3523-KG_002",
+   "aadt": 3493,
+   "len_mi": 1.0402,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.07,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM3020-KG_003",
+   "aadt": 443,
+   "len_mi": 0.688,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0037,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM3020-KG_001",
+   "aadt": 443,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0053,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM3523-KG_001",
+   "aadt": 3493,
+   "len_mi": 1.0402,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.07,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM3523-KG_004",
+   "aadt": 1081,
+   "len_mi": 1.0402,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0166,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM3431-KG_001",
+   "aadt": 842,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0117,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "FM3431-KG_002",
+   "aadt": 476,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0058,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "SS0309-KG_001",
+   "aadt": 2389,
+   "len_mi": 0.997,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0421,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "SH0114-KG_01_067",
+   "aadt": 36300,
+   "len_mi": 1.0023,
+   "obs_per_yr": 0.444,
+   "pred_per_yr": 3.4552,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "SL0289-KG_009",
+   "aadt": 14415,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.1764,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SH0114-KG_01_062",
+   "aadt": 13218,
+   "len_mi": 1.0023,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.5652,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "SL0388-KG_003",
+   "aadt": 4069,
+   "len_mi": 0.378,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0307,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "SH0114-KG_01_066",
+   "aadt": 22311,
+   "len_mi": 1.0023,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 1.2671,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "SL0289-KG_023",
+   "aadt": 82947,
+   "len_mi": 1.0027,
+   "obs_per_yr": 1.111,
+   "pred_per_yr": 0.9189,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SH0114-KG_01_064",
+   "aadt": 15453,
+   "len_mi": 1.0023,
+   "obs_per_yr": 1.0,
+   "pred_per_yr": 0.6771,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "SL0289-KG_015",
+   "aadt": 12818,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1579,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_001",
+   "aadt": 68924,
+   "len_mi": 1.0027,
+   "obs_per_yr": 1.222,
+   "pred_per_yr": 0.7716,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_025",
+   "aadt": 70235,
+   "len_mi": 1.0027,
+   "obs_per_yr": 1.0,
+   "pred_per_yr": 0.7855,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_003",
+   "aadt": 25048,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2971,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SH0114-KG_01_061",
+   "aadt": 13150,
+   "len_mi": 1.0023,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5618,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "SL0289-KG_016",
+   "aadt": 12171,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1504,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SH0114-KG_01_068",
+   "aadt": 29525,
+   "len_mi": 1.0023,
+   "obs_per_yr": 2.222,
+   "pred_per_yr": 2.2572,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "SL0289-KG_019",
+   "aadt": 17471,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2115,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_005",
+   "aadt": 15334,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.667,
+   "pred_per_yr": 0.187,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_022",
+   "aadt": 66939,
+   "len_mi": 1.0027,
+   "obs_per_yr": 1.667,
+   "pred_per_yr": 0.7507,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SH0114-KG_01_069",
+   "aadt": 23644,
+   "len_mi": 1.0023,
+   "obs_per_yr": 2.334,
+   "pred_per_yr": 1.4281,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "SL0289-KG_012",
+   "aadt": 8807,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1109,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SH0114-KG_01_065",
+   "aadt": 17446,
+   "len_mi": 1.0023,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.7633,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "SS0326-KG_002",
+   "aadt": 7571,
+   "len_mi": 0.628,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0856,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "SL0193-KG_002",
+   "aadt": 1945,
+   "len_mi": 1.074,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.066,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "SL0193-KG_001",
+   "aadt": 1313,
+   "len_mi": 1.074,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0419,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "SL0289-KG_017",
+   "aadt": 10807,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1345,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_006",
+   "aadt": 16084,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1956,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0461-KG_001",
+   "aadt": 459,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0056,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "SL0289-KG_013",
+   "aadt": 7593,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.0964,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0461-KG_002",
+   "aadt": 865,
+   "len_mi": 0.716,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0087,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "SH0114-KG_01_063",
+   "aadt": 14228,
+   "len_mi": 1.0023,
+   "obs_per_yr": 0.667,
+   "pred_per_yr": 0.6154,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "SL0289-KG_007",
+   "aadt": 19831,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2383,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_002",
+   "aadt": 44198,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.778,
+   "pred_per_yr": 0.5075,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_008",
+   "aadt": 20840,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.111,
+   "pred_per_yr": 0.2498,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_011",
+   "aadt": 9395,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1178,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_018",
+   "aadt": 11048,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1373,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_014",
+   "aadt": 12164,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.111,
+   "pred_per_yr": 0.1503,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SS0331-KG_002",
+   "aadt": 4344,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1556,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "SL0289-KG_026",
+   "aadt": 66358,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.7445,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0388-KG_001",
+   "aadt": 290,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0032,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "SL0289-KG_010",
+   "aadt": 12326,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1522,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SS0331-KG_001",
+   "aadt": 1852,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0581,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "SL0289-KG_021",
+   "aadt": 53669,
+   "len_mi": 1.0027,
+   "obs_per_yr": 1.444,
+   "pred_per_yr": 0.6095,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SS0326-KG_001",
+   "aadt": 7377,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1292,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "SS0331-KG_003",
+   "aadt": 4661,
+   "len_mi": 0.912,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.154,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "SH0114-KG_01_060",
+   "aadt": 12852,
+   "len_mi": 1.0023,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.5471,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "SH0114-KG_01_070",
+   "aadt": 29229,
+   "len_mi": 1.0023,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 2.2109,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "SL0388-KG_002",
+   "aadt": 2484,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0443,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "SL0289-KG_004",
+   "aadt": 15991,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.1946,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_020",
+   "aadt": 28605,
+   "len_mi": 1.0027,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.3367,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0289-KG_024",
+   "aadt": 81896,
+   "len_mi": 1.0027,
+   "obs_per_yr": 1.0,
+   "pred_per_yr": 0.9079,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0082-KG_02_004",
+   "aadt": 36562,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.667,
+   "pred_per_yr": 0.4232,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0082-KG_02_005",
+   "aadt": 24936,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.444,
+   "pred_per_yr": 1.59,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0082-KG_02_002",
+   "aadt": 40987,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.111,
+   "pred_per_yr": 0.4714,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0082-KG_02_003",
+   "aadt": 43326,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.4967,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0082-KG_02_007",
+   "aadt": 9908,
+   "len_mi": 0.591,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1402,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0082-KG_02_006",
+   "aadt": 11156,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.303,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0082-KG_02_001",
+   "aadt": 39879,
+   "len_mi": 1.0,
+   "obs_per_yr": 2.445,
+   "pred_per_yr": 0.4594,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0062-KG_03_018",
+   "aadt": 9266,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2067,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_013",
+   "aadt": 13820,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.4711,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_015",
+   "aadt": 13378,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.4406,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_010",
+   "aadt": 9208,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.111,
+   "pred_per_yr": 0.204,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_002",
+   "aadt": 24089,
+   "len_mi": 1.0,
+   "obs_per_yr": 2.667,
+   "pred_per_yr": 1.4807,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_012",
+   "aadt": 13228,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.667,
+   "pred_per_yr": 0.4305,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_005",
+   "aadt": 6550,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1011,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_001",
+   "aadt": 26310,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 1.7758,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_008",
+   "aadt": 9208,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.204,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_019",
+   "aadt": 9266,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2067,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_011",
+   "aadt": 12001,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3522,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_017",
+   "aadt": 9266,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2067,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_022",
+   "aadt": 8339,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1663,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_020",
+   "aadt": 9060,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1973,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_006",
+   "aadt": 4750,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0521,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_004",
+   "aadt": 7258,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1249,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_014",
+   "aadt": 15666,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.61,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_016",
+   "aadt": 11773,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3386,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_021",
+   "aadt": 8339,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1663,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_009",
+   "aadt": 9208,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.204,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_003",
+   "aadt": 17700,
+   "len_mi": 1.0,
+   "obs_per_yr": 4.333,
+   "pred_per_yr": 0.7845,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_03_007",
+   "aadt": 4582,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0484,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_02_089",
+   "aadt": 15469,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5943,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_02_095",
+   "aadt": 26252,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.3097,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0062-KG_02_102",
+   "aadt": 57550,
+   "len_mi": 0.77,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.4999,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SL0493-KG_001",
+   "aadt": 2865,
+   "len_mi": 1.091,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0576,
+   "fc_group": "Collector/Local"
+  },
+  {
+   "seg_id": "US0062-KG_02_096",
+   "aadt": 29643,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.111,
+   "pred_per_yr": 0.3473,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0062-KG_02_100",
+   "aadt": 47193,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.111,
+   "pred_per_yr": 0.5384,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0062-KG_02_093",
+   "aadt": 21534,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2569,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0062-KG_02_099",
+   "aadt": 29187,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3422,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SS0327-KG_001",
+   "aadt": 23718,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2814,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "SS0327-KG_002",
+   "aadt": 23718,
+   "len_mi": 0.986,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2775,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0062-KG_02_091",
+   "aadt": 15500,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5968,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_02_097",
+   "aadt": 29820,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3492,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0062-KG_02_092",
+   "aadt": 16011,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.638,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_02_090",
+   "aadt": 15480,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5952,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0062-KG_02_098",
+   "aadt": 28470,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3343,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0062-KG_02_094",
+   "aadt": 26252,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3097,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0062-KG_02_101",
+   "aadt": 56613,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.6392,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "US0084-KG_01_057",
+   "aadt": 11408,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3173,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_065",
+   "aadt": 10658,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.111,
+   "pred_per_yr": 0.2758,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_074",
+   "aadt": 15262,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5781,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_060",
+   "aadt": 18574,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.8665,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_070",
+   "aadt": 17230,
+   "len_mi": 1.0001,
+   "obs_per_yr": 5.335,
+   "pred_per_yr": 0.7423,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_073",
+   "aadt": 11049,
+   "len_mi": 1.0001,
+   "obs_per_yr": 1.0,
+   "pred_per_yr": 0.2971,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM1730-KG_003",
+   "aadt": 9713,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3948,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_079",
+   "aadt": 16148,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.6494,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_084",
+   "aadt": 14567,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5252,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "BU0084E-KG_002",
+   "aadt": 2439,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0132,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_061",
+   "aadt": 18574,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.667,
+   "pred_per_yr": 0.8665,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_080",
+   "aadt": 14916,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5514,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0087-KG_04_006",
+   "aadt": 17754,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.7895,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_076",
+   "aadt": 14478,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5186,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_056",
+   "aadt": 11641,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3308,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_078",
+   "aadt": 17060,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.667,
+   "pred_per_yr": 0.7273,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_059",
+   "aadt": 15094,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.5651,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_066",
+   "aadt": 9690,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.889,
+   "pred_per_yr": 0.2267,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_071",
+   "aadt": 12711,
+   "len_mi": 1.0001,
+   "obs_per_yr": 2.0,
+   "pred_per_yr": 0.3966,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_069",
+   "aadt": 21608,
+   "len_mi": 1.0001,
+   "obs_per_yr": 4.555,
+   "pred_per_yr": 1.1836,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_075",
+   "aadt": 14496,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5199,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_082",
+   "aadt": 16665,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.693,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "BU0084E-KG_001",
+   "aadt": 3346,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.0253,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_062",
+   "aadt": 14951,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5541,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_063",
+   "aadt": 10676,
+   "len_mi": 1.0001,
+   "obs_per_yr": 1.0,
+   "pred_per_yr": 0.2768,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_055",
+   "aadt": 11167,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3037,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_072",
+   "aadt": 7782,
+   "len_mi": 1.0001,
+   "obs_per_yr": 1.444,
+   "pred_per_yr": 0.1443,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_083",
+   "aadt": 17337,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.7518,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_064",
+   "aadt": 10043,
+   "len_mi": 1.0001,
+   "obs_per_yr": 1.0,
+   "pred_per_yr": 0.244,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_067",
+   "aadt": 8464,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.1715,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_068",
+   "aadt": 12216,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.666,
+   "pred_per_yr": 0.3654,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_058",
+   "aadt": 10496,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.667,
+   "pred_per_yr": 0.2673,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_077",
+   "aadt": 16202,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.6539,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_054",
+   "aadt": 10893,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2885,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_052",
+   "aadt": 10893,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2885,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_085",
+   "aadt": 12574,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3878,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM1730-KG_001",
+   "aadt": 9713,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3948,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_081",
+   "aadt": 14335,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5081,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "US0084-KG_01_053",
+   "aadt": 10893,
+   "len_mi": 1.0001,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2885,
+   "fc_group": "Principal arterial"
+  },
+  {
+   "seg_id": "FM1730-KG_002",
+   "aadt": 9713,
+   "len_mi": 1.0,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3948,
+   "fc_group": "Minor arterial"
+  },
+  {
+   "seg_id": "IH0027-KG_007",
+   "aadt": 30605,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3586,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_009",
+   "aadt": 28352,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3337,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_005",
+   "aadt": 42257,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.667,
+   "pred_per_yr": 0.4861,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_002",
+   "aadt": 52083,
+   "len_mi": 1.002,
+   "obs_per_yr": 1.445,
+   "pred_per_yr": 0.5921,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_014",
+   "aadt": 19775,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2375,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_015",
+   "aadt": 18689,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2252,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_017",
+   "aadt": 17778,
+   "len_mi": 1.002,
+   "obs_per_yr": 1.0,
+   "pred_per_yr": 0.2149,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_006",
+   "aadt": 33247,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.3877,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_003",
+   "aadt": 54401,
+   "len_mi": 1.002,
+   "obs_per_yr": 1.222,
+   "pred_per_yr": 0.6169,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_004",
+   "aadt": 51305,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.5837,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_016",
+   "aadt": 17646,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2134,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_012",
+   "aadt": 21558,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2577,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_010",
+   "aadt": 22192,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2648,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_013",
+   "aadt": 19823,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2381,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_011",
+   "aadt": 21625,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.2584,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_001",
+   "aadt": 50747,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.333,
+   "pred_per_yr": 0.5777,
+   "fc_group": "Interstate/Freeway"
+  },
+  {
+   "seg_id": "IH0027-KG_008",
+   "aadt": 32516,
+   "len_mi": 1.002,
+   "obs_per_yr": 0.0,
+   "pred_per_yr": 0.3797,
+   "fc_group": "Interstate/Freeway"
+  }
+ ]
+}

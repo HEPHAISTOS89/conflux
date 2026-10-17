@@ -1,0 +1,9 @@
+{
+  "executionEnvironments": [
+    { "root": "pipeline", "extraPaths": ["pipeline"] },
+    { "root": "backend", "extraPaths": ["backend"] }
+  ],
+  "venvPath": "pipeline", "venv": ".venv",
+  "typeCheckingMode": "basic", "reportMissingModuleSource": false,
+  "exclude": ["**/.venv", "**/node_modules", "infra/cdk/cdk.out", "build"]
+}

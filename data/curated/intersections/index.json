@@ -1,0 +1,104 @@
+[
+ {
+  "id": "lankershim-main",
+  "name": "Lankershim Blvd at Main St",
+  "site": "lankershim",
+  "city": "Los Angeles, CA",
+  "approach": "all approaches within 61 m x 91 m box",
+  "window": [
+   1118937024000,
+   1118937114000
+  ],
+  "recorded": "2005-06-16 08:30-09:00 PDT",
+  "s": 90,
+  "hz": 10,
+  "tracks": 190,
+  "conflicts": 10,
+  "summary": {
+   "conflicts_by_type": {
+    "rear_end": 7,
+    "crossing": 2,
+    "lane_change": 1
+   },
+   "conflicts_by_type_severity": {
+    "crossing:moderate": 1,
+    "crossing:serious": 1,
+    "lane_change:serious": 1,
+    "rear_end:critical": 4,
+    "rear_end:serious": 3
+   },
+   "repair": {
+    "tracks_occluded": 36,
+    "tracks_eligible": 181,
+    "seed": 20251,
+    "gap_s": [
+     0.8,
+     3.0
+    ],
+    "gaps": 49,
+    "gap_frames": 905,
+    "kalman_rts": {
+     "rmse_m": 0.305,
+     "speed_rmse": 0.307
+    },
+    "linear": {
+     "rmse_m": 0.534,
+     "speed_rmse": 0.599
+    },
+    "kf_better_pos_share": 0.528
+   }
+  }
+ },
+ {
+  "id": "peachtree-10th",
+  "name": "Peachtree St NE at 10th St NE",
+  "site": "peachtree",
+  "city": "Atlanta, GA",
+  "approach": "all approaches within 61 m x 91 m box",
+  "window": [
+   1163540000,
+   1163630000
+  ],
+  "recorded": "2006-11-08 12:45-13:00 / 16:00-16:15 EST",
+  "s": 90,
+  "hz": 10,
+  "tracks": 170,
+  "conflicts": 49,
+  "summary": {
+   "conflicts_by_type": {
+    "rear_end": 28,
+    "crossing": 18,
+    "lane_change": 3
+   },
+   "conflicts_by_type_severity": {
+    "crossing:critical": 12,
+    "crossing:moderate": 4,
+    "crossing:serious": 2,
+    "lane_change:critical": 2,
+    "lane_change:serious": 1,
+    "rear_end:critical": 25,
+    "rear_end:serious": 3
+   },
+   "repair": {
+    "tracks_occluded": 20,
+    "tracks_eligible": 98,
+    "seed": 20251,
+    "gap_s": [
+     0.8,
+     3.0
+    ],
+    "gaps": 27,
+    "gap_frames": 518,
+    "kalman_rts": {
+     "rmse_m": 0.822,
+     "speed_rmse": 0.449
+    },
+    "linear": {
+     "rmse_m": 0.652,
+     "speed_rmse": 0.588
+    },
+    "kf_better_pos_share": 0.35
+   }
+  }
+ }
+]

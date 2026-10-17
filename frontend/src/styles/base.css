@@ -1,0 +1,71 @@
+@import '@fontsource/overpass/400.css';
+@import '@fontsource/overpass/600.css';
+@import '@fontsource/overpass/800.css';
+@import '@fontsource/public-sans/400.css';
+@import '@fontsource/public-sans/500.css';
+@import '@fontsource/public-sans/600.css';
+@import '@fontsource/overpass-mono/400.css';
+@import '@fontsource/overpass-mono/600.css';
+
+:root {
+  --paper: #f3f4f1;
+  --paper-2: #e8eae5;
+  --sheet: #fbfbf9;
+  --ink: #14171a;
+  --ink-2: #3a4148;
+  --ink-3: #5a636b;
+  --rule: #c5cac2;
+  --grid: #dde0d9;
+  --go: #1f7a4d;
+  --caution: #c98a00;
+  --caution-ink: #8a5d00;
+  --stop: #b3261e;
+  --sev-k: #6e120d;
+  --sev-a: #b3261e;
+  --sev-b: #d4612a;
+  --sev-c: #d9a038;
+  --sev-o: #98a1a7;
+  --night: #0b0e11;
+  --night-2: #151a1f;
+  --night-ink: #d7dde2;
+  --night-dim: #7d8a95;
+
+  --f-head: 'Overpass', 'Public Sans', system-ui, sans-serif;
+  --f-ui: 'Public Sans', system-ui, sans-serif;
+  --f-num: 'Overpass Mono', ui-monospace, monospace;
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+  --r: 4px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --rail: 232px;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 15px/1.5 var(--f-ui);
+  font-feature-settings: 'tnum' 1;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { font-family: var(--f-head); font-weight: 800; letter-spacing: -0.015em; line-height: 1.1; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(30px, 3.4vw, 48px); }
+h2 { font-size: clamp(22px, 2vw, 28px); }
+h3 { font-size: 17px; font-weight: 600; letter-spacing: 0; }
+p { margin: 0; max-width: 68ch; text-wrap: pretty; }
+a { color: inherit; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+::selection { background: var(--caution); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 2px; }
+* { scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.muted { color: var(--ink-3); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
