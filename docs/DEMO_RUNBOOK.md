@@ -37,6 +37,7 @@ Set `VITE_API_BASE_URL` only to an HTTPS API origin that exposes the documented 
 Current static production demo: https://roadscope-ai-demo.vercel.app
 
 This URL was verified with an HTTP 200 response on 2026-10-17. It is a static fixture deployment and is not yet connected to the AWS API.
+The current deployment was uploaded directly because the Vercel account does not yet have the GitHub integration installed; automatic deploys from `main` still require that one-time account connection.
 
 1. Import `HEPHAISTOS89/roadscope-ai`.
 2. Keep the repository root and use the committed `vercel.json` (`frontend/` root, `dist` output).
