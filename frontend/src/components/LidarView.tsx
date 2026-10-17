@@ -37,7 +37,7 @@ export default function LidarView({ data, conflicts, selected, label }: Props) {
     scene.background = new THREE.Color('#0b0e11');
     scene.fog = new THREE.Fog('#0b0e11', 70, 150);
     const cam = new THREE.PerspectiveCamera(42, 1, 0.5, 400);
-    cam.position.set(-48, 46, 62);
+    cam.position.set(-38, 34, 44);
     const controls = new OrbitControls(cam, renderer.domElement);
     controls.target.set(0, 0, -15);
     controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 20; controls.maxDistance = 160;
@@ -56,7 +56,7 @@ export default function LidarView({ data, conflicts, selected, label }: Props) {
         const a = (i / n) * Math.PI * 2;
         const x = SENSOR.x + Math.cos(a) * r, y = SENSOR.y + Math.sin(a) * r;
         g.push(x, 0, -y);
-        const inten = 0.18 + 0.25 * Math.exp(-r / 40);
+        const inten = 0.24 + 0.34 * Math.exp(-r / 35);
         gc.push(inten * 0.7, inten * 0.85, inten);
       }
     }
@@ -83,7 +83,7 @@ export default function LidarView({ data, conflicts, selected, label }: Props) {
     // One point cloud per road user (template geometry, placed per frame)
     const sensorWorld = new THREE.Vector3(SENSOR.x, SENSOR.z, -SENSOR.y);
     const clouds = new Map<string, THREE.Points>();
-    const baseMat = (c: string) => new THREE.PointsMaterial({ size: 0.16, color: c, sizeAttenuation: true, transparent: true, opacity: 0.95 });
+    const baseMat = (c: string) => new THREE.PointsMaterial({ size: 0.2, color: c, sizeAttenuation: true, transparent: true, opacity: 0.95 });
     const mats = { car: baseMat('#9fd4e8'), truck: baseMat('#e8d79f'), sel: baseMat('#ffb21a'), hot: baseMat('#ff5a4a') };
     for (const tr of data.tracks) {
       const h = tr.cls === 'truck' ? 3.2 : tr.cls === 'motorcycle' ? 1.3 : 1.5;

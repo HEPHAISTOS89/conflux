@@ -49,7 +49,7 @@ def linear_fill(t: np.ndarray, z: np.ndarray, observed: np.ndarray) -> np.ndarra
 
 
 CONTEXT_S = 3.0          # observed context used on each side of a gap
-Q_GRID = (0.1, 0.3, 1.0, 3.0, 10.0, 30.0)
+Q_GRID = tuple(float(f'{v:.3g}') for v in np.logspace(-1, 5, 12))  # 0.1 .. 1e5
 R_GRID = (0.02, 0.05, 0.1, 0.2)
 BUCKETS = ((0.8, 1.5), (1.5, 2.2), (2.2, 3.0))
 METHODS = ("linear", "kf_ca", "kf_ca_path")
@@ -142,16 +142,23 @@ def tune(val_tracks, seed, gap_s, margin_s, max_gaps):
     rng = np.random.default_rng(seed + 1)
     cases = [(tr, _inject(tr, rng, gap_s, margin_s, max_gaps)) for tr in val_tracks]
     cases = [c for c in cases if (~c[1]).any()]
-    best_ca = min(((q, r) for q in Q_GRID for r in R_GRID),
-                  key=lambda qr: _score(cases, {"kf_ca": {"q": qr[0], "r": qr[1]}})[0]["kf_ca"])
-    r = best_ca[1]  # measurement noise is a sensor property: shared by both KF variants
-    best_path = min(((qa, qc) for qa in Q_GRID for qc in Q_GRID),
-                    key=lambda qq: _score(cases, {"kf_ca_path": {"qa": qq[0], "qc": qq[1], "r": r}})[0]["kf_ca_path"])
-    params = {"kf_ca": {"q": best_ca[0], "r": r}, "kf_ca_path": {"qa": best_path[0], "qc": best_path[1], "r": r}}
+    ca = {(q, r): _score(cases, {"kf_ca": {"q": q, "r": r}})[0]["kf_ca"] for q in Q_GRID for r in R_GRID}
+    q_best, r = min(ca, key=ca.get)  # R is a sensor property: shared by both KF variants
+    curve = [[q, round(ca[(q, r)], 4)] for q in Q_GRID]
+    # coordinate descent for the path-frame variant (along, then cross), starting at q_best
+    f = lambda qa, qc: _score(cases, {"kf_ca_path": {"qa": qa, "qc": qc, "r": r}})[0]["kf_ca_path"]
+    qa = min(Q_GRID, key=lambda v: f(v, q_best))
+    qc = min(Q_GRID, key=lambda v: f(qa, v))
+    params = {"kf_ca": {"q": q_best, "r": r}, "kf_ca_path": {"qa": qa, "qc": qc, "r": r}}
+    best_rmse = ca[(q_best, r)]
+    flat = [q for q in Q_GRID if ca[(q, r)] <= best_rmse * 1.01]
+    params["q_status"] = {"interior": Q_GRID[0] < q_best < Q_GRID[-1],
+                          "flat_within_1pct_from": min(flat), "flat_within_1pct_to": max(flat),
+                          "note": "validation RMSE within 1% of optimum over this q range"}
     pos, spd = _score(cases, params)
     selected = min(METHODS, key=lambda k: pos[k])
     return params, {"tracks": len(cases), "gap_frames": int(sum((~o).sum() for _, o in cases)),
-                    "rmse_m": pos, "speed_rmse": spd, "selected": selected,
+                    "rmse_m": pos, "speed_rmse": spd, "selected": selected, "q_curve": curve, "q_curve_r": r,
                     "grid": {"q": list(Q_GRID), "r": list(R_GRID)}}
 
 

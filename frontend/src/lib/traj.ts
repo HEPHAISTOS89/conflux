@@ -32,7 +32,7 @@ export const MPS_TO_MPH = 2.236936;
 export const DIR_COLOR: Record<string, string> = { NB: '#14171a', SB: '#46617a', EB: '#7a5a2e', WB: '#5b6b4d' };
 
 /** Shared playback clock for a page: every diagram reads and scrubs the same t. */
-export interface Clock { t: number; playing: boolean; rate: number; duration: number; setT: (t: number) => void; toggle: () => void; setRate: (r: number) => void; subscribe: (fn: (t: number) => void) => () => void; now: () => number }
+export interface Clock { t: number; playing: boolean; rate: number; duration: number; setT: (t: number) => void; toggle: () => void; play: () => void; pause: () => void; setRate: (r: number) => void; subscribe: (fn: (t: number) => void) => () => void; now: () => number }
 
 export function useClockState(duration: number): Clock {
   const [t, setTState] = useState(0);
@@ -61,6 +61,8 @@ export function useClockState(duration: number): Clock {
   return {
     t, playing, rate, duration, setT, setRate,
     toggle: () => setPlaying((p) => !p),
+    play: () => setPlaying(true),
+    pause: () => setPlaying(false),
     subscribe: (fn) => { subs.current.add(fn); return () => { subs.current.delete(fn); }; },
     now: () => tRef.current,
   };

@@ -1,0 +1,32 @@
+.scr-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s4); margin-top: calc(-1 * var(--s5)); }
+.scr-def { flex-basis: 100%; font-size: 13.5px; }
+.select { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); }
+.select select { border: 1px solid var(--ink); border-radius: var(--r); background: var(--sheet); padding: 6px 28px 6px 10px; color: var(--ink); }
+.scr-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--s4); margin-top: calc(-1 * var(--s4)); }
+.scr-table-wrap { overflow: auto; max-height: 680px; }
+.scr-table-wrap thead th { position: sticky; top: 0; background: var(--sheet); z-index: 1; }
+.scr-table-wrap tbody tr { cursor: pointer; }
+.seg-name { font-weight: 500; }
+.seg-id { font-size: 11.5px; }
+td.strong { font-weight: 600; }
+.scr-map { position: relative; min-height: 560px; overflow: hidden; }
+.seg-card { position: absolute; right: 12px; bottom: 12px; z-index: 2; width: 290px; background: rgba(251,251,249,.97); border: 1px solid var(--ink); border-radius: var(--r); padding: 12px; display: grid; gap: 8px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(20,23,26,.12); }
+.seg-card-h { display: flex; justify-content: space-between; gap: 8px; }
+.seg-card dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; }
+.seg-card dt { color: var(--ink-3); font-family: var(--f-ui); }
+.seg-card dd { margin: 0; text-align: right; }
+.spf { margin: 0; padding: var(--s4); display: grid; gap: var(--s3); }
+.spf svg { width: 100%; height: auto; }
+.spf .gl { stroke: var(--grid); }
+.spf .tick { font: 11px var(--f-num); fill: var(--ink-3); }
+.spf .axis { font: 12px var(--f-ui); fill: var(--ink-2); }
+.spf .pt { fill: rgba(20,23,26,.35); cursor: pointer; transition: r 160ms var(--ease-out); }
+.spf .pt:hover { fill: var(--ink); }
+.spf .pt.on { fill: var(--caution); stroke: var(--ink); stroke-width: 1.5; }
+.spf .curve { fill: none; stroke-width: 1.6; }
+.spf .curve.pooled { stroke: var(--stop); stroke-width: 2.2; }
+.spf-legend { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 12.5px; }
+.sw { display: inline-block; width: 18px; height: 0; border-top: 2px dashed var(--ink); vertical-align: middle; margin-right: 4px; }
+.sw.pooled { border-top: 2.5px solid var(--stop); }
+@media (max-width: 1100px) { .scr-grid { grid-template-columns: 1fr; } .scr-map { min-height: 440px; } }
+@media (max-width: 560px) { .seg-card { left: 12px; width: auto; } }

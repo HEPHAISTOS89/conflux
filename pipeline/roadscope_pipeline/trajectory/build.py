@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 from collections import Counter
 from pathlib import Path
@@ -79,13 +80,18 @@ def main(argv=None):
     (out / "index.json").write_text(json.dumps(index, indent=1))
     man_p = Path(a.out) / "manifest.json"
     man = json.loads(man_p.read_text()) if man_p.exists() else {}
-    man.setdefault("sources", {})
+    sources = man.setdefault("sources", [])
     now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     for s, row in zip(SITES, index):
-        man["sources"][f"ngsim_{s['location']}"] = {
-            "title": f"NGSIM {s['location'].title()} vehicle trajectories", "url": ngsim.SODA,
-            "filter": f"location='{s['location']}', int_id={s['int_id']} zone, global_time {row['window']}",
-            "fetched": now, "outputs": [f"intersections/{s['id']}{x}.json" for x in ("", "_conflicts", "_repair")]}
+        raw = Path(a.cache) / f"{s['location']}_{row['window'][0]}_{row['window'][1]}_zone.json"
+        entry = {"id": f"ngsim_{s['location']}", "url": ngsim.SODA,
+                 "licence": "USDOT ITS DataHub NGSIM - public domain (U.S. Government work)",
+                 "records": len(json.loads(raw.read_text())), "fetched_at": now,
+                 "sha256": hashlib.sha256(raw.read_bytes()).hexdigest(),
+                 "filter": f"location='{s['location']}', int_id={s['int_id']} zone, global_time {row['window']}",
+                 "outputs": [f"intersections/{s['id']}{x}.json" for x in ("", "_conflicts", "_repair")]}
+        sources[:] = [e for e in sources if e.get("id") != entry["id"]] + [entry]
+        sources.sort(key=lambda e: e.get("id", ""))
     man_p.write_text(json.dumps(man, indent=1))
     print(json.dumps(index, indent=1))
 

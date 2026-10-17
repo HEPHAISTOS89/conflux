@@ -31,6 +31,7 @@ CITATION = {
     "query_screening": "network.geojson (HSM Part B screening, TxDOT Roadway Inventory/AADT/crash segments)",
     "get_corridor": "corridors.json (TxDOT inventory, AADT, 2024 statewide speed)",
     "vru_summary": "vru_crashes.geojson (TxDOT Active Transportation Crashes)",
+    "vru_count": "vru_crashes.geojson (TxDOT Active Transportation Crashes)",
     "intersection_conflicts": "intersections/<id>_conflicts.json (NGSIM trajectories, SSM)",
     "get_spf": "spf.json (Negative Binomial SPF fit)",
     "get_manifest": "manifest.json (sources, licences, fetch times)",
@@ -64,6 +65,26 @@ def t_vru_summary() -> dict[str, Any]:
     return s
 
 
+LIGHT = {"dark not lighted": "NOT LIGHTED", "dark-not-lighted": "NOT LIGHTED", "unlit": "NOT LIGHTED",
+         "dark lighted": "DARK, LIGHTED", "dark, lighted": "DARK, LIGHTED", "daylight": "DAYLIGHT",
+         "dusk": "DUSK", "dawn": "DAWN", "dark": "DARK"}
+
+
+def t_vru_count(mode: str | None = None, severity: str | None = None, light: str | None = None,
+                year: int | None = None) -> dict[str, Any]:
+    """Count VRU crashes matching every given filter (severity like 'K,A')."""
+    sev = {x.strip().upper() for x in severity.split(",")} if severity else None
+    rows = [f["properties"] for f in store.load("vru_crashes.geojson")["features"]]
+    hit = [r for r in rows
+           if (not mode or r.get("mode") == mode)
+           and (not sev or r.get("severity") in sev)
+           and (not light or light.upper() in str(r.get("light") or "").upper())
+           and (not year or r.get("year") == year)]
+    return {"filters": {"mode": mode, "severity": severity, "light": light, "year": year},
+            "count": len(hit), "of_total": len(rows),
+            "by_severity": {k: sum(r.get("severity") == k for r in hit) for k in "KABCO"}}
+
+
 def t_intersection_conflicts(intersection_id: str | None = None, type: str | None = None,
                              max_ttc: float | None = None) -> dict[str, Any]:
     ids = store.intersection_ids()
@@ -90,6 +111,7 @@ TOOLS: dict[str, Callable[..., dict[str, Any]]] = {
     "query_screening": t_query_screening,
     "get_corridor": t_get_corridor,
     "vru_summary": t_vru_summary,
+    "vru_count": t_vru_count,
     "intersection_conflicts": t_intersection_conflicts,
     "get_spf": t_get_spf,
     "get_manifest": t_get_manifest,
@@ -106,6 +128,10 @@ TOOL_SPECS: list[dict[str, Any]] = [
                   "inputSchema": {"json": {"type": "object", "properties": {"corridor_id": {"type": "string"}}}}}},
     {"toolSpec": {"name": "vru_summary", "description": "Pedestrian/bicycle crash summary (KABCO, PBCAT, light, streets).",
                   "inputSchema": {"json": _S}}},
+    {"toolSpec": {"name": "vru_count", "description": "Count pedestrian/bicycle crashes matching filters: mode ped|bike|scooter, severity e.g. 'K,A', light substring e.g. 'NOT LIGHTED', year.",
+                  "inputSchema": {"json": {"type": "object", "properties": {
+                      "mode": {"type": "string", "enum": ["ped", "bike", "scooter"]}, "severity": {"type": "string"},
+                      "light": {"type": "string"}, "year": {"type": "integer"}}}}}},
     {"toolSpec": {"name": "intersection_conflicts", "description": "Surrogate-safety conflicts (TTC/PET/DRAC) at an NGSIM intersection.",
                   "inputSchema": {"json": {"type": "object", "properties": {
                       "intersection_id": {"type": "string"},
@@ -187,15 +213,28 @@ def _route(q: str) -> list[tuple[str, dict[str, Any]]]:
                 break
     except store.MissingData:
         pass
-    if re.search(r"\b(ped|peds|pedestrian|bike|bicycl|cyclist|vru|vulnerable|yield)", ql):
-        plan.append(("vru_summary", {}))
+    if re.search(r"\b(ped|peds|pedestrian|bike|bicycl|cyclist|scooter|vru|vulnerable|yield)", ql):
+        f: dict[str, Any] = {}
+        if re.search(r"\bpedestrian|\bped\b|\bpeds\b", ql): f["mode"] = "ped"
+        elif re.search(r"bike|bicycl|cyclist", ql): f["mode"] = "bike"
+        elif "scooter" in ql: f["mode"] = "scooter"
+        m = re.search(r"\b(ka|k\+a|kabco [a-z,]+|fatal|serious)\b", ql)
+        if m: f["severity"] = "K" if m.group(1) == "fatal" else "A" if m.group(1) == "serious" else "K,A"
+        lt = next((v for k, v in LIGHT.items() if k in ql), None)
+        if lt: f["light"] = lt
+        y = re.search(r"\b(20[12]\d)\b", ql)
+        if y: f["year"] = int(y.group(1))
+        plan.append(("vru_count", f) if f.keys() - {"mode"} or re.search(r"how many|count|number", ql) else ("vru_summary", {}))
     if re.search(r"\b(conflict|ttc|pet|drac|near.?(crash|miss)|intersection|ngsim|trajector)", ql):
         ids = store.intersection_ids()
-        iid = next((i for i in ids if i.lower() in ql), None)
+        iid = next((i for i in ids if i.lower() in ql or i.split("-")[0].lower() in ql), None)
         args: dict[str, Any] = {"intersection_id": iid} if iid else {}
         ctype = next((t for t in ("rear_end", "crossing", "lane_change") if re.search(t.replace("_", "[ _-]?"), ql)), None)
         if ctype:
             args["type"] = ctype
+        mt = re.search(r"ttc\D{0,20}?(\d+(?:\.\d+)?)\s*s", ql)
+        if mt:
+            args["max_ttc"] = float(mt.group(1))
         plan.append(("intersection_conflicts", args))
     if re.search(r"\b(spf|safety performance|overdispersion|negative binomial|coefficient)", ql):
         plan.append(("get_spf", {}))
@@ -232,6 +271,10 @@ def _compose(name: str, d: dict[str, Any]) -> str:
         return (f"{d['total']} pedestrian/bicycle crashes ({yrs}); KABCO: {sev}; {d['ka_total']} fatal or "
                 f"suspected-serious (K+A). By mode: {', '.join(f'{k} {v}' for k, v in d['by_mode'].items())}. "
                 f"Most frequent streets: {streets} {cite}.")
+    if name == "vru_count":
+        fl = ", ".join(f"{k}={v}" for k, v in d["filters"].items() if v) or "no filters"
+        sev = ", ".join(f"{k} {v}" for k, v in d["by_severity"].items() if v)
+        return f"{d['count']} of {d['of_total']} vulnerable-road-user crashes match ({fl}); by KABCO: {sev or 'none'} {cite}."
     if name == "intersection_conflicts":
         types = ", ".join(f"{k.replace('_', '-')} {v}" for k, v in d["by_type"].items()) or "none"
         worst = d["lowest_ttc"][0] if d["lowest_ttc"] else None

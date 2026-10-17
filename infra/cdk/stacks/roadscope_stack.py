@@ -6,6 +6,8 @@ from aws_cdk import (
     Duration,
     RemovalPolicy,
     Stack,
+    aws_apigatewayv2 as apigw,
+    aws_apigatewayv2_integrations as apigw_int,
     aws_cloudfront as cf,
     aws_cloudfront_origins as origins,
     aws_cloudwatch as cw,
@@ -63,7 +65,9 @@ class RoadScopeStack(Stack):
             code=lambda_.Code.from_asset(str(BUILD / "api.zip")),
             handler="app.lambda_handler.handler",
             environment={"DATA_BUCKET": bucket.bucket_name,
-                         "BEDROCK_MODEL_ID": INFERENCE_PROFILE, "LOG_LEVEL": "INFO"},
+                         "BEDROCK_MODEL_ID": INFERENCE_PROFILE, "LOG_LEVEL": "INFO",
+                         "API_FUNCTION_NAME": "roadscope-api", "INGEST_FUNCTION_NAME": "roadscope-ingest",
+                         "CORS_ORIGINS": "http://localhost:5173"},
             logging_format=lambda_.LoggingFormat.JSON,
             log_group=log_group("roadscope-api"),
         )
@@ -74,51 +78,54 @@ class RoadScopeStack(Stack):
             + [f"arn:aws:bedrock:{r}::foundation-model/{FOUNDATION_MODEL}" for r in ("us-east-1", "us-east-2", "us-west-2")],
         ))
         api.add_to_role_policy(iam.PolicyStatement(actions=["cloudwatch:GetMetricData"], resources=["*"]))
-        api_url = api.add_function_url(auth_type=lambda_.FunctionUrlAuthType.AWS_IAM)
-
-        # ---------- CloudFront in front of the Function URL (OAC) ----------
-        origin = origins.FunctionUrlOrigin.with_origin_access_control(api_url)
-        cors = cf.ResponseHeadersPolicy(
-            self, "Cors",
-            cors_behavior=cf.ResponseHeadersCorsBehavior(
-                access_control_allow_origins=["https://*.vercel.app", "http://localhost:5173"],
-                access_control_allow_methods=["GET", "HEAD", "OPTIONS", "POST"],
-                access_control_allow_headers=["Content-Type", "x-amz-content-sha256"],
-                access_control_allow_credentials=False,
-                access_control_max_age=Duration.seconds(600),
-                origin_override=True,
-            ),
-        )
-        cached = cf.CachePolicy(
-            self, "ApiCache",
-            default_ttl=Duration.seconds(300), min_ttl=Duration.seconds(0), max_ttl=Duration.seconds(300),
-            query_string_behavior=cf.CacheQueryStringBehavior.all(),
-            enable_accept_encoding_gzip=True, enable_accept_encoding_brotli=True,
-        )
-        no_cache = dict(
-            origin=origin,
-            viewer_protocol_policy=cf.ViewerProtocolPolicy.HTTPS_ONLY,
-            cache_policy=cf.CachePolicy.CACHING_DISABLED,
-            origin_request_policy=cf.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-            response_headers_policy=cors,
-        )
-        dist = cf.Distribution(
-            self, "Cdn",
-            comment="RoadScope API",
-            price_class=cf.PriceClass.PRICE_CLASS_100,
-            default_behavior=cf.BehaviorOptions(
+        # ---------- Public edge for the API ----------
+        # "httpapi" (default): API Gateway HTTP API with stage throttling — works on unverified accounts.
+        # "cloudfront": CloudFront + OAC-protected Function URL with 300 s caching (needs a verified account).
+        edge = self.node.try_get_context("edge") or "httpapi"
+        dist = None
+        if edge == "cloudfront":
+            api_url = api.add_function_url(auth_type=lambda_.FunctionUrlAuthType.AWS_IAM)
+            origin = origins.FunctionUrlOrigin.with_origin_access_control(api_url)
+            cached = cf.CachePolicy(
+                self, "ApiCache",
+                default_ttl=Duration.seconds(300), min_ttl=Duration.seconds(0), max_ttl=Duration.seconds(300),
+                query_string_behavior=cf.CacheQueryStringBehavior.all(),
+                enable_accept_encoding_gzip=True, enable_accept_encoding_brotli=True,
+            )
+            no_cache = dict(
                 origin=origin,
                 viewer_protocol_policy=cf.ViewerProtocolPolicy.HTTPS_ONLY,
-                allowed_methods=cf.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
-                cache_policy=cached,
-                response_headers_policy=cors,
-                compress=True,
-            ),
-            additional_behaviors={
-                "/api/v1/ask": cf.BehaviorOptions(allowed_methods=cf.AllowedMethods.ALLOW_ALL, **no_cache),
-                "/api/v1/platform/status": cf.BehaviorOptions(**no_cache),
-            },
-        )
+                cache_policy=cf.CachePolicy.CACHING_DISABLED,
+                origin_request_policy=cf.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+            )
+            dist = cf.Distribution(
+                self, "Cdn",
+                comment="RoadScope API",
+                price_class=cf.PriceClass.PRICE_CLASS_100,
+                default_behavior=cf.BehaviorOptions(
+                    origin=origin,
+                    viewer_protocol_policy=cf.ViewerProtocolPolicy.HTTPS_ONLY,
+                    allowed_methods=cf.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+                    cache_policy=cached,
+                    compress=True,
+                ),
+                additional_behaviors={
+                    "/api/v1/ask": cf.BehaviorOptions(allowed_methods=cf.AllowedMethods.ALLOW_ALL, **no_cache),
+                    "/api/v1/platform/status": cf.BehaviorOptions(**no_cache),
+                },
+            )
+            CfnOutput(self, "ApiBaseUrl", value=f"https://{dist.distribution_domain_name}")
+        else:
+            http = apigw.HttpApi(
+                self, "HttpApi", api_name="roadscope-api",
+                default_integration=apigw_int.HttpLambdaIntegration("ApiInt", api),
+                create_default_stage=False,
+            )
+            apigw.HttpStage(
+                self, "Stage", http_api=http, stage_name="$default", auto_deploy=True,
+                throttle=apigw.ThrottleSettings(rate_limit=20, burst_limit=40),
+            )
+            CfnOutput(self, "ApiBaseUrl", value=http.api_endpoint)
 
         # ---------- Ingest Lambda ----------
         dlq = sqs.Queue(self, "IngestDlq", retention_period=Duration.days(14),
@@ -211,12 +218,6 @@ class RoadScopeStack(Stack):
                  threshold=1, evaluation_periods=1,
                  comparison_operator=cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
                  treat_missing_data=cw.TreatMissingData.NOT_BREACHING)
-        cf_requests = cw.Metric(namespace="AWS/CloudFront", metric_name="Requests", region="us-east-1",
-                                dimensions_map={"DistributionId": dist.distribution_id, "Region": "Global"},
-                                statistic="Sum", period=five)
-        cf_5xx = cw.Metric(namespace="AWS/CloudFront", metric_name="5xxErrorRate", region="us-east-1",
-                           dimensions_map={"DistributionId": dist.distribution_id, "Region": "Global"},
-                           statistic="Average", period=five)
         dash = cw.Dashboard(self, "Dashboard", dashboard_name="RoadScope")
         dash.add_widgets(
             cw.GraphWidget(title="API invocations / errors", left=[api.metric_invocations(period=five)], right=[api_err]),
@@ -225,14 +226,25 @@ class RoadScopeStack(Stack):
                            right=[ingest.metric_duration(period=five, statistic="Maximum")]),
         )
         dash.add_widgets(
-            cw.GraphWidget(title="CloudFront requests / 5xx %", left=[cf_requests], right=[cf_5xx]),
             cw.GraphWidget(title="Worker CPU %", left=[cw.Metric(namespace="AWS/EC2", metric_name="CPUUtilization",
                            dimensions_map={"InstanceId": worker.instance_id}, statistic="Average", period=five)]),
             cw.GraphWidget(title="Ingest DLQ depth", left=[dlq.metric_approximate_number_of_messages_visible(period=five)]),
         )
 
+        if dist is not None:
+            cf_requests = cw.Metric(namespace="AWS/CloudFront", metric_name="Requests", region="us-east-1",
+                                    dimensions_map={"DistributionId": dist.distribution_id, "Region": "Global"},
+                                    statistic="Sum", period=five)
+            cf_5xx = cw.Metric(namespace="AWS/CloudFront", metric_name="5xxErrorRate", region="us-east-1",
+                               dimensions_map={"DistributionId": dist.distribution_id, "Region": "Global"},
+                               statistic="Average", period=five)
+            dash.add_widgets(cw.GraphWidget(title="CloudFront requests / 5xx %", left=[cf_requests], right=[cf_5xx]))
+        else:
+            dash.add_widgets(cw.GraphWidget(title="HTTP API requests / 5xx", left=[cw.Metric(namespace="AWS/ApiGateway", metric_name="Count",
+                dimensions_map={"ApiId": http.api_id}, statistic="Sum", period=five)], right=[cw.Metric(namespace="AWS/ApiGateway", metric_name="5xx",
+                dimensions_map={"ApiId": http.api_id}, statistic="Sum", period=five)]))
+
         # ---------- Outputs ----------
-        CfnOutput(self, "CloudFrontDomain", value=dist.distribution_domain_name)
         CfnOutput(self, "BucketName", value=bucket.bucket_name)
         CfnOutput(self, "ApiFunctionName", value=api.function_name)
         CfnOutput(self, "IngestFunctionName", value=ingest.function_name)

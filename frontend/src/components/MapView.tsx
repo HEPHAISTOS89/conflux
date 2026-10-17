@@ -2,6 +2,9 @@ import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { LayerSpecification, Map as MLMap, StyleSpecification, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+
+maplibregl.setWorkerUrl(workerUrl);
 
 export const LUBBOCK: [number, number] = [-101.855, 33.578];
 
@@ -52,6 +55,8 @@ export default function MapView({ sources, center = LUBBOCK, zoom = 10.3, bounds
   const map = useRef<MLMap | null>(null);
   const ready = useRef(false);
   const cb = useRef({ onClick, onHover });
+  const latest = useRef({ sources, bounds });
+  latest.current = { sources, bounds };
   cb.current = { onClick, onHover };
 
   useEffect(() => {
@@ -63,8 +68,8 @@ export default function MapView({ sources, center = LUBBOCK, zoom = 10.3, bounds
       map.current = m;
       m.on('load', () => {
         ready.current = true;
-        sync(m, sources);
-        if (bounds) m.fitBounds(bounds, { padding: 32, duration: 0 });
+        sync(m, latest.current.sources);
+        if (latest.current.bounds) m.fitBounds(latest.current.bounds, { padding: 32, duration: 0 });
         for (const id of interactiveLayers) {
           m.on('click', id, (e: MapLayerMouseEvent) => e.features?.[0] && cb.current.onClick?.(id, e.features[0]));
           m.on('mousemove', id, (e: MapLayerMouseEvent) => { m.getCanvas().style.cursor = 'pointer'; e.features?.[0] && cb.current.onHover?.(e.features[0]); });

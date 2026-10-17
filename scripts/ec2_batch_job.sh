@@ -16,8 +16,11 @@ W=/opt/roadscope; rm -rf "$W"; mkdir -p "$W" && cd "$W"
 STATUS=failed
 if aws s3 cp "s3://$B/jobs/pipeline.tar.gz" job.tar.gz && tar xzf job.tar.gz; then
   python3.12 -m venv .venv && .venv/bin/pip install -q -r requirements.txt \
-  && .venv/bin/python -m roadscope_pipeline.trajectories --out out/intersections \
-  && aws s3 sync out/intersections "s3://$B/curated/intersections/" && STATUS=succeeded
+  && mkdir -p out && { aws s3 cp "s3://$B/curated/manifest.json" out/manifest.json || true; } \
+  && .venv/bin/python -m roadscope_pipeline.trajectory.build --out out --cache raw/ngsim \
+  && aws s3 sync out/intersections "s3://$B/curated/intersections/" --content-type application/json \
+  && aws s3 cp out/manifest.json "s3://$B/curated/manifest.json" --content-type application/json \
+  && STATUS=succeeded
 fi
 printf '{"run_id":"%s","job":"trajectories","status":"%s","finished_at":"%s"}\n' \
   "$TS" "$STATUS" "$(date -u +%FT%TZ)" > run.json

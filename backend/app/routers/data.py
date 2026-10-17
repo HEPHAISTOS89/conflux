@@ -56,7 +56,7 @@ def corridor(request: Request, corridor_id: str) -> Response:
 @router.get("/vru", response_model=FeatureCollection)
 def vru(
     request: Request,
-    mode: Literal["ped", "bike"] | None = None,
+    mode: Literal["ped", "bike", "scooter"] | None = None,
     severity: str | None = Query(None, pattern=r"^[KABCOkabco](,[KABCOkabco])*$", description="KABCO, comma list"),
     year: int | None = Query(None, ge=2000, le=2100),
 ) -> Response:

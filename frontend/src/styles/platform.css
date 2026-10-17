@@ -1,0 +1,35 @@
+.pf-local { padding: var(--s3) var(--s4); font-size: 14px; max-width: 920px; }
+.pf-fig { padding: var(--s4); overflow-x: auto; }
+.pf-fig svg { display: block; width: 100%; min-width: 720px; height: auto; }
+
+.pf-lane-labels text { font: 600 11px var(--f-ui); fill: var(--ink-3); letter-spacing: 0.04em; }
+.pf-node rect { fill: var(--sheet); stroke: var(--ink); stroke-width: 1; }
+.pf-t { font: 700 14px var(--f-head); fill: var(--ink); }
+.pf-s { font: 400 12px var(--f-ui); fill: var(--ink-3); }
+.pf-rule { stroke: var(--grid); }
+.pf-st { font: 400 11.5px var(--f-ui); fill: var(--ink-2); }
+.pf-st.num { font-family: var(--f-num); }
+.pf-ok { fill: var(--go); }
+.pf-na { fill: none; stroke: var(--ink-3); stroke-width: 1.2; }
+
+.pf-edge { fill: none; stroke: var(--ink-2); stroke-width: 1.4; }
+.pf-edge.mon { stroke: var(--ink-3); stroke-dasharray: 3 4; }
+.pf-dash { fill: none; stroke: var(--caution); stroke-width: 2.2; stroke-dasharray: 10 1000; stroke-dashoffset: 10; opacity: 0; }
+.pf-flow .pf-dash { animation: pf-run 1400ms var(--ease-out) both; }
+@keyframes pf-run {
+  0% { stroke-dashoffset: 10; opacity: 1; }
+  85% { opacity: 1; }
+  100% { stroke-dashoffset: -400; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .pf-flow .pf-dash { animation: none; } }
+
+.pf-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: var(--s6); }
+.pf-scroll { overflow-x: auto; }
+.pf-skel { min-height: 120px; }
+.pf-bad { color: var(--stop); font-weight: 600; }
+
+.pf-guard { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: var(--s4) var(--s6); }
+.pf-guard > div { border-top: 1px solid var(--rule); padding-top: var(--s3); display: grid; gap: 4px; }
+.pf-guard dt { font-weight: 700; font-family: var(--f-head); }
+.pf-guard dd { margin: 0; color: var(--ink-2); font-size: 14px; }
+.pf-guard .chip { margin-right: 6px; }

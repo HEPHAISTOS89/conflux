@@ -44,5 +44,12 @@ def handler(event, ctx):
         for name in CURATED:
             s3.upload_file(str(out / name), bucket, f"curated/{name}",
                            ExtraArgs={"ContentType": TYPES[Path(name).suffix]})
+    secs = round(time.time() - t0, 1)
+    run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    flat = {k: v for k, v in metrics.items() if not isinstance(v, dict)}
+    s3.put_object(Bucket=bucket, Key=f"curated/runs/{run_id}.json", ContentType="application/json",
+                  Body=json.dumps({"run_id": run_id, "job": "ingest", "status": "succeeded",
+                                   "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                   "seconds": secs, **flat}, default=str).encode())
     log("ingest_done", seconds=round(time.time() - t0, 1), **{k: v for k, v in metrics.items() if not isinstance(v, dict)})
     return {"ok": True, **metrics}

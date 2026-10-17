@@ -164,7 +164,7 @@ def test_ask_fallback_screening(client: TestClient, no_bedrock: None) -> None:
     assert "US0062" in d["answer"] and "network.geojson" in d["citations"][0] and "Limitations" in d["answer"]
 
 
-@pytest.mark.parametrize("question,tool", [("How many pedestrian crashes were fatal?", "vru_summary"),
+@pytest.mark.parametrize("question,tool", [("How many pedestrian crashes were fatal?", "vru_count"),
                                            ("Show TTC conflicts at lankershim", "intersection_conflicts"),
                                            ("What are the SPF coefficients?", "get_spf"),
                                            ("Where does the data come from, licence?", "get_manifest"),

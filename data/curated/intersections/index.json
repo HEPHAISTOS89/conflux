@@ -35,17 +35,222 @@
      0.8,
      3.0
     ],
-    "gaps": 49,
-    "gap_frames": 905,
+    "gaps": 54,
+    "gap_frames": 1028,
+    "context_s": 3.0,
+    "selected_method": "kf_ca_path",
+    "params": {
+     "kf_ca": {
+      "q": 100000.0,
+      "r": 0.02
+     },
+     "kf_ca_path": {
+      "qa": 100000.0,
+      "qc": 2310.0,
+      "r": 0.02
+     },
+     "q_status": {
+      "interior": false,
+      "flat_within_1pct_from": 28500.0,
+      "flat_within_1pct_to": 100000.0,
+      "note": "validation RMSE within 1% of optimum over this q range"
+     }
+    },
+    "validation": {
+     "tracks": 60,
+     "gap_frames": 1548,
+     "rmse_m": {
+      "linear": 0.6037213597336172,
+      "kf_ca": 0.19216660597320276,
+      "kf_ca_path": 0.1890158872594065
+     },
+     "speed_rmse": {
+      "linear": 0.5176640753866733,
+      "kf_ca": 0.23149747061533713,
+      "kf_ca_path": 0.2313772969704416
+     },
+     "selected": "kf_ca_path",
+     "q_curve": [
+      [
+       0.1,
+       0.289
+      ],
+      [
+       0.351,
+       0.2853
+      ],
+      [
+       1.23,
+       0.2759
+      ],
+      [
+       4.33,
+       0.2571
+      ],
+      [
+       15.2,
+       0.2424
+      ],
+      [
+       53.4,
+       0.2322
+      ],
+      [
+       187.0,
+       0.2231
+      ],
+      [
+       658.0,
+       0.2141
+      ],
+      [
+       2310.0,
+       0.205
+      ],
+      [
+       8110.0,
+       0.1978
+      ],
+      [
+       28500.0,
+       0.1937
+      ],
+      [
+       100000.0,
+       0.1922
+      ]
+     ],
+     "q_curve_r": 0.02,
+     "grid": {
+      "q": [
+       0.1,
+       0.351,
+       1.23,
+       4.33,
+       15.2,
+       53.4,
+       187.0,
+       658.0,
+       2310.0,
+       8110.0,
+       28500.0,
+       100000.0
+      ],
+      "r": [
+       0.02,
+       0.05,
+       0.1,
+       0.2
+      ]
+     }
+    },
+    "methods": {
+     "linear": {
+      "gaps": 54,
+      "gap_frames": 1028,
+      "rmse_m": 0.408,
+      "speed_rmse": 0.443
+     },
+     "kf_ca": {
+      "gaps": 54,
+      "gap_frames": 1028,
+      "rmse_m": 0.079,
+      "speed_rmse": 0.11
+     },
+     "kf_ca_path": {
+      "gaps": 54,
+      "gap_frames": 1028,
+      "rmse_m": 0.078,
+      "speed_rmse": 0.111
+     }
+    },
+    "by_gap": [
+     {
+      "gap_s": [
+       0.8,
+       1.5
+      ],
+      "linear": {
+       "gaps": 19,
+       "gap_frames": 218,
+       "rmse_m": 0.19,
+       "speed_rmse": 0.209
+      },
+      "kf_ca": {
+       "gaps": 19,
+       "gap_frames": 218,
+       "rmse_m": 0.029,
+       "speed_rmse": 0.11
+      },
+      "kf_ca_path": {
+       "gaps": 19,
+       "gap_frames": 218,
+       "rmse_m": 0.029,
+       "speed_rmse": 0.11
+      }
+     },
+     {
+      "gap_s": [
+       1.5,
+       2.2
+      ],
+      "linear": {
+       "gaps": 15,
+       "gap_frames": 277,
+       "rmse_m": 0.286,
+       "speed_rmse": 0.424
+      },
+      "kf_ca": {
+       "gaps": 15,
+       "gap_frames": 277,
+       "rmse_m": 0.077,
+       "speed_rmse": 0.125
+      },
+      "kf_ca_path": {
+       "gaps": 15,
+       "gap_frames": 277,
+       "rmse_m": 0.076,
+       "speed_rmse": 0.125
+      }
+     },
+     {
+      "gap_s": [
+       2.2,
+       3.0
+      ],
+      "linear": {
+       "gaps": 20,
+       "gap_frames": 533,
+       "rmse_m": 0.514,
+       "speed_rmse": 0.516
+      },
+      "kf_ca": {
+       "gaps": 20,
+       "gap_frames": 533,
+       "rmse_m": 0.093,
+       "speed_rmse": 0.103
+      },
+      "kf_ca_path": {
+       "gaps": 20,
+       "gap_frames": 533,
+       "rmse_m": 0.092,
+       "speed_rmse": 0.103
+      }
+     }
+    ],
+    "better_than_linear_share": {
+     "kf_ca": 0.639,
+     "kf_ca_path": 0.611
+    },
+    "truth": "Savitzky-Golay-smoothed NGSIM track (held out inside gaps)",
     "kalman_rts": {
-     "rmse_m": 0.305,
-     "speed_rmse": 0.307
+     "rmse_m": 0.079,
+     "speed_rmse": 0.11
     },
     "linear": {
-     "rmse_m": 0.534,
-     "speed_rmse": 0.599
-    },
-    "kf_better_pos_share": 0.528
+     "rmse_m": 0.408,
+     "speed_rmse": 0.443
+    }
    }
   }
  },
@@ -87,17 +292,222 @@
      0.8,
      3.0
     ],
-    "gaps": 27,
-    "gap_frames": 518,
+    "gaps": 26,
+    "gap_frames": 498,
+    "context_s": 3.0,
+    "selected_method": "kf_ca_path",
+    "params": {
+     "kf_ca": {
+      "q": 8110.0,
+      "r": 0.05
+     },
+     "kf_ca_path": {
+      "qa": 8110.0,
+      "qc": 100000.0,
+      "r": 0.05
+     },
+     "q_status": {
+      "interior": true,
+      "flat_within_1pct_from": 8110.0,
+      "flat_within_1pct_to": 8110.0,
+      "note": "validation RMSE within 1% of optimum over this q range"
+     }
+    },
+    "validation": {
+     "tracks": 60,
+     "gap_frames": 1568,
+     "rmse_m": {
+      "linear": 0.5184031736647703,
+      "kf_ca": 0.5082549234473718,
+      "kf_ca_path": 0.5072097094499961
+     },
+     "speed_rmse": {
+      "linear": 0.8587284932674998,
+      "kf_ca": 0.970999810855351,
+      "kf_ca_path": 0.9725621278874798
+     },
+     "selected": "kf_ca_path",
+     "q_curve": [
+      [
+       0.1,
+       0.7129
+      ],
+      [
+       0.351,
+       0.7514
+      ],
+      [
+       1.23,
+       0.6505
+      ],
+      [
+       4.33,
+       0.6971
+      ],
+      [
+       15.2,
+       0.774
+      ],
+      [
+       53.4,
+       0.7698
+      ],
+      [
+       187.0,
+       0.6956
+      ],
+      [
+       658.0,
+       0.5621
+      ],
+      [
+       2310.0,
+       0.5322
+      ],
+      [
+       8110.0,
+       0.5083
+      ],
+      [
+       28500.0,
+       0.5986
+      ],
+      [
+       100000.0,
+       0.8835
+      ]
+     ],
+     "q_curve_r": 0.05,
+     "grid": {
+      "q": [
+       0.1,
+       0.351,
+       1.23,
+       4.33,
+       15.2,
+       53.4,
+       187.0,
+       658.0,
+       2310.0,
+       8110.0,
+       28500.0,
+       100000.0
+      ],
+      "r": [
+       0.02,
+       0.05,
+       0.1,
+       0.2
+      ]
+     }
+    },
+    "methods": {
+     "linear": {
+      "gaps": 26,
+      "gap_frames": 498,
+      "rmse_m": 0.475,
+      "speed_rmse": 0.609
+     },
+     "kf_ca": {
+      "gaps": 26,
+      "gap_frames": 498,
+      "rmse_m": 0.255,
+      "speed_rmse": 0.28
+     },
+     "kf_ca_path": {
+      "gaps": 26,
+      "gap_frames": 498,
+      "rmse_m": 0.255,
+      "speed_rmse": 0.28
+     }
+    },
+    "by_gap": [
+     {
+      "gap_s": [
+       0.8,
+       1.5
+      ],
+      "linear": {
+       "gaps": 8,
+       "gap_frames": 95,
+       "rmse_m": 0.443,
+       "speed_rmse": 0.634
+      },
+      "kf_ca": {
+       "gaps": 8,
+       "gap_frames": 95,
+       "rmse_m": 0.086,
+       "speed_rmse": 0.226
+      },
+      "kf_ca_path": {
+       "gaps": 8,
+       "gap_frames": 95,
+       "rmse_m": 0.084,
+       "speed_rmse": 0.226
+      }
+     },
+     {
+      "gap_s": [
+       1.5,
+       2.2
+      ],
+      "linear": {
+       "gaps": 8,
+       "gap_frames": 150,
+       "rmse_m": 0.546,
+       "speed_rmse": 0.74
+      },
+      "kf_ca": {
+       "gaps": 8,
+       "gap_frames": 150,
+       "rmse_m": 0.082,
+       "speed_rmse": 0.091
+      },
+      "kf_ca_path": {
+       "gaps": 8,
+       "gap_frames": 150,
+       "rmse_m": 0.08,
+       "speed_rmse": 0.09
+      }
+     },
+     {
+      "gap_s": [
+       2.2,
+       3.0
+      ],
+      "linear": {
+       "gaps": 10,
+       "gap_frames": 253,
+       "rmse_m": 0.439,
+       "speed_rmse": 0.503
+      },
+      "kf_ca": {
+       "gaps": 10,
+       "gap_frames": 253,
+       "rmse_m": 0.348,
+       "speed_rmse": 0.36
+      },
+      "kf_ca_path": {
+       "gaps": 10,
+       "gap_frames": 253,
+       "rmse_m": 0.349,
+       "speed_rmse": 0.36
+      }
+     }
+    ],
+    "better_than_linear_share": {
+     "kf_ca": 0.5,
+     "kf_ca_path": 0.5
+    },
+    "truth": "Savitzky-Golay-smoothed NGSIM track (held out inside gaps)",
     "kalman_rts": {
-     "rmse_m": 0.822,
-     "speed_rmse": 0.449
+     "rmse_m": 0.255,
+     "speed_rmse": 0.28
     },
     "linear": {
-     "rmse_m": 0.652,
-     "speed_rmse": 0.588
-    },
-    "kf_better_pos_share": 0.35
+     "rmse_m": 0.475,
+     "speed_rmse": 0.609
+    }
    }
   }
  }
