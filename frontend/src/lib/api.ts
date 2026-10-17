@@ -4,10 +4,19 @@ export const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined
 
 const cache = new Map<string, Promise<unknown>>();
 
+/** Cold starts and the account's Lambda concurrency cap surface as brief 429/5xx bursts; retry them twice. */
+async function fetchRetry(url: string, tries = 3): Promise<Response> {
+  for (let k = 0; ; k++) {
+    const r = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (k >= tries - 1 || ![429, 502, 503, 504].includes(r.status)) return r;
+    await new Promise((res) => setTimeout(res, 400 * 2 ** k + Math.random() * 200));
+  }
+}
+
 export async function getJSON<T>(path: string): Promise<T> {
   const url = `${API_BASE}/api/v1${path}`;
   if (!cache.has(url)) {
-    const p = fetch(url, { headers: { Accept: 'application/json' } }).then(async (r) => {
+    const p = fetchRetry(url).then(async (r) => {
       if (!r.ok) {
         const body = await r.text().catch(() => '');
         throw new Error(`${r.status} ${r.statusText} — ${path}${body ? `: ${body.slice(0, 160)}` : ''}`);
