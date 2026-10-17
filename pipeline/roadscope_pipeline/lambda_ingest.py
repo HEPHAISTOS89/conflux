@@ -52,7 +52,7 @@ def handler(event, ctx):
         run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
         s3.put_object(Bucket=bucket, Key=f"curated/runs/{run_id}.json", ContentType="application/json",
                       Body=json.dumps({"run_id": run_id, "job": "ingest", "status": "failed",
-                                       "error": type(e).__name__, "message": str(e)[:500],
+                                       "error": type(e).__name__,
                                        "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                                        "seconds": round(time.time() - t0, 1)}).encode())
         log("ingest_failed", error=type(e).__name__, message=str(e)[:500])
