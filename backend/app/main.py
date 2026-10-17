@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 from math import sin
 from typing import Literal
 from fastapi import FastAPI, HTTPException, Query
@@ -6,7 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="RoadScope AI API", version="0.1.0", description="Evidence-first road safety intelligence demo API")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "*").split(",") if origin.strip()]
+if os.getenv("CORS_MODE") != "lambda":
+    app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_methods=["*"], allow_headers=["*"])
 
 class Point(BaseModel):
     t: float = Field(ge=0)
