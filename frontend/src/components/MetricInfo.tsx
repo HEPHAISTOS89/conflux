@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import React, { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
 import { useFloatFit } from './useFloatFit';
 
@@ -30,6 +30,11 @@ export interface MetricSpec {
 /** "i" button next to a metric that opens its methodology: formula, threshold, unit, provenance, source, citation. */
 export default function MetricInfo({ spec, align = 'left' }: { spec: MetricSpec; align?: 'left' | 'right' }) {
   const [open, setOpen] = useState(false);
+  const pinned = useRef(false);
+  const hide = useRef(0);
+  // Hover (mouse) previews the panel; a click pins it open until a click outside or Esc.
+  const enter = (e: React.PointerEvent) => { if (e.pointerType !== 'mouse') return; window.clearTimeout(hide.current); setOpen(true); };
+  const leave = (e: React.PointerEvent) => { if (e.pointerType !== 'mouse' || pinned.current) return; hide.current = window.setTimeout(() => setOpen(false), 160); };
   const id = useId();
   const box = useRef<HTMLSpanElement>(null);
   const pop = useRef<HTMLSpanElement>(null);
@@ -37,15 +42,15 @@ export default function MetricInfo({ spec, align = 'left' }: { spec: MetricSpec;
   useFloatFit(pop, open);
   useEffect(() => {
     if (!open) return;
-    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); btn.current?.focus(); } };
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) { pinned.current = false; setOpen(false); } };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { pinned.current = false; setOpen(false); btn.current?.focus(); } };
     document.addEventListener('pointerdown', away);
     document.addEventListener('keydown', esc);
     return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
   }, [open]);
   return (
-    <span className="mi" ref={box}>
-      <button ref={btn} type="button" className="mi-btn" aria-expanded={open} aria-controls={id} aria-label={`How ${spec.name} is computed`} onClick={() => setOpen((o) => !o)}>
+    <span className="mi" ref={box} onPointerEnter={enter} onPointerLeave={leave}>
+      <button ref={btn} type="button" className="mi-btn" aria-expanded={open} aria-controls={id} aria-label={`How ${spec.name} is computed`} onClick={() => { if (open && pinned.current) { pinned.current = false; setOpen(false); } else { pinned.current = true; setOpen(true); } }}>
         <Icon name="info" size={16} />
       </button>
       {open && (
