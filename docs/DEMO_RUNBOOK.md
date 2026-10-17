@@ -26,7 +26,7 @@ Terminal C, smoke checks:
 ./scripts/smoke_web.sh http://127.0.0.1:5173
 ```
 
-Open the frontend and use the replay controls, vehicle selection, risk filter, pause/play, and reset. With no `VITE_API_BASE_URL`, the UI uses the deterministic fixture and remains demonstrable offline.
+Open the frontend and use the replay controls, vehicle selection, risk filter, pause/play, and reset. By default the UI calls the public demo API and falls back to the deterministic fixture if that request fails. Set `VITE_API_BASE_URL=http://127.0.0.1:8000` to exercise the local API explicitly.
 
 ## 2. API connection behavior
 
@@ -37,12 +37,12 @@ Set `VITE_API_BASE_URL` only to an HTTPS API origin that exposes the documented 
 Current static production demo: https://roadscope-ai-demo.vercel.app
 
 This URL was verified with an HTTP 200 response on 2026-10-17. It is connected to the AWS Lambda API below and keeps a fixture fallback for resilience.
-The current deployment was uploaded directly because the Vercel account does not yet have the GitHub integration installed; automatic deploys from `main` still require that one-time account connection.
+The current deployment was uploaded directly. GitHub Actions are intentionally disabled to avoid hosted-runner consumption; verification and deployment are performed explicitly.
 
 1. Import `HEPHAISTOS89/roadscope-ai`.
 2. Keep the repository root and use the committed `vercel.json` (`frontend/` root, `dist` output).
-3. Deploy a preview with `VITE_API_BASE_URL` unset first; confirm the visual demo.
-4. After an HTTPS API exists, set `VITE_API_BASE_URL` in preview only and verify the browser network requests and `/health` response.
+3. Deploy a preview and confirm the visual demo.
+4. If testing another API environment, set `VITE_API_BASE_URL` in preview and verify the browser network requests and `/health` response.
 5. Promote to production only after the preview smoke path is clean.
 
 Example after deployment:

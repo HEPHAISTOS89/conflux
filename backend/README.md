@@ -15,3 +15,5 @@ The bundled `ngsim-i80-demo` scenario is a deterministic **synthetic fixture ins
 - `GET /api/v1/scenarios/{id}` — full vehicles and trajectories.
 - `GET /api/v1/scenarios/{id}/summary` — aggregate risk and quality metrics.
 - `GET /api/v1/scenarios/{id}/events?severity=...` — filtered risk events.
+- `GET /api/v1/scenarios/{id}/vehicles?stride=1..10` — trajectory payload with optional sampling.
+- `GET /api/v1/scenarios/{id}/frame?t=...` — synchronized vehicle positions and active events.
