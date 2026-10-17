@@ -1,10 +1,10 @@
 # RoadScope AI
 
-RoadScope AI is an evidence-first road-safety intelligence prototype: synchronized trajectory analytics, risk-event detection, and a clean 2D trajectory replay workspace.
+RoadScope AI is an evidence-first road-safety intelligence prototype: synchronized trajectory analytics, risk-event detection, and clean 2D/3D trajectory replay.
 
 ## Prototype scope
 
-- **Web:** React + Vite with an interactive replay surface, dashboard, playback, filters, and responsive macOS-inspired visual system.
+- **Web:** React + Vite with synchronized 2D and genuine Three.js 3D replay, dashboard, playback, filters, selection, and a responsive Airbnb/Vercel-inspired visual system.
 - **API:** FastAPI + Pydantic with deterministic demo trajectories, risk events, summaries, and health checks.
 - **Data contract:** provenance-labelled synthetic fixture; observed and simulated values are kept explicit.
 - **Deployment-ready:** Vercel configuration, Docker API image, AWS target architecture, local verification commands, and environment template.

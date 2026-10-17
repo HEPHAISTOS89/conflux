@@ -18,7 +18,7 @@ backend/.venv313/bin/python -m pytest -q
 ## Vercel
 
 The repository root contains `vercel.json`, which points Vercel at `frontend/` and publishes `dist/`.
-Set `VITE_API_BASE_URL` to the HTTPS ALB/API origin after the API is deployed. The frontend has a local deterministic fixture fallback, so a missing variable does not block the visual demo.
+The committed demo defaults to its public Lambda API. Override `VITE_API_BASE_URL` for another HTTPS API origin. The frontend retains a deterministic fixture fallback when the selected API cannot be reached.
 
 Recommended sequence:
 

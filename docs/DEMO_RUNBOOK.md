@@ -26,7 +26,7 @@ Terminal C, smoke checks:
 ./scripts/smoke_web.sh http://127.0.0.1:5173
 ```
 
-Open the frontend and use the replay controls, vehicle selection, risk filter, pause/play, and reset. By default the UI calls the public demo API and falls back to the deterministic fixture if that request fails. Set `VITE_API_BASE_URL=http://127.0.0.1:8000` to exercise the local API explicitly.
+Open the frontend and use the synchronized 2D/3D toggle, replay controls, vehicle selection, risk filter, pause/play, and reset. The 3D mode uses Three.js/WebGL; 2D remains the accessible low-cost alternative. By default the UI calls the public demo API and falls back to the deterministic fixture if that request fails. Set `VITE_API_BASE_URL=http://127.0.0.1:8000` to exercise the local API explicitly.
 
 ## 2. API connection behavior
 
