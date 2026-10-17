@@ -1,9 +1,100 @@
-import React,{useEffect,useMemo,useState} from 'react';
-import{createRoot}from'react-dom/client';
-import{Activity,Car,ChevronDown,Clock3,Layers3,Map,Play,Pause,RotateCcw,Search,ShieldCheck,SlidersHorizontal,TriangleAlert,Wifi}from'lucide-react';
-import'./styles.css';
-const fallbackEvents=[{t:'08:42:16.8',title:'Hard braking',detail:'Vehicle 142 · TTC 1.3 s',level:'high',x:42,y:55},{t:'08:42:21.4',title:'Lane departure',detail:'Vehicle 088 · eastbound',level:'medium',x:62,y:40},{t:'08:42:28.1',title:'Near miss',detail:'Vehicles 142 / 203 · TTC 0.8 s',level:'critical',x:72,y:66}];
-const fallbackVehicles=[{id:142,x:32,y:56,c:'#ff6b4a',angle:0},{id:88,x:53,y:40,c:'#56a8ff',angle:0},{id:203,x:73,y:64,c:'#a78bfa',angle:180},{id:67,x:84,y:49,c:'#40d6a2',angle:180}];
-function RoadScene({playing,setPlaying,selected,setSelected,vehicles,events,filter}){const visibleVehicles=filter==='Risk events only'?vehicles.filter(v=>events.some(e=>e.detail.includes(String(v.id)))):filter==='Selected vehicle'?vehicles.filter(v=>v.id===selected):vehicles;return <div className="scene"><div className="scene-top"><span className="live"><span/>LIVE REPLAY</span><span className="scene-meta">NGSIM · US-101 · 08:42:00–08:43:00</span><button className="ghost" aria-label="Toggle map layers"><Layers3 size={15}/> Layers <ChevronDown size={14}/></button></div><div className="road"><div className="road-grid"/><div className="lane l1"/><div className="lane l2"/><div className="lane l3"/><div className="lane l4"/>{visibleVehicles.map(v=><button aria-label={`Select vehicle ${v.id}`} key={v.id} onClick={()=>setSelected(v.id)} className={'vehicle '+(selected===v.id?'selected':'')} style={{left:v.x+'%',top:v.y+'%',transform:`rotate(${v.angle}deg)`}}><span className="car-shape" style={{background:v.c}}/><b>{v.id}</b></button>)}{filter!=='Selected vehicle'&&events.map((e,i)=><div aria-label={`${e.title} risk event`} key={i} className={'event-dot '+e.level} style={{left:e.x+'%',top:e.y+'%'}}/>)}<div className="north">N</div><div className="scene-label">3D TRAJECTORY VIEW <small>tilt 24°</small></div></div><div className="timeline"><button className="play" aria-label={playing?'Pause replay':'Play replay'} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={17} fill="currentColor"/>:<Play size={17} fill="currentColor"/>}</button><div className="track"><div className="track-fill"/><div className="scrubber"/></div><span className="time">08:42:24.6 <em>/ 01:00</em></span><button className="reset" aria-label="Reset replay" onClick={()=>setPlaying(false)}><RotateCcw size={15}/></button></div></div>}
-function App(){const[playing,setPlaying]=useState(true),[selected,setSelected]=useState(142),[range,setRange]=useState('All vehicles'),[activeNav,setActiveNav]=useState('Overview'),[apiState,setApiState]=useState('Fixture');const[events,setEvents]=useState(fallbackEvents),[vehicles]=useState(fallbackVehicles);useEffect(()=>{const base=import.meta.env.VITE_API_BASE_URL;if(!base)return;fetch(`${base}/health`).then(r=>r.ok&&setApiState('API connected')).catch(()=>setApiState('Fixture'));},[]);const active=vehicles.find(v=>v.id===selected);const nav=[['Overview',Activity],['Trajectories',Map],['Risk events',TriangleAlert],['Fleet explorer',Car]];return <main><aside><div className="brand"><div className="brand-mark">R</div><div><strong>RoadScope</strong><small>AI SAFETY INTELLIGENCE</small></div></div><nav>{nav.map(([label,Icon])=><button key={label} onClick={()=>setActiveNav(label)} className={activeNav===label?'active':''}><Icon size={18}/> {label}{label==='Risk events'&&<span className="badge">{events.length}</span>}</button>)}</nav><div className="side-bottom"><div className="status"><Wifi size={15}/><span><b>Pipeline healthy</b><small>{apiState} · synced now</small></span><i/></div><div className="user"><div className="avatar">SH</div><span><b>Safety Lab</b><small>Research workspace</small></span><ChevronDown size={15}/></div></div></aside><section className="content"><header><div><p className="eyebrow">SAFETY INTELLIGENCE / {activeNav.toUpperCase()}</p><h1>Intersection replay</h1></div><div className="header-actions"><button className="icon-btn" aria-label="Search"><Search size={18}/></button><button className="date"><Clock3 size={16}/> Oct 17, 2026 <ChevronDown size={14}/></button><button className="avatar top" aria-label="Open profile">SH</button></div></header><div className="metrics"><Metric icon={<TriangleAlert/>} label="Risk events" value={String(events.length).padStart(2,'0')} delta="2 critical" tone="coral"/><Metric icon={<ShieldCheck/>} label="Safe interactions" value="98.4%" delta="+1.2% vs baseline" tone="green"/><Metric icon={<Activity/>} label="Vehicles tracked" value="247" delta="12 active now" tone="blue"/><Metric icon={<Clock3/>} label="Replay window" value="60s" delta="08:42:00–08:43:00" tone="purple"/></div><div className="workspace"><div className="panel main-panel"><div className="panel-head"><div><h2>Trajectory canvas</h2><p>Interactive spatial replay · 60 second window</p></div><div className="filter"><SlidersHorizontal size={15}/><select aria-label="Vehicle filter" value={range} onChange={e=>setRange(e.target.value)}><option>All vehicles</option><option>Risk events only</option><option>Selected vehicle</option></select></div></div><RoadScene playing={playing} setPlaying={setPlaying} selected={selected} setSelected={setSelected} vehicles={vehicles} events={events} filter={range}/><div className="play-controls"><button className="play-main" onClick={()=>setPlaying(!playing)}>{playing?<Pause size={16} fill="currentColor"/>:<Play size={16} fill="currentColor"/>}{playing?'Pause replay':'Play replay'}</button><span className="hint">Click a vehicle to inspect its path</span><div className="legend"><span><i className="dot coral"/>Risk event</span><span><i className="dot blue"/>Vehicle path</span></div></div></div><div className="panel detail-panel"><div className="panel-head"><div><h2>Risk pulse</h2><p>Events ranked by severity</p></div><button className="more" aria-label="More event actions">•••</button></div><div className="pulse"><div className="pulse-ring"><span>{String(events.length).padStart(2,'0')}</span><small>events</small></div><div><b>Low exposure</b><p>Down 18% from<br/>previous replay</p></div></div><div className="events">{events.map(e=><div className="event" key={e.t}><div className={'event-icon '+e.level}><TriangleAlert size={15}/></div><div><b>{e.title}</b><p>{e.detail}</p></div><time>{e.t.slice(3)}</time></div>)}</div><button className="outline-btn" onClick={()=>setActiveNav('Risk events')}>View event report <span>↗</span></button></div></div><div className="bottom-row"><div className="panel insight"><div className="insight-icon">✦</div><div><b>Model insight</b><p>Vehicle 142 enters a high-risk zone 2.4s before the near miss. Consider extending the eastbound yield window.</p></div><span className="confidence">92% confidence</span></div><div className="panel selected-card"><div className="selected-head"><span className="mini-car" style={{background:active?.c}}/><div><b>Vehicle {selected}</b><small>Passenger · eastbound</small></div><span className="tag">TRACKING</span></div><div className="selected-stats"><span>Speed <b>38 km/h</b></span><span>TTC <b className="warning">1.3 s</b></span><span>Lane <b>02 / 04</b></span></div></div></div></section></main>}
-function Metric({icon,label,value,delta,tone}){return <div className="metric"><div className={'metric-icon '+tone}>{icon}</div><div><p>{label}</p><strong>{value}</strong><small>{delta}</small></div></div>}createRoot(document.getElementById('root')).render(<App/>);
+import React, { useEffect, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import './styles.css';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const FALLBACK = {
+  id: 'ngsim-i80-demo', name: 'I-80 merge · evidence replay', location: 'Emeryville, CA',
+  duration_s: 8.9, sample_rate_hz: 10, provenance: 'Synthetic demonstration fixture inspired by FHWA NGSIM.',
+  vehicles: [
+    { id:'V-01', type:'car', lane:1, color:'#1f6feb', trajectory:Array.from({length:90},(_,i)=>({t:i/10,x:38+i*.55,y:.2,speed:30,heading:0})) },
+    { id:'V-02', type:'car', lane:2, color:'#e5484d', trajectory:Array.from({length:90},(_,i)=>({t:i/10,x:17+i*.62,y:3.7,speed:i>48&&i<62?20:32,heading:0})) },
+    { id:'V-03', type:'car', lane:3, color:'#147d64', trajectory:Array.from({length:90},(_,i)=>({t:i/10,x:57+i*.5,y:7.1,speed:28,heading:0})) },
+    { id:'V-04', type:'truck', lane:1, color:'#7c66dc', trajectory:Array.from({length:90},(_,i)=>({t:i/10,x:5+i*.45,y:.1,speed:25,heading:0})) },
+    { id:'V-05', type:'car', lane:2, color:'#d97706', trajectory:Array.from({length:90},(_,i)=>({t:i/10,x:72+i*.5,y:3.8,speed:29,heading:0})) }
+  ],
+  events: [
+    {id:'E-001',severity:'high',kind:'hard_brake',t:5.4,vehicle_ids:['V-02','V-03'],score:.86,description:'Abrupt deceleration with short following gap'},
+    {id:'E-002',severity:'medium',kind:'lane_change',t:6.8,vehicle_ids:['V-04'],score:.54,description:'Unsignalled lane transition'},
+    {id:'E-003',severity:'critical',kind:'near_miss',t:7.9,vehicle_ids:['V-02','V-05'],score:.94,description:'Predicted time-to-collision below threshold'}
+  ]
+};
+const FALLBACK_SUMMARY={vehicle_count:5,event_count:3,risk_index:.71,avg_speed_mph:27.2,max_speed_mph:32,high_risk_events:2,data_quality:.98};
+const severityLabel={critical:'Critical',high:'High',medium:'Review',low:'Low'};
+const kindLabel={hard_brake:'Hard braking',lane_change:'Lane transition',near_miss:'Near miss',speeding:'Speeding'};
+
+function useScenario(){
+  const [scenario,setScenario]=useState(FALLBACK), [summary,setSummary]=useState(FALLBACK_SUMMARY);
+  const [source,setSource]=useState(API_BASE?'Connecting':'Local fixture');
+  useEffect(()=>{ if(!API_BASE)return; let alive=true; Promise.all([
+    fetch(`${API_BASE}/api/v1/scenarios/ngsim-i80-demo`).then(r=>{if(!r.ok)throw Error();return r.json()}),
+    fetch(`${API_BASE}/api/v1/scenarios/ngsim-i80-demo/summary`).then(r=>{if(!r.ok)throw Error();return r.json()}),
+    fetch(`${API_BASE}/api/v1/scenarios/ngsim-i80-demo/events`).then(r=>{if(!r.ok)throw Error();return r.json()}),
+    fetch(`${API_BASE}/api/v1/scenarios/ngsim-i80-demo/vehicles?stride=1`).then(r=>{if(!r.ok)throw Error();return r.json()})
+  ]).then(([s,m,events,vehicles])=>{if(alive){setScenario({...s,events,vehicles});setSummary(m);setSource('AWS live')}}).catch(()=>alive&&setSource('Local fallback')); return()=>{alive=false}; },[]);
+  return {scenario,summary,source};
+}
+function normalizedPoint(vehicle,time,all){const pts=vehicle.trajectory||[]; if(!pts.length)return{x:50,y:50,speed:0}; const p=pts.reduce((best,x)=>Math.abs(x.t-time)<Math.abs(best.t-time)?x:best,pts[0]); const xs=all.flatMap(v=>(v.trajectory||[]).map(q=>q.x)); const ys=all.flatMap(v=>(v.trajectory||[]).map(q=>q.y)); const [minX,maxX]=[Math.min(...xs),Math.max(...xs)]; const [minY,maxY]=[Math.min(...ys),Math.max(...ys)]; return {...p,x:7+86*(p.x-minX)/Math.max(1,maxX-minX),y:20+58*(p.y-minY)/Math.max(1,maxY-minY)};}
+
+function App(){
+  const {scenario,summary,source}=useScenario();
+  const [selected,setSelected]=useState('V-02'),[playing,setPlaying]=useState(true),[time,setTime]=useState(4.2),[filter,setFilter]=useState('all'),[tab,setTab]=useState('Replay');
+  useEffect(()=>{if(!playing)return;const id=setInterval(()=>setTime(v=>v>=scenario.duration_s?0:+(v+.1).toFixed(1)),100);return()=>clearInterval(id)},[playing,scenario.duration_s]);
+  useEffect(()=>{if(!scenario.vehicles.some(v=>v.id===selected))setSelected(scenario.vehicles[0]?.id)},[scenario]);
+  const active=scenario.vehicles.find(v=>v.id===selected)||scenario.vehicles[0];
+  const visible=filter==='risk'?scenario.vehicles.filter(v=>scenario.events.some(e=>e.vehicle_ids.includes(v.id))):filter==='selected'?scenario.vehicles.filter(v=>v.id===selected):scenario.vehicles;
+  const pos=active?normalizedPoint(active,time,scenario.vehicles):{speed:0};
+  const firstCritical=scenario.events.find(event=>event.severity==='critical')||scenario.events[0];
+  return <div className="app-shell">
+    <header className="topbar">
+      <a className="brand" href="#" aria-label="RoadScope home"><span className="brand-symbol">R</span><span>RoadScope</span></a>
+      <nav aria-label="Primary navigation">{[['Replay','replay'],['Events','events'],['Vehicles','vehicle'],['Evidence','evidence']].map(([item,target])=><button key={item} className={tab===item?'active':''} onClick={()=>{setTab(item);document.getElementById(target)?.scrollIntoView({behavior:'smooth',block:'start'})}}>{item}</button>)}</nav>
+      <div className="top-actions"><span className={`connection ${source==='AWS live'?'live':''}`}><i/>{source}</span><span className="avatar" aria-label="Safety Lab workspace">SL</span></div>
+    </header>
+    <main className="page">
+      <section className="page-heading">
+        <div><p className="kicker">Road safety intelligence</p><h1>{tab==='Replay'?'Trajectory replay':tab}</h1><p className="lede">Inspect vehicle movement, conflict timing and model evidence in one shared view.</p></div>
+        <div className="scenario-select"><span>Scenario</span><strong>{scenario.name}</strong><small>{scenario.location} · {scenario.duration_s}s</small></div>
+      </section>
+      <section className="stats" aria-label="Scenario summary">
+        <Metric label="Risk index" value={summary.risk_index?.toFixed(2)} note="Model score / 1.00" emphasis/>
+        <Metric label="Tracked vehicles" value={summary.vehicle_count} note={`${scenario.sample_rate_hz} Hz trajectories`}/>
+        <Metric label="High-risk events" value={summary.high_risk_events} note={`${summary.event_count} events total`}/>
+        <Metric label="Data quality" value={`${Math.round(summary.data_quality*100)}%`} note="Validated points"/>
+      </section>
+      <section className="workbench">
+        <div className="canvas-panel" id="replay">
+          <div className="section-head"><div><p className="section-label">Spatial replay</p><h2>{scenario.location}</h2></div><div className="segmented" aria-label="Vehicle display filter">{[['all','All'],['risk','At risk'],['selected','Selected']].map(([v,l])=><button key={v} onClick={()=>setFilter(v)} className={filter===v?'active':''}>{l}</button>)}</div></div>
+          <div className="road-view" aria-label="Top-down trajectory visualization">
+            <div className="road-meta"><span>Westbound</span><span>Observed layout · synthetic motion</span><span>Eastbound</span></div>
+            <div className="lane-line one"/><div className="lane-line two"/><div className="lane-line three"/>
+            {visible.map(v=>{const p=normalizedPoint(v,time,scenario.vehicles);return <button key={v.id} className={`vehicle ${selected===v.id?'selected':''}`} style={{left:`${p.x}%`,top:`${p.y}%`}} onClick={()=>setSelected(v.id)} aria-label={`Inspect ${v.id}`}><span className="vehicle-body" style={{borderColor:v.color}}/><span className="vehicle-id">{v.id}</span></button>})}
+            {scenario.events.filter(e=>Math.abs(e.t-time)<.8).map(e=>{const v=scenario.vehicles.find(x=>x.id===e.vehicle_ids[0]);const p=v?normalizedPoint(v,e.t,scenario.vehicles):{x:50,y:50};return <span key={e.id} className={`risk-marker ${e.severity}`} style={{left:`${p.x}%`,top:`${p.y}%`}} aria-label={`${severityLabel[e.severity]} event`}/>} )}
+            <div className="scale">20 m</div>
+          </div>
+          <div className="transport">
+            <button className="play-button" onClick={()=>setPlaying(!playing)} aria-label={playing?'Pause replay':'Play replay'}>{playing?'Ⅱ':'▶'}</button>
+            <span className="timecode">{time.toFixed(1)}s</span>
+            <input type="range" min="0" max={scenario.duration_s} step="0.1" value={time} aria-label="Replay time" onChange={e=>{setPlaying(false);setTime(+e.target.value)}}/>
+            <span className="duration">{scenario.duration_s}s</span>
+            <button className="text-button" onClick={()=>{setPlaying(false);setTime(0)}}>Reset</button>
+          </div>
+        </div>
+        <aside className="analysis-panel" id="vehicle">
+          <div className="analysis-head"><div><p className="section-label">Selected vehicle</p><h2>{active?.id||'—'}</h2></div><span className="vehicle-type">{active?.type}</span></div>
+          <div className="vehicle-data"><Data label="Speed" value={`${pos.speed?.toFixed(1)||'—'} mph`}/><Data label="Lane" value={`0${active?.lane||'—'}`}/><Data label="Position" value={`${pos.x?.toFixed(0)||'—'} / ${pos.y?.toFixed(0)||'—'}`}/></div>
+          <div className="micro-chart"><div className="chart-title"><span>Speed profile</span><strong>{summary.avg_speed_mph} mph avg.</strong></div><svg viewBox="0 0 320 90" role="img" aria-label="Selected vehicle speed over time"><polyline points={(active?.trajectory||[]).filter((_,i)=>i%5===0).map((p,i)=>`${i*18},${78-Math.min(60,p.speed*1.5)}`).join(' ')} fill="none" stroke="#222" strokeWidth="2"/><line x1="0" y1="72" x2="320" y2="72" stroke="#ddd"/></svg></div>
+          <p className="evidence-note"><strong>Evidence boundary.</strong> This demonstration uses a deterministic synthetic fixture inspired by NGSIM. It does not represent a live roadway decision.</p>
+        </aside>
+      </section>
+      <section className="event-section" id="events">
+        <div className="section-head"><div><p className="section-label">Review queue</p><h2>Detected interactions</h2></div>{firstCritical&&<button className="text-button" onClick={()=>{setSelected(firstCritical.vehicle_ids[0]);setTime(firstCritical.t);setPlaying(false)}}>Jump to highest risk →</button>}</div>
+        <div className="event-table" role="table"><div className="table-row table-header" role="row"><span>Event</span><span>Vehicles</span><span>Time</span><span>Score</span><span>Status</span></div>{scenario.events.map(e=><button className="table-row" role="row" key={e.id} onClick={()=>{setSelected(e.vehicle_ids[0]);setTime(e.t);setPlaying(false)}}><span><b>{kindLabel[e.kind]||e.kind}</b><small>{e.description}</small></span><span>{e.vehicle_ids.join(' · ')}</span><span>{e.t.toFixed(1)}s</span><span>{Math.round(e.score*100)}</span><span><i className={`severity ${e.severity}`}/>{severityLabel[e.severity]}</span></button>)}</div>
+      </section>
+      <footer id="evidence"><span>{scenario.provenance}</span><span>API {source} · RoadScope prototype</span></footer>
+    </main>
+  </div>
+}
+function Metric({label,value,note,emphasis}) {return <div className={`metric ${emphasis?'emphasis':''}`}><span>{label}</span><strong>{value}</strong><small>{note}</small></div>}
+function Data({label,value}){return <div><span>{label}</span><strong>{value}</strong></div>}
+createRoot(document.getElementById('root')).render(<App/>);
