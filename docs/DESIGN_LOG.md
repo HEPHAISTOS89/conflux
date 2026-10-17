@@ -122,3 +122,8 @@ Evidence and per-control results in docs/qa/intersection.md (51/51 automated con
 - Landing: hero caption is now its own row inside the stage (was absolutely positioned and clipped/overlapping at 1000–1300 px); headline sized in container units so "Lubbock County" never overruns its masked line (was clipped at ~1200 px); HUD labels 12 px (were 10.8). Verdict uses on-system K+A (43) for the "state roads" claim and the screened total (395); NetworkRank states 395 screened, 48 unranked.
 - Controls fixed: glossary click closed its own tooltip; palette lost keys typed right after ⌘K, Tab escaped it, Roadmap missing; Select space/type-ahead clash and early Esc; Ask duplicate-submit race, silent copy failure, fallback chip without a reason.
 - Evidence: docs/qa/shell-landing.md (34/34 automated control checks), docs/qa/layout-sweep.md (13 routes × 8 widths × 2 themes, rail open and closed).
+
+## Production deploy — 2026-10-17 18:15 UTC
+- `cdk deploy` (diff: API DefaultPolicy + lambda:InvokeFunction on ingest ARN + s3 ops/*; code of Api and Ingest; no replacements). Curated data republished.
+- Real ingest via POST /api/v1/ops/ingest: 202 → run 20261017T181225Z running → succeeded, 20,708 records, 11.8 s. Second POST → 429 Retry-After 1792. POST with body → 400.
+- Post-ingest API: 395 screened, US 84 EB excess 1.55, on-system K+A 43. Frontend main 305c113 on Vercel; Platform shows the manual run, cooldown 28 min, Last ingest 0.0 h.

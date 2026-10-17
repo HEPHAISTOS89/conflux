@@ -23,6 +23,9 @@ Win the Texas Tech TransTech Lab Graduate Assistant position (Prof. Hongchao Liu
 - AWS RoadScopeStack (us-east-2): HTTP API https://tkk01bgzfb.execute-api.us-east-2.amazonaws.com, Lambdas roadscope-api / roadscope-ingest, EC2 worker i-085be087cdef3df92 (self-stops), bucket roadscopestack-data666c94c7-bqgchgwzlg4p. Runbook: docs/DEPLOY.md.
 - Pending on AWS account verification: CloudFront (`cdk deploy -c edge=cloudfront`) and Bedrock model access (analyst currently uses the deterministic fallback).
 - Screening outcome is on-system CRIS ped/bike crashes 2021–2023 (SUM_CRASH_ is an SATP score, not a crash count).
+- Screened population: 395 matched one-mile segments (48 unmatched reported apart), 110 crashes; on-system K+A 43.
+- On-demand ingest: POST /api/v1/ops/ingest (30-min cooldown + S3 lock, IAM scoped to the ingest ARN). First production run 2026-10-17 18:12 UTC, 20,708 records, 11.8 s.
+- AWS CLI uses `aws login` sessions that expire; if `aws sts get-caller-identity` says expired, run `aws login` in a terminal tab and let the owner approve in the browser.
 
 ## Active goal
 See docs/GOAL.md (owner brief, 2026-10-17) and log every iteration in docs/DESIGN_LOG.md.
