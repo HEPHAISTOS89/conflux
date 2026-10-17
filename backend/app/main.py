@@ -163,7 +163,10 @@ def summary(scenario_id: str):
     speeds=[p.speed for v in SCENARIO.vehicles for p in v.trajectory]
     high_risk=sum(event.severity in {"high", "critical"} for event in SCENARIO.events)
     risk_index=round(sum(event.score for event in SCENARIO.events)/len(SCENARIO.events), 2)
-    return Summary(scenario_id=scenario_id,vehicle_count=SCENARIO.vehicle_count,event_count=SCENARIO.event_count,risk_index=risk_index,avg_speed_mph=round(sum(speeds)/len(speeds),1),max_speed_mph=round(max(speeds),1),high_risk_events=high_risk,data_quality=.98)
+    points=[point for vehicle in SCENARIO.vehicles for point in vehicle.trajectory]
+    complete_points=sum(all(value is not None for value in (point.t, point.x, point.y, point.speed, point.heading)) for point in points)
+    completeness=round(complete_points/len(points), 2) if points else 0.0
+    return Summary(scenario_id=scenario_id,vehicle_count=SCENARIO.vehicle_count,event_count=SCENARIO.event_count,risk_index=risk_index,avg_speed_mph=round(sum(speeds)/len(speeds),1),max_speed_mph=round(max(speeds),1),high_risk_events=high_risk,data_quality=completeness)
 
 @app.get("/api/v1/scenarios/{scenario_id}/events", response_model=list[RiskEvent])
 def events(scenario_id: str, severity: str|None=Query(default=None)):

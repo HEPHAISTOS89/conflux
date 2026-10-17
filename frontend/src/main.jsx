@@ -19,7 +19,7 @@ const FALLBACK = {
     {id:'E-003',severity:'critical',kind:'near_miss',t:7.9,vehicle_ids:['V-02','V-05'],score:.94,description:'Predicted time-to-collision below threshold'}
   ]
 };
-const FALLBACK_SUMMARY={vehicle_count:5,event_count:3,risk_index:.71,avg_speed_mph:27.2,max_speed_mph:32,high_risk_events:2,data_quality:.98};
+const FALLBACK_SUMMARY={vehicle_count:5,event_count:3,risk_index:.71,avg_speed_mph:27.2,max_speed_mph:32,high_risk_events:2,data_quality:1};
 const severityLabel={critical:'Critical',high:'High',medium:'Review',low:'Low'};
 const kindLabel={hard_brake:'Hard braking',lane_change:'Lane transition',near_miss:'Near miss',speeding:'Speeding'};
 

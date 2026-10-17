@@ -20,7 +20,7 @@ def test_filter_events_and_not_found():
 def test_summary_is_derived_from_fixture():
  body=client.get('/api/v1/scenarios/ngsim-i80-demo/summary').json()
  assert body['event_count']==3 and body['high_risk_events']==2
- assert body['risk_index']==0.78 and body['data_quality']==0.98
+ assert body['risk_index']==0.78 and body['data_quality']==1.0
 
 def test_vehicle_stride_and_time_frame_contracts():
  full=client.get('/api/v1/scenarios/ngsim-i80-demo/vehicles').json()
