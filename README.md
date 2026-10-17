@@ -28,4 +28,6 @@ The frontend runs with a deterministic local fixture when `VITE_API_BASE_URL` is
 
 Static frontend demo: https://roadscope-ai-demo.vercel.app
 
-The live page currently uses the deterministic fixture fallback. The AWS API is not connected until an HTTPS API endpoint and CORS allowlist are configured.
+Live API health endpoint: https://6zwr3ongsqiy22oiefyn3wwtva0gunpt.lambda-url.us-east-2.on.aws/health
+
+The live page is connected to the AWS Lambda Function URL and retains the deterministic fixture fallback if the API is unreachable.

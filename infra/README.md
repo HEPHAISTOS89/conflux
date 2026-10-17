@@ -42,6 +42,12 @@ Before creating billable resources: create an AWS Budget and alert threshold, co
 
 The fixture is synthetic and explicitly labelled in the API. Local tests prove code behavior only; they do not prove AWS, Vercel, DNS, TLS, billing, production traffic, or data-license readiness.
 
+## Live demo API (serverless path)
+
+For the live prototype, the FastAPI app is packaged for Python 3.13 Lambda with a public Function URL. This is a low-cost short-demo path that avoids requiring a local container runtime. The active health endpoint is documented in `docs/DEMO_RUNBOOK.md`.
+
+The ECS/Fargate CloudFormation template remains the repeatable long-running deployment shape. Do not expose the Lambda URL to sensitive data; it is intentionally public for this synthetic fixture only.
+
 ## CloudFormation demo template
 
 `infra/cloudformation/roadscope-demo.yaml` is a reviewed, non-executing template for an intentionally bounded demo stack. It creates S3 (14-day lifecycle), ECR (five-image lifecycle), ECS/Fargate, ALB, CloudWatch logs (14-day retention), least-privilege task roles, and an optional monthly budget alert. The template is validated with `aws cloudformation validate-template`; validation does not create resources.

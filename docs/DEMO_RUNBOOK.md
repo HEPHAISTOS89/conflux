@@ -36,7 +36,7 @@ Set `VITE_API_BASE_URL` only to an HTTPS API origin that exposes the documented 
 
 Current static production demo: https://roadscope-ai-demo.vercel.app
 
-This URL was verified with an HTTP 200 response on 2026-10-17. It is a static fixture deployment and is not yet connected to the AWS API.
+This URL was verified with an HTTP 200 response on 2026-10-17. It is connected to the AWS Lambda API below and keeps a fixture fallback for resilience.
 The current deployment was uploaded directly because the Vercel account does not yet have the GitHub integration installed; automatic deploys from `main` still require that one-time account connection.
 
 1. Import `HEPHAISTOS89/roadscope-ai`.
@@ -54,6 +54,8 @@ Example after deployment:
 ## 4. AWS API promotion gate
 
 Before creating billable resources, verify the AWS account, region (`us-east-2`), budget alert, and tags. The target shape is private S3 + ECR + ECS Fargate/ALB + CloudWatch; it is described in [`infra/README.md`](../infra/README.md). Do not put credentials in Vercel variables or the repository. Use task roles and a secret manager for runtime secrets.
+
+Current live API (Lambda Function URL): https://6zwr3ongsqiy22oiefyn3wwtva0gunpt.lambda-url.us-east-2.on.aws/
 
 After an API is deployed and its ALB/HTTPS origin is known:
 
