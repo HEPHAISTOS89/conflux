@@ -186,10 +186,4 @@ table.data tbody tr[data-active='true'] td:first-child { color: var(--accent); }
 @media (min-width: 1101px) { .topbar-act .theme-btn { display: none; } }
 @media (prefers-reduced-motion: reduce) { .outlet { animation: none; } .shell, .rail-link, .rail-ind, .rail-toggle { transition: none; } }
 
-/* Peek: the collapsed rail opens over the page while hovered, without reflowing the content. */
-@media (min-width: 1101px) {
-  .shell[data-peek] { --rail-w: var(--rail-mini); }
-  .shell[data-peek] .rail { width: var(--rail); box-shadow: 0 0 0 1px var(--rule), 0 24px 48px rgba(0, 0, 0, 0.22); animation: rail-peek 160ms var(--ease-out) both; }
-  @keyframes rail-peek { from { width: var(--rail-mini); } }
-}
-@media (prefers-reduced-motion: reduce) { .shell[data-peek] .rail { animation: none; } }
+/* Peek: hovering the expand button opens the rail with the same layout as a click (content reflows, nothing hidden). */

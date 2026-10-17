@@ -65,7 +65,7 @@ export default function Shell() {
     if (first.current) { first.current = false; return; }
     const t = setTimeout(() => window.dispatchEvent(new Event('resize')), reducedMotion() ? 0 : 260);
     return () => clearTimeout(t);
-  }, [collapsed]);
+  }, [collapsed, peek]);
 
   // Sliding active indicator: one fill that travels between items instead of each item lighting up.
   const place = useCallback(() => {
@@ -77,7 +77,7 @@ export default function Shell() {
     el.style.transform = `translateY(${a.offsetTop}px)`;
     el.style.height = `${a.offsetHeight}px`;
   }, []);
-  useLayoutEffect(() => { place(); }, [loc.pathname, collapsed, place]);
+  useLayoutEffect(() => { place(); }, [loc.pathname, collapsed, peek, place]);
   useEffect(() => {
     const ul = list.current;
     if (!ul) return;
