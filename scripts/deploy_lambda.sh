@@ -17,6 +17,9 @@ cp -R "$ROOT/backend/app" "$BUILD_DIR/app"
 aws lambda update-function-code \
   --function-name roadscope-ai-demo-api --region us-east-2 \
   --zip-file "fileb://$ZIP_PATH" --publish >/dev/null
+aws lambda update-function-configuration \
+  --function-name roadscope-ai-demo-api --region us-east-2 \
+  --environment 'Variables={CORS_MODE=lambda,CORS_ORIGINS=https://roadscope-ai-demo.vercel.app}' >/dev/null
 aws lambda get-function-url-config \
   --function-name roadscope-ai-demo-api --region us-east-2 \
   --query FunctionUrl --output text
