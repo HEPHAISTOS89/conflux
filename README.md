@@ -1,6 +1,6 @@
 # RoadScope AI
 
-RoadScope AI is an evidence-first road-safety intelligence prototype: synchronized trajectory analytics, risk-event detection, and a clean 2D/3D replay workspace.
+RoadScope AI is an evidence-first road-safety intelligence prototype: synchronized trajectory analytics, risk-event detection, and a clean 2D trajectory replay workspace.
 
 ## Prototype scope
 
