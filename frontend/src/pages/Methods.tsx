@@ -170,7 +170,7 @@ export default function Methods() {
             )}
             {meta.data && (
               <div className="m-row-actions">
-                <button type="button" className="btn ghost" onClick={() => downloadCSV('roadscope-data-manifest.csv', meta.data!.sources.map((x) => ({ source: x.id, provenance: srcProv(x.id), licence: x.licence, records: x.records, fetched_at: x.fetched_at, sha256: x.sha256 ?? '', url: x.url })))}>
+                <button type="button" className="btn ghost" onClick={() => downloadCSV('conflux-data-manifest.csv', meta.data!.sources.map((x) => ({ source: x.id, provenance: srcProv(x.id), licence: x.licence, records: x.records, fetched_at: x.fetched_at, sha256: x.sha256 ?? '', url: x.url })))}>
                   <Icon name="download" size={16} />Download CSV
                 </button>
               </div>
@@ -351,7 +351,7 @@ function Catalogue() {
             </button>
           ))}
         </div>
-        <button type="button" className="btn ghost" onClick={() => downloadCSV('roadscope-metric-catalogue.csv', METRICS.map((m) => ({ metric: m.name, abbr: m.abbr ?? '', family: m.family, formula: m.formula.replace(/\n/g, '; '), threshold: typeof m.threshold === 'string' ? m.threshold : '', unit: m.unit, data: m.data, provenance: m.provenance, reference: m.cite })))}>
+        <button type="button" className="btn ghost" onClick={() => downloadCSV('conflux-metric-catalogue.csv', METRICS.map((m) => ({ metric: m.name, abbr: m.abbr ?? '', family: m.family, formula: m.formula.replace(/\n/g, '; '), threshold: typeof m.threshold === 'string' ? m.threshold : '', unit: m.unit, data: m.data, provenance: m.provenance, reference: m.cite })))}>
           <Icon name="download" size={16} />Download CSV
         </button>
       </div>

@@ -115,7 +115,7 @@ export default function Ask() {
       <PageHeader
         icon="ask"
         title="Ask the data"
-        lede="Questions answered from RoadScope's curated tables through named tools."
+        lede="Questions answered from Conflux's curated tables through named tools."
         source="Bedrock Converse with tool use; rule-based fallback over the same tools"
         actions={chip}
       />

@@ -132,8 +132,8 @@ export default function Shell() {
     <div className="shell" data-open={open} data-rail={collapsed ? 'collapsed' : 'expanded'}>
       <a className="skip" href="#main">Skip to content</a>
       <header className="topbar">
-        <NavLink to="/" className="brand" aria-label="RoadScope home">
-          <Mark /> <span>RoadScope</span>
+        <NavLink to="/" className="brand" aria-label="Conflux home">
+          <Mark /> <span>Conflux</span>
         </NavLink>
         <div className="topbar-act">
           <button type="button" className="icon-btn" aria-label="Jump to a sheet, corridor, segment or intersection" title="Jump to (⌘K)"
@@ -153,8 +153,8 @@ export default function Shell() {
         onPointerOver={showTip} onPointerLeave={() => setTip(null)} onFocus={showTip} onBlur={() => setTip(null)}>
         <div className="rail-in">
           <div className="rail-head">
-            <NavLink to="/" className="brand rail-brand" aria-label="RoadScope home" tabIndex={collapsed ? -1 : undefined}>
-              <Mark /> <span>RoadScope</span>
+            <NavLink to="/" className="brand rail-brand" aria-label="Conflux home" tabIndex={collapsed ? -1 : undefined}>
+              <Mark /> <span>Conflux</span>
             </NavLink>
             <button type="button" className="rail-toggle" onClick={toggleRail} aria-label={railLabel} aria-expanded={!collapsed} aria-controls="rail-list"
               aria-keyshortcuts="[" data-tip={railLabel} data-kbd="[" title={collapsed ? undefined : `${railLabel} ( [ )`}>

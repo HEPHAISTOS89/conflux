@@ -307,16 +307,16 @@ export default function Vru() {
         : `${YIELD.find((y) => y.key === focus.key)?.label} (${ysrc === 'pbcat' ? 'PBCAT' : 'CRIS factor'})`
     : null;
   const suffix = `${year ?? span.replace('–', '-')}${filtered ? '-filtered' : ''}`;
-  const exportCsv = () => downloadCSV(`roadscope-vru-crashes-${suffix}.csv`, feats.map(({ properties: p, geometry: g }) => ({
+  const exportCsv = () => downloadCSV(`conflux-vru-crashes-${suffix}.csv`, feats.map(({ properties: p, geometry: g }) => ({
     crash_id: p.id, date: p.date, year: p.year, hour: p.hour, dow: p.dow != null ? DOW[p.dow] : '', severity: p.severity, mode: p.mode,
     pbcat: p.pbcat, light: p.light, light_group: lightGroup(p.light), speed_limit_mph: p.speed_limit, street: p.street, on_system: p.on_system,
     intersection: p.intersection, contributing: p.contributing, lon: (g.coordinates as number[])[0], lat: (g.coordinates as number[])[1],
   })));
-  const rowsCsv = (name: string, rows: Row[]) => downloadCSV(`roadscope-vru-${name}-${suffix}.csv`, rows.map((r) => {
+  const rowsCsv = (name: string, rows: Row[]) => downloadCSV(`conflux-vru-${name}-${suffix}.csv`, rows.map((r) => {
     const [lo, hi] = wilson(r.ka, r.n);
     return { group: r.label, crashes: r.n, ka: r.ka, ka_share_pct: r.n ? +(100 * r.ka / r.n).toFixed(1) : '', ci95_lo_pct: +(100 * lo).toFixed(1), ci95_hi_pct: +(100 * hi).toFixed(1) };
   }));
-  const caption = `RoadScope · TxDOT CRIS VRU crashes, Lubbock County ${year ?? span}${filtered ? ' (filtered)' : ''}`;
+  const caption = `Conflux · TxDOT CRIS VRU crashes, Lubbock County ${year ?? span}${filtered ? ' (filtered)' : ''}`;
 
   const pk = heat.peak;
   // One-line findings computed from the same rows the charts draw.
@@ -452,8 +452,8 @@ export default function Vru() {
               : <>The source has no “12 PM” times. “12 AM” crashes in daylight are read as noon; in darkness, as midnight.</>}</p>
             <p>Click a cell to filter the page.</p>
           </>}
-            actions={<><ExportBtn kind="png" onClick={() => heatFig.current && downloadPNG(`roadscope-vru-hour-of-week-${suffix}.png`, heatFig.current, caption)} />
-              <ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-hour-of-week-${suffix}.csv`, heat.grid.flatMap((r, d) => r.map((v, h) => ({ dow: DOW[d], hour: h, crashes: v }))))} /></>} />
+            actions={<><ExportBtn kind="png" onClick={() => heatFig.current && downloadPNG(`conflux-vru-hour-of-week-${suffix}.png`, heatFig.current, caption)} />
+              <ExportBtn kind="csv" onClick={() => downloadCSV(`conflux-vru-hour-of-week-${suffix}.csv`, heat.grid.flatMap((r, d) => r.map((v, h) => ({ dow: DOW[d], hour: h, crashes: v }))))} /></>} />
           <div className="vru-heat-wrap">
             <Heatmap ref={heatFig} grid={heat.grid} max={heat.max} cell={cell} onCell={setCell} peak={pk.n > 0 ? pk.start : null} />
             {pk.n > 0 && (
@@ -473,7 +473,7 @@ export default function Vru() {
             {lightFind && <p>{lightFind}</p>}
             <p>Dashed rule: overall KA share. Click a row to filter the page.</p>
           </>}
-            actions={<><ExportBtn kind="png" onClick={() => lightFig.current && downloadPNG(`roadscope-vru-light-${suffix}.png`, lightFig.current, caption)} />
+            actions={<><ExportBtn kind="png" onClick={() => lightFig.current && downloadPNG(`conflux-vru-light-${suffix}.png`, lightFig.current, caption)} />
               <ExportBtn kind="csv" onClick={() => rowsCsv('light', lightRows)} /></>} />
           <Breakdown ref={lightFig} rows={lightRows} overall={overallShare} selected={focus?.kind === 'light' ? focus.key : null}
             onPick={(k) => toggleFocus('light', k)} label="Crashes and KA share by light condition" loading={pts.loading} />
@@ -485,7 +485,7 @@ export default function Vru() {
             {speedFind && <p>{speedFind}</p>}
             <p>Dashed rule: overall KA share. Click a row to filter the page.</p>
           </>}
-            actions={<><ExportBtn kind="png" onClick={() => speedFig.current && downloadPNG(`roadscope-vru-speed-${suffix}.png`, speedFig.current, caption)} />
+            actions={<><ExportBtn kind="png" onClick={() => speedFig.current && downloadPNG(`conflux-vru-speed-${suffix}.png`, speedFig.current, caption)} />
               <ExportBtn kind="csv" onClick={() => rowsCsv('posted-speed', speedRows)} /></>} />
           <Breakdown ref={speedFig} rows={speedRows} overall={overallShare} selected={focus?.kind === 'speed' ? focus.key : null} unit="mph"
             onPick={(k) => toggleFocus('speed', k)} label="Crashes and KA share by posted speed limit" loading={pts.loading} />
@@ -497,7 +497,7 @@ export default function Vru() {
             <p>{strataText(strata.c)}</p>
             <p>{strata.rows} crashes with a recorded light condition and posted speed; dawn, dusk and unknown excluded.</p>
           </>}
-            actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-dark-by-speed-${suffix}.csv`, ([['Daylight', 0], ['Dark (lit or unlit)', 1]] as const).flatMap(([l, d]) => (['< 50 mph', '≥ 50 mph'] as const).map((sp, f) => { const c = strata.c[d][f]; const [lo, hi] = wilson(c.ka, c.n); return { light: l, posted: sp, crashes: c.n, ka: c.ka, ka_share_pct: c.n ? +(100 * c.ka / c.n).toFixed(1) : '', ci95_lo_pct: +(100 * lo).toFixed(1), ci95_hi_pct: +(100 * hi).toFixed(1) }; })))} />} />
+            actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`conflux-vru-dark-by-speed-${suffix}.csv`, ([['Daylight', 0], ['Dark (lit or unlit)', 1]] as const).flatMap(([l, d]) => (['< 50 mph', '≥ 50 mph'] as const).map((sp, f) => { const c = strata.c[d][f]; const [lo, hi] = wilson(c.ka, c.n); return { light: l, posted: sp, crashes: c.n, ka: c.ka, ka_share_pct: c.n ? +(100 * c.ka / c.n).toFixed(1) : '', ci95_lo_pct: +(100 * lo).toFixed(1), ci95_hi_pct: +(100 * hi).toFixed(1) }; })))} />} />
           <Strata c={strata.c} />
         </section>
 
@@ -507,7 +507,7 @@ export default function Vru() {
             <p>{ysrc === 'pbcat' ? 'PBCAT: crash type assigned from the crash narrative and diagram.' : <>CRIS factor: officer-coded contributing factors, up to three per crash{yieldRows.both ? `, so ${yieldRows.both} count in both groups` : ''}.</>}</p>
             <p>Click a card to filter the page.</p>
           </>}
-            actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-failure-to-yield-${ysrc}-${suffix}.csv`, yieldRows.out.map((y) => ({ source: ysrc === 'pbcat' ? 'PBCAT crash type' : 'CRIS contributing factor', group: y.label, crashes: y.n, ka: y.ka, ka_share_pct: y.n ? +(100 * y.ka / y.n).toFixed(1) : '', of_pedestrian_crashes: yieldRows.peds })))} />} />
+            actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`conflux-vru-failure-to-yield-${ysrc}-${suffix}.csv`, yieldRows.out.map((y) => ({ source: ysrc === 'pbcat' ? 'PBCAT crash type' : 'CRIS contributing factor', group: y.label, crashes: y.n, ka: y.ka, ka_share_pct: y.n ? +(100 * y.ka / y.n).toFixed(1) : '', of_pedestrian_crashes: yieldRows.peds })))} />} />
           <div className="seg vru-ysrc" role="group" aria-label="Yield classification source">
             <button type="button" aria-pressed={ysrc === 'pbcat'} onClick={() => { setYsrc('pbcat'); if (focus?.kind === 'yield') setFocus(null); }}>PBCAT</button>
             <button type="button" aria-pressed={ysrc === 'factor'} onClick={() => { setYsrc('factor'); if (focus?.kind === 'yield') setFocus(null); }}>CRIS factor</button>
@@ -518,7 +518,7 @@ export default function Vru() {
 
         <section className="section vru-card" aria-labelledby="vru-pb" data-r="6">
           <SecHead id="vru-pb" icon="ped" title={<>Top <Term k="PBCAT" /> types</>} why={<p>The ten most frequent PBCAT pre-crash manoeuvre types. Bar length: crashes; red part: KA.</p>}
-            actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-pbcat-${suffix}.csv`, agg.pbcat.map(([k, e]) => ({ pbcat: k, crashes: e.n, ka: e.ka })))} />} />
+            actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`conflux-vru-pbcat-${suffix}.csv`, agg.pbcat.map(([k, e]) => ({ pbcat: k, crashes: e.n, ka: e.ka })))} />} />
           <ol className="vru-bars" data-ui>
             {agg.pbcat.map(([k, e]) => (
               <li key={k} title={`${k}: ${e.n} crashes, ${e.ka} KA`}>

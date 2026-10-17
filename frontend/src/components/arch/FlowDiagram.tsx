@@ -209,7 +209,7 @@ export default function FlowDiagram({ live, down, overrides, badges, selected, o
 
   return (
     <div className="ar-canvas" ref={canvasRef} role="group" aria-labelledby="ar-t" data-motion={motion || undefined}>
-      <p id="ar-t" className="sr-only">RoadScope architecture: running system and planned roadside-LiDAR pilot. Each component is a button that opens its details.</p>
+      <p id="ar-t" className="sr-only">Conflux architecture: running system and planned roadside-LiDAR pilot. Each component is a button that opens its details.</p>
       <svg ref={svgRef} className="ar-svg" width={geo?.w ?? 0} height={geo?.h ?? 0} viewBox={`0 0 ${geo?.w ?? 1} ${geo?.h ?? 1}`} aria-hidden="true">
         <defs>
           {/* taste-skill-ignore: owner-requested flow gradient — each running edge fades in from its source to show direction. */}

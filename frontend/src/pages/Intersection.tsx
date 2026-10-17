@@ -101,7 +101,7 @@ export default function IntersectionPage() {
   }, [focus?.id, clock.setWarp]);
 
   const site = ix.data?.name ?? id;
-  const caption = () => `${site} · FHWA NGSIM vehicle trajectories (USDOT ITS DataHub) · t = ${clock.now().toFixed(1)} s · RoadScope`;
+  const caption = () => `${site} · FHWA NGSIM vehicle trajectories (USDOT ITS DataHub) · t = ${clock.now().toFixed(1)} s · Conflux`;
   const exportView = () => { const el = stage.current?.querySelector<HTMLElement>('.ix-canvas'); if (el) exportCanvases(`${id}-${view === 'plan' ? 'plan' : '3d'}-t${clock.now().toFixed(1)}.png`, el, caption()); };
   const exportTs = () => { const el = document.querySelector<HTMLElement>('.ix-ts .timespace'); if (el) exportCanvases(`${id}-time-space.png`, el, caption().replace(/ · t = [^·]+/, '')); };
   const exportCsv = () => downloadCSV(`${id}-conflicts${typeF === 'all' ? '' : `-${typeF}`}.csv`, conflicts.map((c) => ({

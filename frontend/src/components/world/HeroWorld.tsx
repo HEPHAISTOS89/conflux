@@ -82,7 +82,7 @@ export default function HeroWorld() {
       {broken && <p className="wd-note">{!gl || failed ? 'This browser cannot draw the 3D replay.' : 'Trajectory replay unavailable.'} <Link to={IX}>Open intersection lab</Link></p>}
 
       <div className="wd-top">
-        <h1 id="hero-h" className="wd-h">Lubbock County road safety</h1>
+        <h1 id="hero-h" className="wd-h">Conflux</h1>
       </div>
 
       <div className="wd-bottom">
