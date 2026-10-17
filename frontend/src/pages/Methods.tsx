@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
-import { ProvChip, type Provenance } from '../components/MetricInfo';
+import { type Provenance } from '../components/MetricInfo';
 import { Icon, type IconName } from '../components/Icon';
 import { downloadCSV } from '../lib/export';
 import { useApi } from '../lib/api';
@@ -131,14 +131,8 @@ export default function Methods() {
       <PageHeader
         icon="methods"
         title="Methods and data"
-        lede="Formula, threshold, input data and limitations for every metric on the portal."
+        lede={`Formula, threshold, input data and limitations for every metric on the portal: ${METRICS.length} metrics, ${meta.data?.sources.length ?? '—'} sources, ${(meta.data?.metrics?.segments as number | undefined) ?? '—'} segments of about one mile, ${SITES.length} conflict sites.`}
         source={meta.data ? `Manifest built ${date(meta.data.generated_at)} · Lubbock County roadway and crashes; NGSIM Los Angeles and Atlanta trajectories` : 'Loading manifest…'}
-        readouts={[
-          { label: 'Metrics', value: METRICS.length },
-          { label: 'Sources', value: meta.data?.sources.length ?? null },
-          { label: 'Segments built, ≈ 1 mi', value: (meta.data?.metrics?.segments as number | undefined) ?? null },
-          { label: 'Conflict sites', value: SITES.length },
-        ]}
       />
 
       <div className="methods-layout">
@@ -159,12 +153,11 @@ export default function Methods() {
             {meta.data && (
               <div className="m-scroll" data-ui role="region" aria-label="Data sources table, scrolls horizontally" tabIndex={0}>
                 <table className="data">
-                  <thead><tr><th>Source</th><th>Provenance</th><th>Licence</th><th className="r">Records</th><th>Fetched</th><th>SHA-256</th></tr></thead>
+                  <thead><tr><th>Source</th><th>Licence</th><th className="r">Records</th><th>Fetched</th><th>SHA-256</th></tr></thead>
                   <tbody>
                     {meta.data.sources.map((s) => (
                       <tr key={s.id}>
                         <td><a href={s.url} rel="noopener noreferrer" target="_blank">{s.id}<Icon name="external" size={12} /></a></td>
-                        <td><ProvChip kind={srcProv(s.id)} /></td>
                         <td className="m-lic">{s.licence}</td>
                         <td className="r num">{nf(s.records)}</td>
                         <td className="num">{date(s.fetched_at)}</td>
@@ -178,43 +171,44 @@ export default function Methods() {
             {meta.data && (
               <div className="m-row-actions">
                 <button type="button" className="btn ghost" onClick={() => downloadCSV('roadscope-data-manifest.csv', meta.data!.sources.map((x) => ({ source: x.id, provenance: srcProv(x.id), licence: x.licence, records: x.records, fetched_at: x.fetched_at, sha256: x.sha256 ?? '', url: x.url })))}>
-                  <Icon name="download" size={16} />Download manifest CSV
+                  <Icon name="download" size={16} />Download CSV
                 </button>
               </div>
             )}
-            {meta.data && <p className="m-small">SHA-256 truncated to 12 characters; full hash on hover.</p>}
           </Sec>
 
           <Sec id="m-screening">
             <h2 id="m-screening-h">Network screening</h2>
-            <p>Lubbock County state-system roadway, split by DFO into <span className="num">443</span> segments of about one mile.
+            <Fold label="Scope and outcome"><p>Lubbock County state-system roadway, split by DFO into <span className="num">443</span> segments of about one mile.
               Outcome: <strong>{spf.data?.outcome ?? 'on-system pedestrian, cyclist and e-scooter crashes (TxDOT CRIS via the Active Transportation Crashes layer), all KABCO severities'}</strong>,
               <span className="num"> {spf.data?.crash_period ?? '2021–2023'}</span> (<i>Y</i> = <span className="num">{spf.data?.crash_years ?? 3}</span> years).
               Crashes snap (≤ 5 m) to the nearest segment, which carries length-weighted AADT and a Roadway Inventory site type
-              (urban/rural × functional class). Ranking measures follow HSM (2010) Part B.</p>
+              (urban/rural × functional class). Ranking measures follow HSM (2010) Part B.</p></Fold>
             <h3>Crash rate</h3>
             <Eq label="Crash rate per 100 million vehicle-miles">
               <math display="block">
                 <mrow><mi>R</mi><mo>=</mo><mfrac><mrow><mi>N</mi><mo>·</mo><msup><mn>10</mn><mn>8</mn></msup></mrow><mrow><mn>365</mn><mo>·</mo><mi>Y</mi><mo>·</mo><mi>AADT</mi><mo>·</mo><mi>L</mi></mrow></mfrac></mrow>
               </math>
             </Eq>
-            <p><i>N</i>: observed crashes over <i>Y</i> years; <i>L</i>: length (mi); <i>R</i> in crashes per 100 MVMT.</p>
+            <Where><i>N</i> crashes in <i>Y</i> years · <i>L</i> mi · crashes / 100 MVMT</Where>
             <h3>Critical rate</h3>
             <Eq label="Critical crash rate">
               <math display="block">
                 <mrow><msub><mi>R</mi><mi>c</mi></msub><mo>=</mo><msub><mi>R</mi><mi>a</mi></msub><mo>+</mo><mi>k</mi><msqrt><mfrac><msub><mi>R</mi><mi>a</mi></msub><mi>M</mi></mfrac></msqrt><mo>+</mo><mfrac><mn>1</mn><mrow><mn>2</mn><mi>M</mi></mrow></mfrac></mrow>
               </math>
             </Eq>
-            <p><i>R<sub>a</sub></i>: exposure-weighted site-type average; <i>M</i>: exposure (100 MVMT); <i>k</i> = 1.645 (95 %). <i>R</i>/<i>R<sub>c</sub></i> &gt; 1 flags a segment.</p>
+            <Where><i>k</i> = 1.645 (95 %) · flag <i>R</i>/<i>R<sub>c</sub></i> &gt; 1</Where>
+            <Fold label="Terms"><p><i>R<sub>a</sub></i>: exposure-weighted site-type average; <i>M</i>: exposure (100 MVMT); <i>k</i> = 1.645 (95 %). <i>R</i>/<i>R<sub>c</sub></i> &gt; 1 flags a segment.</p></Fold>
             <h3>Empirical Bayes expected crashes</h3>
             <Eq label="Empirical Bayes weight and expected crashes">
               <math><mrow><msub><mi>k</mi><mi>seg</mi></msub><mo>=</mo><mfrac><mi>k</mi><mi>L</mi></mfrac></mrow></math>
               <math><mrow><mi>w</mi><mo>=</mo><mfrac><mn>1</mn><mrow><mn>1</mn><mo>+</mo><msub><mi>k</mi><mi>seg</mi></msub><mo>·</mo><msub><mi>μ</mi><mi>Y</mi></msub></mrow></mfrac></mrow></math>
               <math><mrow><mi>E</mi><mo>=</mo><mi>w</mi><mo>·</mo><msub><mi>μ</mi><mi>Y</mi></msub><mo>+</mo><mo>(</mo><mn>1</mn><mo>−</mo><mi>w</mi><mo>)</mo><mo>·</mo><mi>N</mi></mrow></math>
             </Eq>
-            <p><i>μ</i><sub>Y</sub>: site-type SPF prediction over the same <i>Y</i> years; <i>k</i>: NB overdispersion per mile,
+            <Where>rank by (<i>E</i> − <i>μ</i><sub>Y</sub>)/<i>Y</i></Where>
+            <Fold label="Terms"><p><i>μ</i><sub>Y</sub>: site-type SPF prediction over the same <i>Y</i> years; <i>k</i>: NB overdispersion per mile,
               <i> k</i><sub>seg</sub> = <i>k</i>/<i>L</i> (HSM Part C). Ranking is by excess expected crashes,
-              (<i>E</i> − <i>μ</i><sub>Y</sub>)/<i>Y</i>, per year (Hauer 1997; Hauer et al. 2002; HSM 2010, Ch. 4).</p>
+              (<i>E</i> − <i>μ</i><sub>Y</sub>)/<i>Y</i>, per year (Hauer 1997; Hauer et al. 2002; HSM 2010, Ch. 4).</p></Fold>
           </Sec>
 
           <Sec id="m-spf">
@@ -224,49 +218,59 @@ export default function Methods() {
                 <mrow><mi>ln</mi><msub><mi>μ</mi><mi>Y</mi></msub><mo>=</mo><msub><mi>β</mi><mn>0</mn></msub><mo>+</mo><msub><mi>β</mi><mn>1</mn></msub><mi>ln</mi><mi>AADT</mi><mo>+</mo><mo>∑</mo><msub><mi>β</mi><mi>j</mi></msub><msub><mi>x</mi><mi>j</mi></msub><mo>+</mo><mi>ln</mi><mi>L</mi><mo>+</mo><mi>ln</mi><mi>Y</mi></mrow>
               </math>
             </Eq>
-            <p>{spf.data?.estimation ?? 'NB2 maximum likelihood with offset ln L + ln Y'}. Covariates <i>x<sub>j</sub></i> (lanes, divided,
-              posted speed) are chosen by AIC, at most one per 10 crashes. Site types under 30 segments or 20 crashes use a pooled model
-              (ln AADT, urban, lanes, speed). Fit: MAD, Pearson χ²/df and CURE share outside ±2σ* (Hauer and Bamfo 1997).
-              Segments without AADT or site type are excluded.</p>
             {spf.error && <div className="error-box">{spf.error}</div>}
             {spf.loading && <div className="skeleton m-skel" />}
             {spf.data && <SpfTable s={spf.data} />}
-            <p className="muted m-small">Coefficients on ln μ; speed in posted mph. With 24–56 crashes per site type, standard errors are wide
+            <Fold label="Estimation and caveats"><p>{spf.data?.estimation ?? 'NB2 maximum likelihood with offset ln L + ln Y'}. Covariates <i>x<sub>j</sub></i> (lanes, divided,
+              posted speed) are chosen by AIC, at most one per 10 crashes. Site types under 30 segments or 20 crashes use a pooled model
+              (ln AADT, urban, lanes, speed). Fit: MAD, Pearson χ²/df and CURE share outside ±2σ* (Hauer and Bamfo 1997).
+              Segments without AADT or site type are excluded.</p>
+            <p>NB2 SPFs by site type, outcome {spf.data?.crash_period ?? '2021–2023'} ped/bike crashes; k per mile (k<sub>seg</sub> = k/L). Coefficients on ln μ; speed in posted mph. With 24–56 crashes per site type, standard errors are wide
               and the urban minor arterial ln AADT term is not distinguishable from zero. Use as screening baselines; they are not causal models.
-              Fallback GOF (0–2 crashes) is not informative.</p>
+              Fallback GOF (0–2 crashes) is not informative.</p></Fold>
           </Sec>
 
           <Sec id="m-ssm">
             <h2 id="m-ssm-h">Surrogate safety measures</h2>
-            <p>10 Hz trajectories with FHWA SSAM conventions and default thresholds (Gettman et al. 2008). A <em>traffic conflict</em> is an
-              interaction below threshold, not an observed crash.</p>
             <dl className="m-defs">
               <dt>Time to collision (TTC)</dt>
               <dd>
                 <Eq label="Time to collision"><math display="block"><mrow><mi>TTC</mi><mo>=</mo><mfrac><mrow><mi>Δ</mi><mi>x</mi></mrow><mrow><msub><mi>v</mi><mi>f</mi></msub><mo>−</mo><msub><mi>v</mi><mi>l</mi></msub></mrow></mfrac><mspace width="1em" /><mtext>for </mtext><msub><mi>v</mi><mi>f</mi></msub><mo>&gt;</mo><msub><mi>v</mi><mi>l</mi></msub></mrow></math></Eq>
-                Hayward (1972). Rear-end and lane-change; Δ<i>x</i> is the front-to-rear gap. Detection: TTC ≤ <span className="num">1.5</span> s
-                for ≥ 0.3 s (SSAM default). Severity: ≤ 0.5 s critical, 0.5–1.0 s serious, 1.0–1.5 s moderate (study-specific).
+                <Where>detect ≤ 1.5 s for ≥ 0.3 s · critical ≤ 0.5 s</Where>
               </dd>
               <dt>Post-encroachment time (PET)</dt>
               <dd>
-                Allen, Shin and Cooper (1978): time from the first road user leaving the conflict zone to the second entering it. Footprints
-                are length × width boxes swept along each path (0.5 m raster, 50 Hz); approaches conflict at ≥ 30°. Detection:
-                PET ≤ <span className="num">5.0</span> s (SSAM default). Severity: ≤ 1 s critical, 1–2.5 s serious, 2.5–5 s moderate
-                (study-specific; no SSAM standard). Simultaneous occupancy is kept as PET = 0 and flagged as overlap, most likely
-                NGSIM position error (Punzo et al. 2011).
+                <Eq label="Post-encroachment time"><math display="block"><mrow><mi>PET</mi><mo>=</mo><msub><mi>t</mi><mtext>enter,2</mtext></msub><mo>−</mo><msub><mi>t</mi><mtext>exit,1</mtext></msub></mrow></math></Eq>
+                <Where>detect ≤ 5.0 s · critical ≤ 1 s</Where>
               </dd>
               <dt>Deceleration rate to avoid crash (DRAC)</dt>
               <dd>
                 <Eq label="Deceleration rate to avoid crash"><math display="block"><mrow><mi>DRAC</mi><mo>=</mo><mfrac><msup><mrow><mo>(</mo><msub><mi>v</mi><mi>f</mi></msub><mo>−</mo><msub><mi>v</mi><mi>l</mi></msub><mo>)</mo></mrow><mn>2</mn></msup><mrow><mn>2</mn><mo>·</mo><mi>Δ</mi><mi>x</mi></mrow></mfrac></mrow></math></Eq>
-                A flag on TTC events, not a detection criterion: DRAC ≥ <span className="num">11.2</span> ft/s² (3.4 m/s²), the AASHTO (2018)
-                stopping-sight-distance rate. Above about 26 ft/s² (8 m/s²) exceeds tyre–road friction: position error.
+                <Where>flag ≥ 11.2 ft/s² · &gt; 26 ft/s² = position error</Where>
               </dd>
             </dl>
+            <Fold label="Definitions and sources">
+              <p>10 Hz trajectories with FHWA SSAM conventions and default thresholds (Gettman et al. 2008). A <em>traffic conflict</em> is an
+                interaction below threshold, not an observed crash.</p>
+              <p>TTC: Hayward (1972). Rear-end and lane-change; Δ<i>x</i> is the front-to-rear gap. Detection: TTC ≤ 1.5 s
+                for ≥ 0.3 s (SSAM default). Severity: ≤ 0.5 s critical, 0.5–1.0 s serious, 1.0–1.5 s moderate (study-specific).</p>
+              <p>PET: Allen, Shin and Cooper (1978): time from the first road user leaving the conflict zone to the second entering it. Footprints
+                are length × width boxes swept along each path (0.5 m raster, 50 Hz); approaches conflict at ≥ 30°. Detection:
+                PET ≤ 5.0 s (SSAM default). Severity: ≤ 1 s critical, 1–2.5 s serious, 2.5–5 s moderate
+                (study-specific; no SSAM standard). Simultaneous occupancy is kept as PET = 0 and flagged as overlap, most likely
+                NGSIM position error (Punzo et al. 2011).</p>
+              <p>DRAC: a flag on TTC events, not a detection criterion: DRAC ≥ 11.2 ft/s² (3.4 m/s²), the AASHTO (2018)
+                stopping-sight-distance rate. Above about 26 ft/s² (8 m/s²) exceeds tyre–road friction: position error.</p>
+            </Fold>
             <SsmRules sites={ssm} />
           </Sec>
 
           <Sec id="m-repair">
             <h2 id="m-repair-h">Trajectory repair</h2>
+            <div className="m-repair-grid">
+              {repairs.map((r, i) => <RepairCard key={SITES[i][0]} name={SITES[i][1]} r={r.data?.summary} err={r.error} />)}
+            </div>
+            <Fold label="Protocol">
             <p>Gaps are cut into complete NGSIM tracks and repairs scored on the held-out points, under two gap protocols and two truths.</p>
             <ol className="m-steps">
               <li><strong>Uniform:</strong> seeded random gaps of 0.5–5.0 s, one or two per track, ≥ 1.0 s from the ends.</li>
@@ -274,36 +278,36 @@ export default function Methods() {
               <li><strong>Truths:</strong> <em>smoothed</em> (Savitzky–Golay, 15 frames, order 2) and <em>raw</em> (NGSIM-interpolated frames excluded). Speed scored on smoothed only.</li>
               <li><strong>Methods:</strong> linear interpolation; constant-acceleration Kalman with RTS smoother; a path-constrained variant. <i>q</i>, <i>r</i> and the method are chosen on a separate validation set.</li>
             </ol>
-            <div className="m-repair-grid">
-              {repairs.map((r, i) => <RepairCard key={SITES[i][0]} name={SITES[i][1]} r={r.data?.summary} err={r.error} />)}
-            </div>
-            <p>Result: under 2 s against raw truth, linear ties or beats Kalman at Peachtree (0.23 vs 0.31 m uniform, 0.14 vs 0.16 m occluder)
+            <p>Position RMSE in m on gap frames; bold is lowest, * the method selected on validation. Short/long columns pool the by-gap bins (frame-weighted).</p>
+            </Fold>
+            <Fold label="Result and notes"><p>Result: under 2 s against raw truth, linear ties or beats Kalman at Peachtree (0.23 vs 0.31 m uniform, 0.14 vs 0.16 m occluder)
               while Kalman leads at Lankershim (0.31 vs 0.23 m, 0.24 vs 0.20 m). For gaps ≥ 2 s Kalman is lower in all eight
               site × protocol × truth cases, by 1.3–2.8× (Peachtree uniform has only 14 such gaps).</p>
             <RepairNotes notes={repairs.map((r) => r.data?.summary).find((s) => s?.notes)?.notes} />
-            <p className="muted m-small">Follows Punzo, Borzacchiello and Ciuffo (2011) and Montanino and Punzo (2015); a generic baseline,
-              not a comparison with Luo et al. (2025).</p>
+            <p>Follows Punzo, Borzacchiello and Ciuffo (2011) and Montanino and Punzo (2015); a generic baseline,
+              not a comparison with Luo et al. (2025).</p></Fold>
           </Sec>
 
           <Sec id="m-limits">
             <h2 id="m-limits-h">Limitations</h2>
-            <ul className="m-list">
-              <li>The TxDOT segment field <code>SUM_CRASH_</code> is undocumented and behaves as an injury-weighted ped/bike score for 2021–2023
+            <ul className="m-limits">
+              <li><Fold label="SUM_CRASH_ is a score, not a count">The TxDOT segment field <code>SUM_CRASH_</code> is undocumented and behaves as an injury-weighted ped/bike score for 2021–2023
                 (r = <span className="num">{nf(spf.data?.diagnostics?.crash_field?.evidence?.corr_with_matched_crashes ?? 0.945, 3)}</span> with
                 snapped CRIS crashes; K/A/B weighted about 10× C/O). It is not an all-crash count and not the SPF outcome
-                (kept as <code>satp_crash_score</code>).</li>
-              <li><code>TxDOT_AADT.AADT_CUR</code> has no published count year and differs from Roadway Inventory 2024 ADT; presumably later than 2021–2023.</li>
-              <li>Only three urban site types support their own SPF; the other five (all rural, 0–2 crashes) rest on the pooled fallback.</li>
-              <li>EPDO is not computed: no sourced severity weights. Severity analysis is confined to the VRU and FARS layers.</li>
-              <li>Trajectories are NGSIM (Los Angeles and Atlanta, 2005–2006), a stand-in for roadside LiDAR; conflict counts are not Lubbock findings.</li>
-              <li>The 2D occluder protocol ignores sensor height and over-states occlusion versus a 4.5 m pole. Raw truth noise bounds RMSE from below.</li>
-              <li>Screening ranks identify sites for investigation; they do not establish cause or countermeasure need.</li>
-              <li>TxDOT data are informational, without warranty; crash records are protected under 23 U.S.C. §407.</li>
+                (kept as <code>satp_crash_score</code>).</Fold></li>
+              <li><Fold label="AADT count year unpublished"><code>TxDOT_AADT.AADT_CUR</code> has no published count year and differs from Roadway Inventory 2024 ADT; presumably later than 2021–2023.</Fold></li>
+              <li><Fold label="Five rural site types use the pooled SPF">Only three urban site types support their own SPF; the other five (all rural, 0–2 crashes) rest on the pooled fallback.</Fold></li>
+              <li><Fold label="No EPDO: no sourced severity weights">EPDO is not computed: no sourced severity weights. Severity analysis is confined to the VRU and FARS layers.</Fold></li>
+              <li><Fold label="NGSIM stands in for roadside LiDAR">Trajectories are NGSIM (Los Angeles and Atlanta, 2005–2006), a stand-in for roadside LiDAR; conflict counts are not Lubbock findings.</Fold></li>
+              <li><Fold label="2D occluder over-states occlusion">The 2D occluder protocol ignores sensor height and over-states occlusion versus a 4.5 m pole. Raw truth noise bounds RMSE from below.</Fold></li>
+              <li><Fold label="Ranks flag sites, not causes">Screening ranks identify sites for investigation; they do not establish cause or countermeasure need.</Fold></li>
+              <li><Fold label="TxDOT data: informational, 23 U.S.C. §407">TxDOT data are informational, without warranty; crash records are protected under 23 U.S.C. §407.</Fold></li>
             </ul>
           </Sec>
 
           <Sec id="m-refs">
             <h2 id="m-refs-h">References</h2>
+            <Fold label="13 references">
             <ol className="m-refs">
               <li>AASHTO (2010). <i>Highway Safety Manual</i>, 1st ed. American Association of State Highway and Transportation Officials, Washington, DC.</li>
               <li>Hauer, E., Bamfo, J. (1997). Two tools for finding what function links the dependent variable to the explanatory variables. <i>Proceedings of the ICTCT 1997 Workshop</i>, Lund, Sweden.</li>
@@ -319,7 +323,8 @@ export default function Methods() {
               <li>Montanino, M., Punzo, V. (2015). Trajectory data reconstruction and simulation-based validation against macroscopic traffic patterns. <i>Transportation Research Part B</i> 80, 82–106. <a href="https://doi.org/10.1016/j.trb.2015.06.010">doi:10.1016/j.trb.2015.06.010</a></li>
               <li>U.S. DOT Federal Highway Administration (2016). Next Generation Simulation (NGSIM) Vehicle Trajectories and Supporting Data. ITS DataHub, CC BY-SA 3.0. <a href="https://doi.org/10.21949/1504477">doi:10.21949/1504477</a></li>
             </ol>
-            <p className="m-small"><Link to="/platform">How the data are refreshed</Link></p>
+            </Fold>
+            <p className="m-small"><Link to="/platform">Data refresh</Link></p>
           </Sec>
         </article>
       </div>
@@ -347,21 +352,23 @@ function Catalogue() {
           ))}
         </div>
         <button type="button" className="btn ghost" onClick={() => downloadCSV('roadscope-metric-catalogue.csv', METRICS.map((m) => ({ metric: m.name, abbr: m.abbr ?? '', family: m.family, formula: m.formula.replace(/\n/g, '; '), threshold: typeof m.threshold === 'string' ? m.threshold : '', unit: m.unit, data: m.data, provenance: m.provenance, reference: m.cite })))}>
-          <Icon name="download" size={16} />Download catalogue CSV
+          <Icon name="download" size={16} />Download CSV
         </button>
       </div>
-      <ul className="m-cat" aria-live="polite">
-        {shown.map((m) => (
-          <li key={m.key} id={`metric-${m.key}`} className="m-card">
+      <ul className="m-cat" aria-live="polite" key={fam}>
+        {shown.map((m, i) => (
+          <li key={m.key} id={`metric-${m.key}`} className="m-card" style={{ '--i': i } as React.CSSProperties}>
             <div className="m-card-h">
               <span className="m-card-i"><Icon name={m.icon} size={18} weight="duotone" /></span>
               <h3>{m.name}{m.abbr && <span className="m-abbr">{m.abbr}</span>}</h3>
-              <ProvChip kind={m.provenance} />
             </div>
             <pre className="m-formula measure" aria-label={`Formula: ${m.formula}`}>{m.formula}</pre>
+            <p className="m-thr"><Icon name="target" size={14} /><span>{m.threshold}</span></p>
+            <details className="m-card-more">
+              <summary><Icon name="caret" size={14} />Details</summary>
+              <div className="m-fold-b">
             {m.where && <p className="m-where">{m.where}</p>}
             <dl className="m-card-dl">
-              <dt>Threshold</dt><dd>{m.threshold}</dd>
               <dt>Unit</dt><dd className="measure">{m.unit}</dd>
               <dt>Data</dt><dd>{m.data}</dd>
               <dt>Reference</dt><dd>{m.cite}</dd>
@@ -373,6 +380,8 @@ function Catalogue() {
                 <Icon name={copied === m.key ? 'check' : 'link'} size={14} />{copied === m.key ? 'Copied' : 'Link'}
               </button>
             </div>
+              </div>
+            </details>
           </li>
         ))}
       </ul>
@@ -401,6 +410,19 @@ function useSpy() {
   return active;
 }
 
+/** Secondary text, one click away: a summary row that opens smoothly. */
+function Fold({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <details className="m-fold">
+      <summary><Icon name="caret" size={14} />{label}</summary>
+      <div className="m-fold-b">{children}</div>
+    </details>
+  );
+}
+
+/** One short line under an equation: the terms that matter, nothing else. */
+const Where = ({ children }: { children: React.ReactNode }) => <p className="m-wh">{children}</p>;
+
 function Eq({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="m-eq" role="math" aria-label={label}>{children}</div>;
 }
@@ -426,9 +448,7 @@ function SpfTable({ s }: { s: SpfData }) {
   return (
     <div className="m-scroll" data-ui role="region" aria-label="SPF coefficients table, scrolls horizontally" tabIndex={0}>
       <table className="data">
-        <caption className="m-cap">
-          NB2 SPFs by site type, outcome {s.crash_period ?? '2021–2023'} ped/bike crashes; k per mile (k<sub>seg</sub> = k/L).
-        </caption>
+        <caption className="sr-only">NB2 SPFs by site type, outcome {s.crash_period ?? '2021–2023'} ped/bike crashes; k per mile.</caption>
         <thead>
           <tr><th>Site type</th><th className="r">Segs</th><th className="r">Crashes</th><th>Model · coefficients ± SE</th><th className="r">k ± SE</th><th className="r">MAD</th><th className="r">χ²/df</th><th className="r">CURE out ±2σ*</th></tr>
         </thead>
@@ -452,7 +472,7 @@ function SpfTable({ s }: { s: SpfData }) {
               <td className="r num">{nf(s.fallback.crashes)}</td>
               <td><Coefs m={s.fallback} /></td>
               <td className="r num">{kfmt(s.fallback.k)} ± {nf(s.fallback.se_k, 3)}</td>
-              <td className="r num" colSpan={3}><span className="muted">applied to the {st.filter(([, t]) => !t.fitted).length} site types above marked fallback</span></td>
+              <td className="r num" colSpan={3}><span className="muted">{st.filter(([, t]) => !t.fitted).length} site types</span></td>
             </tr>
           )}
           <tr>
@@ -495,16 +515,18 @@ function SsmRules({ sites }: { sites: { name: string; d?: SsmData; err?: string 
   ].filter(([, v]) => v) as [string, string, string | undefined][];
   return (
     <>
-      <h3>Matching rules as run</h3>
+      <Fold label="Matching rules as run">
       <div className="m-scroll" data-ui role="region" aria-label="SSAM matching rules table, scrolls horizontally" tabIndex={0}>
         <table className="data m-rules">
           <thead><tr><th>Rule</th><th>Definition</th><th>Source / note</th></tr></thead>
           <tbody>{rows.map(([k, v, c]) => <tr key={k}><td>{k}</td><td className="m-small">{v}</td><td className="m-small muted">{c ?? '—'}</td></tr>)}</tbody>
         </table>
       </div>
+      {r.citations?.length ? <ul className="m-list m-small">{r.citations.map((c) => <li key={c} className="m-small">{c}</li>)}</ul> : null}
+      </Fold>
       <div className="m-scroll" data-ui role="region" aria-label="Conflict counts by site table, scrolls horizontally" tabIndex={0}>
         <table className="data">
-          <thead><tr><th>Site</th><th className="r">Conflicts</th><th className="r">Rear-end</th><th className="r">Lane change</th><th className="r">Crossing</th><th className="r">of which overlap</th><th className="r">DRAC flag</th></tr></thead>
+          <thead><tr><th>Site</th><th className="r">Conflicts</th><th className="r">Rear-end</th><th className="r">Lane change</th><th className="r">Crossing</th><th className="r">overlap</th><th className="r">DRAC flag</th></tr></thead>
           <tbody>
             {sites.map(({ name, d }) => {
               if (!d) return null;
@@ -525,7 +547,6 @@ function SsmRules({ sites }: { sites: { name: string; d?: SsmData; err?: string 
           </tbody>
         </table>
       </div>
-      {r.citations?.length ? <ul className="m-list m-small">{r.citations.map((c) => <li key={c} className="m-small">{c}</li>)}</ul> : null}
     </>
   );
 }
@@ -546,14 +567,7 @@ function RepairCard({ name, r, err }: { name: string; r?: RepairSum; err?: strin
   };
   return (
     <div className="m-repair">
-      <h3>{name}</h3>
-      {occ && (
-        <p className="muted m-small">
-          Virtual sensor occludes <span className="num">{nf(100 * occ.occluded_share, 1)}%</span> of frames (2D) ·
-          <span className="num"> {nf(occ.gaps)}</span> occlusion gaps of 0.5–5 s on <span className="num">{nf(occ.tracks_with_gaps)}</span> tracks,
-          mean <span className="num">{nf(occ.gap_len_mean_s, 2)}</span> s
-        </p>
-      )}
+      <h3 title={occ ? `Virtual sensor occludes ${nf(100 * occ.occluded_share, 1)}% of frames (2D) · ${nf(occ.gaps)} occlusion gaps of 0.5–5 s on ${nf(occ.tracks_with_gaps)} tracks, mean ${nf(occ.gap_len_mean_s, 2)} s` : undefined}>{name}</h3>
       <div className="m-scroll" data-ui role="region" aria-label="Trajectory repair error table, scrolls horizontally" tabIndex={0}>
       <table className="data">
         <thead>
@@ -583,7 +597,6 @@ function RepairCard({ name, r, err }: { name: string; r?: RepairSum; err?: strin
         </tbody>
       </table>
       </div>
-      <p className="muted m-small">Position RMSE in m on gap frames; bold is lowest, * the method selected on validation. Short/long columns pool the by-gap bins (frame-weighted).</p>
     </div>
   );
 }

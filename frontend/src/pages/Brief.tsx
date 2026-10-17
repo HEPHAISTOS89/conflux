@@ -6,7 +6,8 @@ import { useReveal } from '../lib/motion';
 import { copyLink, downloadCSV } from '../lib/export';
 import Term from '../components/Term';
 import PageHeader from '../components/PageHeader';
-import MetricInfo, { ProvChip, type MetricSpec } from '../components/MetricInfo';
+import MetricInfo, { type MetricSpec } from '../components/MetricInfo';
+import Info from '../components/Info';
 import { Icon, type IconName } from '../components/Icon';
 import type { Manifest, SegmentProps } from '../lib/types';
 import '../styles/brief.css';
@@ -75,6 +76,7 @@ export default function Brief() {
   const [copied, setCopied] = useState(false);
   useEffect(() => { if (!copied) return; const t = setTimeout(() => setCopied(false), 1600); return () => clearTimeout(t); }, [copied]);
   const [retry, setRetry] = useState(0);
+  const [appendix, setAppendix] = useState(false);
   const rq = retry ? `?retry=${retry}` : '';
   const scr = useApi<Screening>(`/screening?method=eb_excess&limit=1000${retry ? `&retry=${retry}` : ''}`);
   const vru = useApi<VruSum>(`/vru/summary${rq}`);
@@ -108,6 +110,27 @@ export default function Brief() {
     aadt: r.aadt, crashes_3yr: r.crashes_total, crashes_ka_3yr: r.crashes_ka, spf_pred_per_yr: r.spf_pred, eb_expected_per_yr: r.eb_expected, eb_excess_per_yr: r.eb_excess, crit_ratio: r.crit_ratio,
   })));
 
+  const diag = (
+    <ol className="sheet-diag">
+      {top.slice(0, 5).map((r, i) => (
+        <li key={r.seg_id} style={{ '--i': i } as React.CSSProperties}>
+          <b>{r.name} <span className="measure">DFO {nf(r.dfo_from, 1)}</span></b>
+          <ul>{prompts(r).map((p) => <li key={p.t}><Icon name={p.icon} size={15} /><span>{p.t}</span></li>)}</ul>
+        </li>
+      ))}
+    </ol>
+  );
+  const next = (
+    <ul className="sheet-next">
+      {condBy('dark_unlit') && condBy('day') && <li><Icon name="moon" size={16} /><span>Lighting: {kaPct(condBy('dark_unlit'))} of crashes on dark, unlit roads were KA against {kaPct(condBy('day'))} in daylight. Audit lighting at flagged segments (FHWA Proven Safety Countermeasure).</span></li>}
+      {condBy('speed_ge50') && condBy('speed_le35') && <li><Icon name="gauge" size={16} /><span>Speed: {kaPct(condBy('speed_ge50'))} KA where posted 50 mph or more against {kaPct(condBy('speed_le35'))} at 35 mph or less. Review crossings and speed management on high-speed flagged segments.</span></li>}
+      <li><Icon name="db" size={16} /><span>Request CRIS all-crash records for the ranked sites; re-screen against all-crash SPFs.</span></li>
+      <li><Icon name="clock" size={16} /><span>Confirm the count year of TxDOT_AADT.AADT_CUR for the flagged segments.</span></li>
+      <li><Icon name="methods" size={16} /><span>Select countermeasures from the FHWA CMF Clearinghouse by PBCAT type, site type and AADT range.</span></li>
+      <li><Icon name="lidar" size={16} /><span>Deploy roadside LiDAR at confirmed sites to measure PET, TTC and yielding before and after treatment.</span></li>
+    </ul>
+  );
+
   return (
     <div className="page brief" ref={reveal}>
       {errs.length > 0 && <div className="error-box no-print" role="alert">Some data could not be loaded: {errs.join(' · ')} <button type="button" className="btn ghost" onClick={() => setRetry((n) => n + 1)}><Icon name="reset" size={16} /><span>Retry</span></button></div>}
@@ -116,36 +139,32 @@ export default function Brief() {
           <PageHeader
             icon="county"
             title="Lubbock County ped/bike safety brief"
-            lede={scr.data && lead ? (
-              <span className="verdict">
-                <b>{v.flagged.length}</b> of {nf(items.length)} screened one-mile state-system segments have expected ped/bike crashes above the SPF prediction; <b>{v.confirmed.length}</b> also exceed the critical rate.
-                {' '}Highest EB excess: <b>{lead.name}, DFO {nf(lead.dfo_from, 1)}–{nf(lead.dfo_to, 1)}</b>.
-              </span>
-            ) : 'Loading screening results…'}
-            source={<>TxDOT District 05 · County 152 · CRIS 2021–2023 · HSM Part B (EB) · build {date ?? '…'} · <ProvChip kind="derived" /></>}
+            lede={<>{v.flagged.length} of {nf(items.length)} screened one-mile state-system segments have expected ped/bike crashes above the SPF prediction (EB excess &gt; 0); {v.confirmed.length} also exceed the critical rate at 95% confidence.</>}
+            source={<>Derived from TxDOT CRIS 2021–2023, TxDOT District 05, County 152, by HSM Part B empirical Bayes screening; build {date ?? '…'}. Screening flags sites for investigation and does not establish cause. Not an official TxDOT product.</>}
             readouts={[
-              { label: <span className="rd-l">Sites flagged <MetricInfo spec={SPECS.eb} align="right" /></span>, value: scr.data ? v.flagged.length : null, unit: `of ${nf(items.length)} segments`, tone: 'alert' },
+              { label: <span className="rd-l">Sites flagged <MetricInfo spec={SPECS.eb} align="right" /></span>, value: scr.data ? v.flagged.length : null, unit: `of ${nf(items.length)}`, tone: 'alert' },
               { label: <span className="rd-l">Confirmed <MetricInfo spec={SPECS.cr} align="right" /></span>, value: scr.data ? v.confirmed.length : null, unit: 'EB + R/Rc' },
               { label: 'EB excess, flagged', value: scr.data ? v.excessSum : null, unit: 'crashes/yr', digits: 1 },
-              { label: 'Fatal + serious (KA)', value: ka, unit: 'all roads, 3 yr', tone: 'alert' },
+              { label: 'KA, all roads', value: ka, unit: '3 yr', tone: 'alert' },
             ]}
             actions={<span className="no-print brief-actions">
               <button type="button" className="btn" onClick={() => window.print()}><Icon name="sheet" size={16} /><span>Print brief</span></button>
               <button type="button" className="btn ghost" onClick={exportCsv} disabled={!v.flagged.length}><Icon name="download" size={16} /><span>Download CSV</span></button>
               <button type="button" className="btn ghost" onClick={share} aria-live="polite"><Icon name={copied ? 'check' : 'link'} size={16} /><span>{copied ? 'Copied' : 'Copy link'}</span></button>
-              <Link to="/screening" className="btn ghost"><Icon name="rank" size={16} /><span>Open network screening</span></Link>
+              <Link to="/screening" className="btn ghost"><Icon name="rank" size={16} /><span>Open screening</span></Link>
             </span>}
           />
+          {scr.data && lead && <p className="verdict"><b>{v.flagged.length}</b> sites flagged, <b>{v.confirmed.length}</b> confirmed; worst: <b>{lead.name}, DFO {nf(lead.dfo_from, 1)}–{nf(lead.dfo_to, 1)}</b>.</p>}
         </div>
 
         <section data-r="2" aria-labelledby="top-h">
           <h2 id="top-h"><Icon name="target" size={20} />Top 10 sites by EB excess</h2>
           <div className="sheet-table t-scroll" role="region" aria-label="Top 10 sites table" tabIndex={0}>
             <table className="data">
-              <thead><tr><th className="r">#</th><th>Route · DFO, mi</th><th className="opt site-c">Site</th><th className="r opt"><Term k="AADT" /></th><th className="r">Obs./yr</th><th className="r opt"><Term k="SPF">SPF/yr</Term></th><th className="bar-h"><Term k="EB excess">Excess/yr</Term></th><th className="r"><Term k="Critical ratio">R/Rc</Term></th><th className="r" title="Top 25 under EB excess, R/Rc, crash rate and crash frequency">Robust</th></tr></thead>
+              <thead><tr><th className="r">#</th><th>Route · DFO, mi</th><th className="opt site-c">Site</th><th className="r opt"><Term k="AADT" /></th><th className="r">Obs./yr</th><th className="r opt"><Term k="SPF">SPF/yr</Term></th><th className="bar-h"><Term k="EB excess">Excess/yr</Term></th><th className="r"><Term k="Critical ratio">R/Rc</Term></th><th className="r" title="Top 25 under EB excess, R/Rc, crash rate and crash frequency">Robust</th><th className="no-print">Prompts</th></tr></thead>
               <tbody>
-                {scr.loading && Array.from({ length: 10 }, (_, i) => <tr key={i} aria-hidden="true"><td colSpan={9}><div className="skeleton" style={{ height: 18 }} /></td></tr>)}
-                {scr.data && !top.length && <tr><td colSpan={9} className="muted">No ranked segments.</td></tr>}
+                {scr.loading && Array.from({ length: 10 }, (_, i) => <tr key={i} aria-hidden="true"><td colSpan={10}><div className="skeleton" style={{ height: 18 }} /></td></tr>)}
+                {scr.data && !top.length && <tr><td colSpan={10} className="muted">No ranked segments.</td></tr>}
                 {top.map((r, i) => (
                   <tr key={r.seg_id} style={{ '--i': i } as React.CSSProperties}>
                     <td className="r measure">{i + 1}</td>
@@ -157,41 +176,39 @@ export default function Brief() {
                     <td className="bar-c"><span className="bar" style={{ '--w': `${Math.max(0, (r.eb_excess ?? 0) / maxEx) * 100}%` } as React.CSSProperties} /><b className="measure">{nf(r.eb_excess, 2)}</b></td>
                     <td className="r measure" data-hi={(r.crit_ratio ?? 0) > 1 || undefined}>{nf(r.crit_ratio, 2)}</td>
                     <td className="r robust-c">{robust.has(r.seg_id) ? <span title="Top 25 under all four measures"><Icon name="ok" size={17} title="Robust under all four measures" /></span> : <span className="muted" title="Drops out of the top 25 under at least one measure">—</span>}</td>
+                    <td className="no-print prompt-c">{prompts(r).map((p) => <span key={p.t} title={p.t} role="img" aria-label={p.t}><Icon name={p.icon} size={16} /></span>)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <div className="sheet-more no-print">
+            <Info label="Diagnostic prompts, top 5 sites" text="Diagnostic prompts" title="Diagnostic prompts, top 5 sites">{diag}</Info>
+            <Info label="Next steps" text="Next steps" title="Next steps">{next}</Info>
+          </div>
         </section>
 
         <section className="sheet-two" data-r="3">
-          <div>
-            <h2><Icon name="search" size={20} />Diagnostic prompts, top 5 sites</h2>
-            <ol className="sheet-diag">
-              {top.slice(0, 5).map((r, i) => (
-                <li key={r.seg_id} style={{ '--i': i } as React.CSSProperties}>
-                  <b>{r.name} <span className="measure">DFO {nf(r.dfo_from, 1)}</span></b>
-                  <ul>{prompts(r).map((p) => <li key={p.t}><Icon name={p.icon} size={15} /><span>{p.t}</span></li>)}</ul>
-                </li>
-              ))}
-            </ol>
-            <div className="sheet-next-s">
-          <h2><Icon name="arrow" size={20} />Next steps</h2>
-          <ul className="sheet-next">
-            {condBy('dark_unlit') && condBy('day') && <li><Icon name="moon" size={16} /><span>Lighting: {kaPct(condBy('dark_unlit'))} of crashes on dark, unlit roads were KA against {kaPct(condBy('day'))} in daylight. Audit lighting at flagged segments (FHWA Proven Safety Countermeasure).</span></li>}
-            {condBy('speed_ge50') && condBy('speed_le35') && <li><Icon name="gauge" size={16} /><span>Speed: {kaPct(condBy('speed_ge50'))} KA where posted 50 mph or more against {kaPct(condBy('speed_le35'))} at 35 mph or less. Review crossings and speed management on high-speed flagged segments.</span></li>}
-            <li><Icon name="db" size={16} /><span>Request CRIS all-crash records for the ranked sites; re-screen against all-crash SPFs.</span></li>
-            <li><Icon name="clock" size={16} /><span>Confirm the count year of TxDOT_AADT.AADT_CUR for the flagged segments.</span></li>
-            <li><Icon name="methods" size={16} /><span>Select countermeasures from the FHWA CMF Clearinghouse by PBCAT type, site type and AADT range.</span></li>
-            <li><Icon name="lidar" size={16} /><span>Deploy roadside LiDAR at confirmed sites to measure PET, TTC and yielding before and after treatment.</span></li>
-          </ul>
-        </div>
+          <div className="print-only">
+            <div>
+              <h2><Icon name="search" size={20} />Diagnostic prompts, top 5 sites</h2>
+              {diag}
+              <div className="sheet-next-s">
+                <h2><Icon name="arrow" size={20} />Next steps</h2>
+                {next}
+              </div>
+            </div>
           </div>
           <div className="sheet-vru">
-            <h2><Icon name="ped" size={20} />Countywide VRU crashes, all roads</h2>
+            <h2><Icon name="ped" size={20} />Countywide VRU crashes</h2>
             {vru.data ? (
               <>
-                <p className="vru-lede"><b className="measure">{nf(vru.data.total)}</b> pedestrian, bicyclist and e-scooter crashes, {vru.data.years.join('–')}; <b className="measure">{nf(ka)}</b> fatal or suspected serious injury (KA).{vru.data.on_system ? <> On the state system: <span className="measure">{nf(vru.data.on_system.total)}</span> crashes, <span className="measure">{nf(vru.data.on_system.ka)}</span> KA.</> : null}</p>
+                <div className="vru-cols"><div>
+                <dl className="vru-figs">
+                  <div><dt>Crashes, {vru.data.years[0]}–{vru.data.years[vru.data.years.length - 1]}</dt><dd className="measure">{nf(vru.data.total)}</dd></div>
+                  <div><dt>KA</dt><dd className="measure">{nf(ka)}</dd></div>
+                  {vru.data.on_system && <div><dt>State system</dt><dd className="measure">{nf(vru.data.on_system.total)} <small>· {nf(vru.data.on_system.ka)} KA</small></dd></div>}
+                </dl>
                 <div className="kabco" role="img" aria-label={`KABCO severity: ${['K', 'A', 'B', 'C', 'O'].map((k) => `${k} ${vru.data!.by_severity[k] ?? 0}`).join(', ')}`}>
                   {['K', 'A', 'B', 'C', 'O'].map((k) => <span key={k} style={{ flex: vru.data!.by_severity[k] ?? 0, background: SEV_COLOR[k] }} title={`${SEV_LABEL[k]}: ${vru.data!.by_severity[k] ?? 0}`} />)}
                 </div>
@@ -202,8 +219,9 @@ export default function Brief() {
                 <ul className="light">
                   {light.map(([l, n]) => <li key={l}><span>{l}</span><span className="light-bar"><i style={{ width: `${(n / vru.data!.total) * 100}%` }} /></span><b className="measure">{Math.round((n / vru.data!.total) * 100)}%</b></li>)}
                 </ul>
+                </div><div>
                 {cond.length > 0 && <>
-                  <h3><Icon name="warning" size={16} />Share fatal or serious (KA), by condition</h3>
+                  <h3><Icon name="warning" size={16} />KA share by condition</h3>
                   <div className="t-scroll" role="region" aria-label="KA share by condition table" tabIndex={0}><table className="data app-t cond-t">
                     <caption className="sr-only">KA share of VRU crashes by light condition and posted speed, with 95% Wilson intervals</caption>
                     <thead><tr><th>Condition</th><th className="r">Crashes</th><th className="r">KA</th><th className="r">KA share · 95% CI</th></tr></thead>
@@ -214,18 +232,23 @@ export default function Brief() {
                     </tbody>
                   </table></div>
                 </>}
-                <h3><Icon name="flag" size={16} />Most frequent <Term k="PBCAT" /> types</h3>
+                <h3><Icon name="flag" size={16} />Top <Term k="PBCAT" /> types</h3>
                 <ol className="pbcat">{pbcat.map(([t, n]) => <li key={t}><span>{t}</span><b className="measure">{n}</b></li>)}</ol>
+                </div></div>
               </>
             ) : <div className="skeleton" style={{ height: 240 }} />}
           </div>
         </section>
 
 
-        <footer className="sheet-foot">Screening flags sites for investigation and does not establish cause. Not an official TxDOT product.</footer>
+        <footer className="sheet-foot print-only">Screening flags sites for investigation and does not establish cause. Not an official TxDOT product.</footer>
 
-        <section className="appendix" aria-labelledby="app-h">
-          <h2 id="app-h"><Icon name="methods" size={20} />Technical appendix</h2>
+        <section className="appendix" aria-labelledby="app-h" data-open={appendix || undefined}>
+          <h2 id="app-h" className="print-only"><Icon name="methods" size={20} />Technical appendix</h2>
+          <button type="button" className="btn ghost app-toggle no-print" aria-expanded={appendix} aria-controls="app-body" onClick={() => setAppendix((o) => !o)}>
+            <Icon name="methods" size={16} /><span>Technical appendix</span><Icon name="caret" size={16} />
+          </button>
+          <div className="app-body" id="app-body">
           <div className="app-grid">
             <div>
               <h3>Screening method</h3>
@@ -261,6 +284,7 @@ export default function Brief() {
               ))}
             </tbody>
           </table></div>
+          </div>
         </section>
       </article>
     </div>

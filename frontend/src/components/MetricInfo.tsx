@@ -11,9 +11,9 @@ const PROV: Record<Provenance, { label: string; tip: string }> = {
   public: { label: 'Public', tip: 'Agency publication, used as released.' },
 };
 
-/** Provenance chip: one look everywhere so a reviewer can tell observed from derived or simulated at a glance. */
+/** Provenance mark: a quiet coloured dot and one word, the same everywhere (observed, derived, simulated, public). */
 export function ProvChip({ kind }: { kind: Provenance }) {
-  return <span className="prov" data-kind={kind} title={PROV[kind].tip}><Icon name="dot" size={8} weight="fill" />{PROV[kind].label}</span>;
+  return <span className="prov" data-kind={kind} title={PROV[kind].tip}><i aria-hidden="true" />{PROV[kind].label}</span>;
 }
 
 export interface MetricSpec {
@@ -50,12 +50,13 @@ export default function MetricInfo({ spec, align = 'left' }: { spec: MetricSpec;
       </button>
       {open && (
         <span ref={pop} id={id} role="dialog" aria-label={`${spec.name} methodology`} className="mi-pop" data-align={align}>
-          <span className="mi-head"><b>{spec.name}</b><ProvChip kind={spec.provenance} /></span>
+          <span className="mi-head"><b>{spec.name}</b></span>
           {spec.formula && <span className="mi-row"><span>Formula</span><span className="mi-formula">{spec.formula}</span></span>}
           {spec.threshold && <span className="mi-row"><span>Threshold</span><span>{spec.threshold}</span></span>}
           {spec.unit && <span className="mi-row"><span>Unit</span><span className="measure">{spec.unit}</span></span>}
           {spec.source && <span className="mi-row"><span>Data</span><span>{spec.source}</span></span>}
           {spec.citation && <span className="mi-row"><span>Reference</span><span>{spec.citation}</span></span>}
+          <span className="mi-row"><span>Provenance</span><span><ProvChip kind={spec.provenance} /></span></span>
           {spec.note && <span className="mi-note">{spec.note}</span>}
         </span>
       )}

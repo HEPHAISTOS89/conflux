@@ -38,12 +38,12 @@ export default function NodePanel({ id, live, data, impact, replayDown, onClose 
         <button type="button" className="ar-close" onClick={onClose} aria-label="Close details"><Icon name="close" size={16} /></button>
       </div>
       <div className="ar-pchips">
-        <span className="status" data-s={chip.s}><Icon name="dot" size={8} weight="fill" />{impact ? `Simulation · ${impact.state === 'down' ? 'Down' : impact.state === 'ok' ? 'Restored' : 'Degraded'}` : replayDown ? 'Failed (replay)' : chip.t}</span>
+        <span className="status" data-s={chip.s}><Icon name="dot" size={8} weight="fill" />{impact ? (impact.state === 'down' ? 'Down' : impact.state === 'ok' ? 'Restored' : 'Degraded') : replayDown ? 'Failed (replay)' : chip.t}</span>
         <span className="ar-flowtag" data-flow={n.flow}><i />{FLOW_NAME[n.flow]}</span>
       </div>
       {impact && (
         <div className="ar-pimpact" data-s={impact.state}>
-          <b>Simulation: {impact.chip}</b>
+          <b>{impact.chip}</b>
           <span>{impact.note}</span>
         </div>
       )}

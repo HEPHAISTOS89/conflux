@@ -8,7 +8,7 @@ interface Item { id: string; label: string; hint: string; to: string; kind: 'She
 
 const SHEETS: Item[] = [
   ['/', 'Atlas'], ['/screening', 'Network screening'], ['/corridors', 'Corridors'], ['/vru', 'Pedestrians & cyclists'],
-  ['/intersections', 'Intersection lab'], ['/brief', 'District brief'], ['/methods', 'Methods & data'], ['/platform', 'Platform'], ['/roadmap', 'Roadmap'], ['/ask', 'Ask the data'],
+  ['/intersections', 'Intersection lab'], ['/brief', 'District brief'], ['/methods', 'Methods & data'], ['/platform', 'Platform'], ['/ask', 'Ask the data'],
 ].map(([to, label]) => ({ id: to, label, hint: '', to, kind: 'Sheet' as const }));
 
 /** ⌘K / Ctrl-K jump to any sheet, corridor, ranked segment or intersection; arrow keys and Enter. */

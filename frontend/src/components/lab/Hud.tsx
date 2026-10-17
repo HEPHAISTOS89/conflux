@@ -69,14 +69,7 @@ export default function Hud({ data, conflicts }: { data: IntersectionT; conflict
   useEffect(() => { lastKey.current = ''; tickRef.current(clock.now()); }, [trs, data, clock]);
   useClockFrame((tv) => tickRef.current(tv), [trs, data]);
 
-  if (!trs.length) {
-    return (
-      <div className="hud hud-empty" role="status">
-        <Icon name="crosshair" size={16} />
-        <span>Select a vehicle for its kinematics. <span className="muted">NGSIM has no pedestrian tracks.</span></span>
-      </div>
-    );
-  }
+  if (!trs.length) return null;
   return (
     <div className="hud" role="group" aria-label="Selected road user readout">
       {rows.map((r, i) => (
@@ -84,7 +77,7 @@ export default function Hud({ data, conflicts }: { data: IntersectionT; conflict
           <div className="hud-id">
             <Icon name={r.tr.cls === 'truck' ? 'truck' : 'vehicle'} size={16} />
             <b className="measure">#{r.id}</b>
-            <span className="muted">{r.tr.cls === 'truck' ? 'heavy vehicle' : 'passenger car'} · {r.tr.dir} {r.tr.move}</span>
+            <span className="sr-only">{r.tr.cls === 'truck' ? 'heavy vehicle' : 'passenger car'}</span><span className="muted">{r.tr.dir} {r.tr.move}</span>
           </div>
           {r.k ? (
             <dl className="hud-kin">
@@ -145,7 +138,7 @@ function TtcTrace({ p, win, t }: { p: (number | null)[]; win: [number, number]; 
         <path d={d} className="tr-line" />
         {cx >= 0 && cx <= W && <line x1={cx} x2={cx} y1="0" y2={H - 8} className="tr-cur" />}
       </svg>
-      <figcaption><span>TTC profile, 0–5 s</span><span className="measure">{win[0].toFixed(0)}–{win[1].toFixed(0)} s · 1.5 s line</span></figcaption>
+      <figcaption><span>TTC 0–5 s</span><span className="measure">{win[0].toFixed(0)}–{win[1].toFixed(0)} s</span></figcaption>
     </figure>
   );
 }

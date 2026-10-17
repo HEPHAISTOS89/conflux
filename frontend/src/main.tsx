@@ -1,6 +1,6 @@
 import React, { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
 import './styles/base.css';
 import './styles/shell.css';
 import './styles/interactions.css';
@@ -15,7 +15,6 @@ const Intersection = lazy(() => import('./pages/Intersection'));
 const Methods = lazy(() => import('./pages/Methods'));
 const Platform = lazy(() => import('./pages/Platform'));
 const Ask = lazy(() => import('./pages/Ask'));
-const Roadmap = lazy(() => import('./pages/Roadmap'));
 const Brief = lazy(() => import('./pages/Brief'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -44,7 +43,7 @@ const router = createBrowserRouter([
       { path: '/brief', element: wrap(<Brief />) },
       { path: '/methods', element: wrap(<Methods />) },
       { path: '/platform', element: wrap(<Platform />) },
-      { path: '/roadmap', element: wrap(<Roadmap />) },
+      { path: '/roadmap', element: <Navigate to="/" replace /> }, // retired from the demo; old links land on the atlas
       { path: '/ask', element: wrap(<Ask />) },
       { path: '*', element: wrap(<NotFound />) },
     ],

@@ -48,11 +48,11 @@
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
   --r: 4px;
   /* Spec scale (docs/DESIGN_SPEC.md) */
-  --t-h2: 22px; --t-h3: 18px; --t-lede: 18px; --t-body: 16px; --t-ui: 14px; --t-label: 13px; --t-micro: 12px; --t-fig: 28px;
+  --t-h1: clamp(28px, 2.2vw, 40px); --t-h2: 22px; --t-h3: 18px; --t-lede: 18px; --t-body: 16px; --t-ui: 14px; --t-label: 13px; --t-micro: 12px; --t-fig: 28px;
   --r-s: 4px; --r-m: 8px; --r-l: 12px; --r-pill: 999px;
   --ctl-s: 32px; --ctl-m: 40px;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --rail: 232px;
+  --rail: 232px; --rail-mini: 64px;
   color-scheme: dark;
 }
 
@@ -100,12 +100,12 @@ body {
 b, strong, th { font-weight: var(--w-strong); }
 table, .num, input, select, button { font-variant-numeric: tabular-nums lining-nums; }
 h1, h2, h3, h4 { font-family: var(--f-head); font-weight: var(--w-head); letter-spacing: -0.03em; line-height: 1.04; margin: 0; text-wrap: balance; font-feature-settings: 'ss01' 1, 'case' 1; }
-h1 { letter-spacing: -0.04em; } h3 { letter-spacing: -0.012em; }
+h1 { letter-spacing: -0.03em; } h3 { letter-spacing: -0.012em; }
 p, li, dd { hanging-punctuation: first; }
 /* Sub/superscripts in formulas never drop below the 12 px floor. */
 sub, sup { font-size: max(12px, 0.75em); line-height: 0; }
-h1 { font-size: var(--step-head); }
-h2 { font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem); }
+h1 { font-size: var(--t-h1); }
+h2 { font-size: var(--t-h2); letter-spacing: -0.02em; line-height: 1.2; }
 h3 { font-size: 1.125rem; font-weight: var(--w-head); letter-spacing: -0.012em; }
 p { margin: 0; max-width: 68ch; text-wrap: pretty; }
 a { color: inherit; text-underline-offset: 3px; text-decoration-thickness: 1px; }

@@ -5,7 +5,7 @@ import { downloadCSV } from '../../lib/export';
 import { histogram, MPS_TO_MPH, percentile, spotSpeeds } from '../../lib/lab/metrics';
 import type { IntersectionT } from '../../lib/traj';
 import { Icon } from '../Icon';
-import MetricInfo, { ProvChip, type MetricSpec } from '../MetricInfo';
+import MetricInfo, { type MetricSpec } from '../MetricInfo';
 import Select from '../Select';
 
 const DIST = [['65', 20], ['100', 30.48], ['150', 45.72]] as const;
@@ -59,16 +59,15 @@ export default function SpeedHistogram({ data }: { data: IntersectionT }) {
         <Select<Dist> label="Spot line" icon="crosshair" value={dist} onChange={setDist}
           options={DIST.map(([k, m]) => ({ value: k, label: `${k} ft upstream`, hint: `${m.toFixed(0)} m` }))} />
         <dl className="spd-stats">
-          <div><dt><i style={{ background: CHART.nb }} />NB 85th</dt><dd className="measure">{fmt(s.p85n)}<small>mph</small></dd><dd className="muted measure">n {s.nb.length} · mean {fmt(s.mn)}</dd></div>
-          <div><dt><i style={{ background: CHART.sb }} />SB 85th</dt><dd className="measure">{fmt(s.p85s)}<small>mph</small></dd><dd className="muted measure">n {s.sb.length} · mean {fmt(s.ms)}</dd></div>
+          <div><dt><i style={{ background: CHART.nb }} />NB 85th</dt><dd className="measure">{fmt(s.p85n)}<small>mph</small></dd><dd className="muted measure" title={`mean ${fmt(s.mn)} mph`}>n {s.nb.length}</dd></div>
+          <div><dt><i style={{ background: CHART.sb }} />SB 85th</dt><dd className="measure">{fmt(s.p85s)}<small>mph</small></dd><dd className="muted measure" title={`mean ${fmt(s.ms)} mph`}>n {s.sb.length}</dd></div>
         </dl>
         <div className="spd-actions">
           <MetricInfo spec={SPEC} align="right" />
-          <ProvChip kind="derived" />
-          <button className="btn ghost" onClick={() => downloadCSV(`${data.id}-spot-speeds-${dist}ft.csv`, [
+          <button className="btn ghost ic" title="Download CSV" aria-label="Download spot speeds as CSV" onClick={() => downloadCSV(`${data.id}-spot-speeds-${dist}ft.csv`, [
             ...s.nb.map((v) => ({ site: data.id, direction: 'NB', spot_line_ft: dist, speed_mph: v.toFixed(2) })),
             ...s.sb.map((v) => ({ site: data.id, direction: 'SB', spot_line_ft: dist, speed_mph: v.toFixed(2) })),
-          ])}><Icon name="download" size={15} /> Download CSV</button>
+          ])}><Icon name="download" size={16} /></button>
         </div>
       </div>
       <div className="spd-fig">
@@ -100,7 +99,7 @@ export default function SpeedHistogram({ data }: { data: IntersectionT }) {
               <text x={X(p) + (k ? 6 : -6)} y={pad.t - 10} textAnchor={k ? 'start' : 'end'} className="spd-lab">{d} 85th {p.toFixed(1)}</text>
             </g>
           ))}
-          <text x={pad.l + iw / 2} y={Ht - 4} textAnchor="middle" className="spd-axis-t">Spot speed (mph, 5 mph bins)</text>
+          <text x={pad.l + iw / 2} y={Ht - 4} textAnchor="middle" className="spd-axis-t">Spot speed (mph)</text>
           <text x={12} y={pad.t + ih / 2} transform={`rotate(-90 12 ${pad.t + ih / 2})`} textAnchor="middle" className="spd-axis-t">Vehicles</text>
         </svg>
         {hb && (

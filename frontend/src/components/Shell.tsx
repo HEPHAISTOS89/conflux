@@ -1,37 +1,97 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useApi } from '../lib/api';
 import type { Manifest } from '../lib/types';
 import { Icon, type IconName } from './Icon';
 import { useTheme } from '../lib/theme';
+import { reducedMotion } from '../lib/motion';
 import CommandPalette from './CommandPalette';
 
-const NAV: { to: string; label: string; hint: string; icon: IconName }[] = [
-  { to: '/', label: 'Atlas', hint: 'County overview', icon: 'atlas' },
-  { to: '/screening', label: 'Network screening', hint: 'HSM Part B', icon: 'rank' },
-  { to: '/corridors', label: 'Corridors', hint: 'Straight-line diagrams', icon: 'corridor' },
-  { to: '/vru', label: 'Pedestrians & cyclists', hint: 'VRU crashes', icon: 'ped' },
-  { to: '/intersections', label: 'Intersection lab', hint: 'Conflicts · repair', icon: 'lidar' },
-  { to: '/brief', label: 'District brief', hint: 'One-page summary', icon: 'sheet' },
-  { to: '/methods', label: 'Methods & data', hint: 'Equations · provenance', icon: 'methods' },
-  { to: '/platform', label: 'Platform', hint: 'AWS pipeline', icon: 'platform' },
-  { to: '/roadmap', label: 'Roadmap', hint: 'Built · prototype · planned', icon: 'flag' },
-  { to: '/ask', label: 'Ask the data', hint: 'Bedrock analyst', icon: 'ask' },
+const NAV: { to: string; label: string; icon: IconName }[] = [
+  { to: '/', label: 'Atlas', icon: 'atlas' },
+  { to: '/screening', label: 'Network screening', icon: 'rank' },
+  { to: '/corridors', label: 'Corridors', icon: 'corridor' },
+  { to: '/vru', label: 'Pedestrians & cyclists', icon: 'ped' },
+  { to: '/intersections', label: 'Intersection lab', icon: 'lidar' },
+  { to: '/brief', label: 'District brief', icon: 'sheet' },
+  { to: '/methods', label: 'Methods & data', icon: 'methods' },
+  { to: '/platform', label: 'Platform', icon: 'platform' },
+  { to: '/ask', label: 'Ask the data', icon: 'ask' },
 ];
+
+const RAIL_KEY = 'rs-rail';
+const readRail = () => { try { return localStorage.getItem(RAIL_KEY) === 'collapsed'; } catch { return false; } };
+const writeRail = (c: boolean) => { try { localStorage.setItem(RAIL_KEY, c ? 'collapsed' : 'expanded'); } catch { /* storage blocked: state lives for this visit only */ } };
+const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName));
 
 export default function Shell() {
   const meta = useApi<Manifest>('/meta');
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(readRail);
+  const [about, setAbout] = useState(false);
+  const [tip, setTip] = useState<{ text: string; kbd?: string; y: number } | null>(null);
   const [theme, toggleTheme] = useTheme();
-  const themeBtn = (
-    <button className="theme-btn" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`${theme === 'dark' ? 'Light' : 'Dark'} mode`}>
-      <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} />
-    </button>
-  );
   const loc = useLocation();
   const menuBtn = useRef<HTMLButtonElement>(null);
   const rail = useRef<HTMLElement>(null);
-  useEffect(() => { setOpen(false); window.scrollTo(0, 0); }, [loc.pathname]);
+  const list = useRef<HTMLUListElement>(null);
+  const ind = useRef<HTMLLIElement>(null);
+  const outlet = useRef<HTMLDivElement>(null);
+  const aboutBtn = useRef<HTMLButtonElement>(null);
+  const aboutPop = useRef<HTMLDivElement>(null);
+
+  const toggleRail = useCallback(() => setCollapsed((c) => { writeRail(!c); return !c; }), []);
+
+  // "[" collapses or expands the rail. Pages that bind "[" themselves (the intersection lab steps risk events)
+  // call preventDefault; the check runs after dispatch so listener order does not matter.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== '[' || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || window.innerWidth <= 1100) return;
+      setTimeout(() => { if (!e.defaultPrevented) toggleRail(); }, 0);
+    };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [toggleRail]);
+
+  // Maps and canvases size themselves from resize events; tell them once the rail has finished moving.
+  const first = useRef(true);
+  useEffect(() => {
+    setTip(null);
+    if (first.current) { first.current = false; return; }
+    const t = setTimeout(() => window.dispatchEvent(new Event('resize')), reducedMotion() ? 0 : 260);
+    return () => clearTimeout(t);
+  }, [collapsed]);
+
+  // Sliding active indicator: one fill that travels between items instead of each item lighting up.
+  const place = useCallback(() => {
+    const ul = list.current, el = ind.current;
+    if (!ul || !el) return;
+    const a = ul.querySelector<HTMLElement>('.rail-link.active');
+    if (!a) { el.style.opacity = '0'; return; }
+    el.style.opacity = '1';
+    el.style.transform = `translateY(${a.offsetTop}px)`;
+    el.style.height = `${a.offsetHeight}px`;
+  }, []);
+  useLayoutEffect(() => { place(); }, [loc.pathname, collapsed, place]);
+  useEffect(() => {
+    const ul = list.current;
+    if (!ul) return;
+    const ro = new ResizeObserver(place);
+    ro.observe(ul);
+    rail.current?.setAttribute('data-ind', '');
+    // enable the slide only after the first placement, so the indicator does not fly in from the top on load
+    requestAnimationFrame(() => ind.current?.setAttribute('data-ready', ''));
+    return () => ro.disconnect();
+  }, [place]);
+
+  // Route change: close the drawer, return to the top, fade the new sheet in (not on query-only changes).
+  const section = loc.pathname.split('/')[1] ?? '';
+  useEffect(() => {
+    setOpen(false); setAbout(false); window.scrollTo(0, 0);
+    if (!reducedMotion()) outlet.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+  }, [section]);
+  useEffect(() => { setOpen(false); }, [loc.pathname]);
+
   // Disclosure (≤ 1100 px): Esc closes and returns focus, the page behind does not scroll, focus moves into the menu.
   useEffect(() => {
     if (!open) return;
@@ -45,10 +105,31 @@ export default function Shell() {
     return () => { document.removeEventListener('keydown', esc); window.removeEventListener('resize', wide); document.documentElement.style.overflow = prev; };
   }, [open]);
 
+  // "About data" panel: outside click or Esc closes it.
+  useEffect(() => {
+    if (!about) return;
+    const away = (e: PointerEvent) => { if (!aboutPop.current?.contains(e.target as Node) && !aboutBtn.current?.contains(e.target as Node)) setAbout(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setAbout(false); aboutBtn.current?.focus(); } };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
+  }, [about]);
+
+  // Labels for the icon rail: one floating tip, shown on hover or keyboard focus while collapsed.
+  const showTip = (e: React.SyntheticEvent) => {
+    if (!collapsed || window.innerWidth <= 1100) return;
+    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
+    if (!t) { setTip(null); return; }
+    const r = t.getBoundingClientRect();
+    setTip({ text: t.dataset.tip!, kbd: t.dataset.kbd, y: r.top + r.height / 2 });
+  };
+
   const asOf = meta.data?.generated_at ? new Date(meta.data.generated_at) : null;
+  const themeLabel = `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`;
+  const railLabel = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
 
   return (
-    <div className="shell" data-open={open}>
+    <div className="shell" data-open={open} data-rail={collapsed ? 'collapsed' : 'expanded'}>
       <a className="skip" href="#main">Skip to content</a>
       <header className="topbar">
         <NavLink to="/" className="brand" aria-label="RoadScope home">
@@ -59,46 +140,68 @@ export default function Shell() {
             onClick={() => window.dispatchEvent(new Event('rs:palette'))}>
             <Icon name="search" size={16} />
           </button>
-          {themeBtn}
-          <button ref={menuBtn} type="button" className="menu-btn" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} aria-controls="rail" onClick={() => setOpen((o) => !o)}>
+          <button type="button" className="theme-btn" onClick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} />
+          </button>
+          <button ref={menuBtn} type="button" className="menu-btn" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="rail" onClick={() => setOpen((o) => !o)}>
             <Icon name={open ? 'close' : 'menu'} size={16} /><span className="menu-btn-label">{open ? 'Close' : 'Menu'}</span>
           </button>
         </div>
       </header>
 
-      <nav id="rail" ref={rail} className="rail" aria-label="Main navigation">
-        <NavLink to="/" className="brand rail-brand" aria-label="RoadScope home">
-          <Mark /> <span>RoadScope</span>
-        </NavLink>
-        <ul>
-          {NAV.map((n) => (
-            <li key={n.to}>
-              <NavLink to={n.to} end={n.to === '/'} className="rail-link">
-                <Icon name={n.icon} size={16} />
-                <span className="rail-text">{n.label}</span>
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-        <button type="button" className="cmdk-trigger" onClick={() => window.dispatchEvent(new Event('rs:palette'))}>
-          <span>Jump to…</span><kbd>⌘K</kbd>
-        </button>
-        <div className="rail-theme">{themeBtn}<span>{theme === 'dark' ? 'Dark' : 'Light'} mode</span></div>
-        <dl className="titleblock">
-          <div><dt>District</dt><dd>TxDOT Lubbock</dd></div>
-          <div><dt>County</dt><dd className="num">152 · Lubbock</dd></div>
-          <div>
-            <dt>Data build</dt>
-            <dd className="num">
-              {meta.loading ? '…' : asOf ? asOf.toISOString().slice(0, 10) : <span className="status-bad">offline</span>}
-            </dd>
+      <nav id="rail" ref={rail} className="rail" aria-label="Main navigation"
+        onPointerOver={showTip} onPointerLeave={() => setTip(null)} onFocus={showTip} onBlur={() => setTip(null)}>
+        <div className="rail-in">
+          <div className="rail-head">
+            <NavLink to="/" className="brand rail-brand" aria-label="RoadScope home" tabIndex={collapsed ? -1 : undefined}>
+              <Mark /> <span>RoadScope</span>
+            </NavLink>
+            <button type="button" className="rail-toggle" onClick={toggleRail} aria-label={railLabel} aria-expanded={!collapsed} aria-controls="rail-list"
+              aria-keyshortcuts="[" data-tip={railLabel} data-kbd="[" title={collapsed ? undefined : `${railLabel} ( [ )`}>
+              <Icon name="sidebar" size={16} />
+            </button>
           </div>
-          <div><dt>Sources</dt><dd>TxDOT · NHTSA FARS · FHWA NGSIM</dd></div>
-        </dl>
+
+          <ul id="rail-list" ref={list}>
+            <li ref={ind} className="rail-ind" aria-hidden="true" />
+            {NAV.map((n) => (
+              <li key={n.to}>
+                <NavLink to={n.to} end={n.to === '/'} className="rail-link" data-tip={n.label}>
+                  <Icon name={n.icon} size={16} />
+                  <span className="rail-text">{n.label}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+
+          <div className="rail-tools">
+            <button type="button" className="rail-link rail-tool" data-tip="Jump to" data-kbd="⌘K" onClick={() => window.dispatchEvent(new Event('rs:palette'))}>
+              <Icon name="search" size={16} /><span className="rail-text">Jump to</span><kbd>⌘K</kbd>
+            </button>
+            <button type="button" className="rail-link rail-tool rail-theme" data-tip={themeLabel} onClick={toggleTheme} aria-label={themeLabel}>
+              <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} /><span className="rail-text">{theme === 'dark' ? 'Light' : 'Dark'} mode</span>
+            </button>
+            <button ref={aboutBtn} type="button" className="rail-link rail-tool" data-tip="About the data" aria-expanded={about} aria-controls="rail-about" onClick={() => setAbout((a) => !a)}>
+              <Icon name="db" size={16} /><span className="rail-text">About the data</span>
+            </button>
+          </div>
+        </div>
       </nav>
 
+      {about && (
+        <div ref={aboutPop} id="rail-about" role="dialog" aria-label="About the data" className="mi-pop rail-about">
+          <span className="mi-head"><b>About the data</b></span>
+          <span className="mi-row"><span>District</span><span>TxDOT Lubbock (05)</span></span>
+          <span className="mi-row"><span>County</span><span className="num">152 · Lubbock</span></span>
+          <span className="mi-row"><span>Data build</span><span className="num">{meta.loading ? '…' : asOf ? asOf.toISOString().slice(0, 10) : <span className="status-bad">offline</span>}</span></span>
+          <span className="mi-row"><span>Sources</span><span>TxDOT CRIS, Roadway Inventory, AADT · NHTSA FARS · FHWA NGSIM</span></span>
+          <span className="mi-note">TxDOT data for informational use; not an official TxDOT product. FARS public domain. NGSIM CC BY-SA 3.0.</span>
+        </div>
+      )}
+      {tip && <div className="rail-tip" aria-hidden="true" style={{ top: tip.y }}>{tip.text}{tip.kbd && <kbd>{tip.kbd}</kbd>}</div>}
+
       <main id="main" className="main" tabIndex={-1}>
-        <div key={theme} className="outlet"><Outlet /></div>
+        <div key={theme} ref={outlet} className="outlet"><Outlet /></div>
         <CommandPalette />
         <footer className="colophon">
           <p>

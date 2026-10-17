@@ -5,6 +5,7 @@ import Select from './Select';
 
 const FT = 3.28084;
 import { useReveal } from '../lib/motion';
+import Info from './Info';
 
 type P3 = [number, number, number];
 interface RTrack { protocol?: string; occluded_by?: number; id: number; gaps: number | [number, number][]; method: string; rmse_m: number; speed_rmse: number; raw: P3[]; truth: P3[]; repaired: P3[]; linear: P3[]; methods?: Record<string, { rmse_m: number; speed_rmse: number }> }
@@ -39,9 +40,16 @@ export default function RepairPanel({ id }: { id: string }) {
 
   return (
     <section ref={ref} className="section repair" aria-labelledby="rep-h">
-      <div className="section-head" data-r="1">
-        <h2 id="rep-h">Trajectory repair under occlusion</h2>
-        <p>Gaps of 0.5–5 s refilled from {s?.context_s ?? 3} s of context either side, scored against {truth === 'raw' ? 'raw' : 'smoothed'} NGSIM positions</p>
+      <div className="section-head sh-info" data-r="1">
+        <h2 id="rep-h">Trajectory repair</h2>{s && (
+          <Info label="About trajectory repair" title="Trajectory repair under occlusion">
+            <p>Gaps of 0.5–5 s refilled from {s.context_s ?? 3} s of context either side, scored against {truth === 'raw' ? 'raw' : 'smoothed'} NGSIM positions on the gap frames only.</p>
+            {pv && <p>{ops(pv.occlusion ? pv.description.replace(/\.\s*$/, '') : pv.description)}{pv.occlusion ? `. ${pv.occlusion.gaps} real gaps, mean ${pv.occlusion.gap_len_mean_s.toFixed(2)} s.` : ''}</p>}
+            <p>Selected on validation: {NAME[s.validation?.selected ?? s.selected_method ?? ''] ?? s.selected_method} ({s.validation?.tracks} tracks).{s.params?.kf_ca ? ` KF noise q = ${s.params.kf_ca.q} m²/s⁵, R = ${s.params.kf_ca.r} m² (filter runs in SI).` : ''}</p>
+            <p>Truth: {(s.truth ?? 'smoothed NGSIM track').replace(/\s*See summary\.protocols[^.]*\.?/, '')}</p>
+            {base?.notes?.map((n) => <p key={n.slice(0, 40)}>{ops(n)}</p>)}
+          </Info>
+        )}
       </div>
       {r.error && <div className="error-box">{r.error}</div>}
       {s && tr && (
@@ -49,15 +57,14 @@ export default function RepairPanel({ id }: { id: string }) {
           <div className="panel rep-plot">
             <div className="rep-plot-h rep-switch">
               <div className="seg" role="group" aria-label="Occlusion protocol">
-                <button aria-pressed={proto === 'occluder'} onClick={() => { setProto('occluder'); setPick(0); }}>Line-of-sight occlusion</button>
-                <button aria-pressed={proto === 'uniform'} onClick={() => { setProto('uniform'); setPick(0); }}>Uniform random gaps</button>
+                <button aria-pressed={proto === 'occluder'} onClick={() => { setProto('occluder'); setPick(0); }} title="Line-of-sight occlusion from a virtual roadside sensor">Occlusion</button>
+                <button aria-pressed={proto === 'uniform'} onClick={() => { setProto('uniform'); setPick(0); }} title="Uniform random gaps">Random gaps</button>
               </div>
               <div className="seg" role="group" aria-label="Ground truth">
-                <button aria-pressed={truth === 'smoothed'} onClick={() => setTruth('smoothed')}>Smoothed truth</button>
-                <button aria-pressed={truth === 'raw'} onClick={() => setTruth('raw')}>Raw NGSIM truth</button>
+                <button aria-pressed={truth === 'smoothed'} onClick={() => setTruth('smoothed')} title="Savitzky–Golay-smoothed NGSIM track">Smoothed</button>
+                <button aria-pressed={truth === 'raw'} onClick={() => setTruth('raw')} title="Raw NGSIM positions">Raw</button>
               </div>
             </div>
-            {pv && <p className="muted rep-desc">{ops(pv.occlusion ? pv.description.replace(/\.\s*$/, '') : pv.description)}{pv.occlusion ? `. ${pv.occlusion.gaps} real gaps, mean ${pv.occlusion.gap_len_mean_s.toFixed(2)} s.` : ''}</p>}
             <div className="rep-plot-h">
               <Select<string> label="Occluded track" icon="vehicle" value={String(Math.min(pick, shown.length - 1))} onChange={(v) => setPick(Number(v))}
                 options={shown.map((t, i) => ({ value: String(i), label: `#${t.id} · ${(t.truth.length / 10).toFixed(1)} s missing`, hint: `${t.method === 'linear' ? 'linear' : 'Kalman'} ${(t.rmse_m * FT).toFixed(2)} ft` }))} />
@@ -68,7 +75,7 @@ export default function RepairPanel({ id }: { id: string }) {
           <div className="panel rep-table">
             <table className="data">
               <caption className="sr-only">Position RMSE (ft) and speed RMSE (ft/s) by method and gap length</caption>
-              <thead><tr><th>Gap length</th>{methods.map((m) => <th key={m} className="r">{m === 'linear' ? 'Linear' : m === 'kf_ca' ? 'KF-CA' : 'KF-CA path'}</th>)}</tr></thead>
+              <thead><tr><th>RMSE ft</th>{methods.map((m) => <th key={m} className="r">{m === 'linear' ? 'Linear' : m === 'kf_ca' ? 'KF-CA' : 'KF-CA path'}</th>)}</tr></thead>
               <tbody>
                 {s.by_gap?.map((b) => {
                   const best = Math.min(...methods.map((m) => (b[m] as M)?.rmse_m ?? Infinity));
@@ -80,24 +87,19 @@ export default function RepairPanel({ id }: { id: string }) {
                   );
                 })}
                 <tr className="tot">
-                  <td>All test gaps <span className="muted num">({s.gaps})</span></td>
+                  <td>All <span className="muted num">({s.gaps})</span></td>
                   {methods.map((m) => <td key={m} className="r num">{nf(s.methods![m].rmse_m * FT, 2)}</td>)}
                 </tr>
                 {truth === 'smoothed' && <tr>
-                  <td>Speed RMSE (ft/s)</td>
+                  <td>Speed ft/s</td>
                   {methods.map((m) => <td key={m} className="r num">{nf(s.methods![m].speed_rmse * FT, 2)}</td>)}
                 </tr>}
               </tbody>
             </table>
-            <dl className="rep-facts num">
-              <dt>Position RMSE (ft)</dt><dd>gap frames only, vs held-out truth</dd>
-              <dt>Selected on validation</dt><dd>{NAME[s.validation?.selected ?? s.selected_method ?? ''] ?? s.selected_method} ({s.validation?.tracks} tracks)</dd>
-              {s.params?.kf_ca && <><dt>KF noise</dt><dd>q = {s.params.kf_ca.q} m²/s⁵, R = {s.params.kf_ca.r} m² (filter runs in SI)</dd></>}
-              {s.better_than_linear_share && <><dt>Tracks KF beats linear</dt><dd>{Math.round((s.better_than_linear_share.kf_ca ?? 0) * 100)}%</dd></>}
-              <dt>Truth</dt><dd>{(s.truth ?? 'smoothed NGSIM track').replace(/\s*See summary\.protocols[^.]*\.?/, '')}</dd>
-            </dl>
+            {s.better_than_linear_share && (
+              <p className="rep-win"><span className="measure">{Math.round((s.better_than_linear_share.kf_ca ?? 0) * 100)}<small>%</small></span>tracks where Kalman beats linear</p>
+            )}
             {s.validation?.q_curve && <QCurve c={s.validation.q_curve} chosen={s.params?.kf_ca?.q} />}
-            {base?.notes && <ul className="rep-notes muted">{base.notes.map((n) => <li key={n.slice(0, 40)}>{ops(n)}</li>)}</ul>}
           </div>
         </div>
       )}
@@ -128,10 +130,10 @@ function PathPlot({ t }: { t: RTrack }) {
         <path d={path(t.repaired)} className="kf" />
       </svg>
       <figcaption className="rep-key">
-        <span><svg width="14" height="8" aria-hidden="true"><circle cx="7" cy="4" r="2" className="obs" /></svg>observed 10 Hz</span>
-        <span><svg width="22" height="8" aria-hidden="true"><line x1="0" x2="22" y1="4" y2="4" className="truth" /></svg>held-out truth</span>
+        <span><svg width="14" height="8" aria-hidden="true"><circle cx="7" cy="4" r="2" className="obs" /></svg>observed</span>
+        <span><svg width="22" height="8" aria-hidden="true"><line x1="0" x2="22" y1="4" y2="4" className="truth" /></svg>truth</span>
         <span><svg width="22" height="8" aria-hidden="true"><line x1="0" x2="22" y1="4" y2="4" className="lin" /></svg>linear</span>
-        <span><svg width="22" height="8" aria-hidden="true"><line x1="0" x2="22" y1="4" y2="4" className="kf" /></svg>{t.method === 'linear' ? 'selected (linear)' : 'Kalman RTS'}</span>
+        <span><svg width="22" height="8" aria-hidden="true"><line x1="0" x2="22" y1="4" y2="4" className="kf" /></svg>{t.method === 'linear' ? 'selected (linear)' : 'Kalman'}</span>
       </figcaption>
     </figure>
   );
@@ -162,7 +164,7 @@ function ErrPlot({ t }: { t: RTrack }) {
       <text x={L - 6} y={H - B + 4} className="tk" textAnchor="end">0</text>
       <path d={pl(el)} className="lin" /><path d={pl(ek)} className="kf" />
     </svg>
-    <figcaption className="muted">Position error (ft) across the missing frames</figcaption>
+    <figcaption className="muted">Error (ft)</figcaption>
     </figure>
   );
 }
@@ -182,7 +184,7 @@ function QCurve({ c: raw, chosen }: { c: ({ q: number; rmse_m: number } | [numbe
         <text x={L - 4} y={Y(ym) + 4} className="tk" textAnchor="end">{(ym * FT).toFixed(2)}</text>
         <text x={L - 4} y={Y(yn) + 4} className="tk" textAnchor="end">{(yn * FT).toFixed(2)}</text>
       </svg>
-      <figcaption className="muted">Validation RMSE (ft) against q, log scale {c[0].q} to {c[c.length - 1].q}; filled marker is the chosen q</figcaption>
+      <figcaption className="muted" title={`Validation RMSE (ft) against Kalman process noise q, log scale ${c[0].q} to ${c[c.length - 1].q}; filled marker is the chosen q`}>Validation RMSE vs q</figcaption>
     </figure>
   );
 }

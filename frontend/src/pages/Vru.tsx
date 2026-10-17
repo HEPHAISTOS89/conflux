@@ -2,11 +2,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { useSearchParams } from 'react-router-dom';
 import MapView, { type MapLayer } from '../components/MapView';
 import PageHeader from '../components/PageHeader';
-import MetricInfo, { ProvChip, type MetricSpec } from '../components/MetricInfo';
+import MetricInfo, { type MetricSpec } from '../components/MetricInfo';
+import Info from '../components/Info';
 import { Icon, type IconName } from '../components/Icon';
 import Term from '../components/Term';
 import { useApi } from '../lib/api';
-import { useReveal } from '../lib/motion';
+import { reducedMotion, useReveal } from '../lib/motion';
 import { copyLink, downloadCSV, downloadPNG } from '../lib/export';
 import { CHART, nf, SEV_HEX, SEV_LABEL } from '../lib/format';
 import type { FC, Severity, VruProps } from '../lib/types';
@@ -272,10 +273,21 @@ export default function Vru() {
     }];
   }, [feats]);
   const selFeature = selId ? feats.find((f) => f.properties.id === selId) : undefined;
+  // a newly selected crash flashes a halo (skipped with reduced motion)
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    if (!selId || reducedMotion()) return;
+    setPulse(true);
+    const t = setTimeout(() => setPulse(false), 60);
+    return () => clearTimeout(t);
+  }, [selId]);
   const mapSources = useMemo<MapLayer[]>(() => [...sources, {
     id: 'vru-sel', data: { type: 'FeatureCollection', features: selFeature ? [selFeature] : [] },
-    layers: [{ id: 'vru-sel-ring', type: 'circle', paint: { 'circle-radius': 11, 'circle-opacity': 0, 'circle-stroke-color': CHART.ink, 'circle-stroke-width': 2.5 } } as any],
-  }], [sources, selFeature]);
+    layers: [
+      { id: 'vru-sel-halo', type: 'circle', paint: { 'circle-radius': pulse ? 30 : 11, 'circle-color': CHART.accent, 'circle-opacity': pulse ? 0.45 : 0, 'circle-radius-transition': { duration: pulse ? 0 : 420, delay: 0 }, 'circle-opacity-transition': { duration: pulse ? 0 : 420, delay: 0 } } } as any,
+      { id: 'vru-sel-ring', type: 'circle', paint: { 'circle-radius': 11, 'circle-opacity': 0, 'circle-stroke-color': CHART.ink, 'circle-stroke-width': 2.5 } } as any,
+    ],
+  }], [sources, selFeature, pulse]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -346,9 +358,9 @@ export default function Vru() {
             ? <>{nf(agg.n)} crashes shown with the severity filter on; across all severities in this view, {pct(share.ka, share.n)}% of {nf(share.n)} were fatal or suspected serious injury (KA).</>
             : <>{pct(agg.ka, agg.n)}% of {nf(agg.n)} crashes were fatal or suspected serious injury (KA); {pct(agg.unlit, agg.n)}% occurred on dark, unlit roads.</>
           : pts.loading ? 'Loading crash records…' : 'No crashes match these filters.'}
-        source={<>TxDOT CRIS · Lubbock County, on and off system · {year ?? span} <ProvChip kind="observed" /></>}
+        source={<>Observed: TxDOT CRIS, Lubbock County, on and off system, {year ?? span}. KA shares, Wilson intervals, peak window and groupings are derived from those records. Informational use only; crash records are protected from discovery and use in litigation (23 U.S.C. §407). Counts are not exposure-adjusted rates.</>}
         readouts={[
-          { label: 'Crashes', value: pts.loading ? null : agg.n },
+          { label: <>Crashes <MetricInfo spec={COUNT_SPEC} align="right" /></>, value: pts.loading ? null : agg.n },
           { label: <>KA <MetricInfo spec={KA_SPEC} align="right" /></>, value: pts.loading ? null : agg.ka, tone: 'alert', unit: agg.n ? `${pct(agg.ka, agg.n)}%` : undefined },
           { label: 'Dark, unlit', value: agg.n ? (100 * agg.unlit) / agg.n : null, unit: '%', digits: 1 },
           { label: <span title="Share of timed crashes in the busiest 3-hour window">Peak {pk.n > 0 ? <span className="measure">{hh(pk.start)}–{hh(pk.start + 3)} h</span> : 'window'}</span>, value: pk.timed ? (100 * pk.n) / pk.timed : null, unit: '%', digits: 1 },
@@ -402,10 +414,9 @@ export default function Vru() {
                 <i style={{ background: SEV_HEX[s] }} />{s}<span className="vru-lname">{SEV_LABEL[s].slice(1)}</span><span className="num">{nf(counts.sev[s] ?? 0)}</span>
               </button>
             ))}
-            <span className="vru-legend-tip">Alt-click isolates</span>
           </div>
           {!pts.loading && !pts.error && !feats.length && <div className="vru-empty">No crashes match these filters. <button type="button" className="btn ghost" onClick={reset}>Reset</button></div>}
-          <div className="vru-readout" aria-live="polite" data-on={readout ? '' : undefined} data-pinned={sel ? '' : undefined}>
+          <div className="vru-readout" aria-live="polite" data-on={readout ? '' : undefined} data-pinned={sel ? '' : undefined} data-idle={!readout && !pts.loading ? '' : undefined}>
             {readout ? (
               <>
                 <div className="vru-readout-h">
@@ -426,70 +437,87 @@ export default function Vru() {
                   </dl>
                 ) : <div className="muted">{readout.pbcat ?? 'PBCAT not recorded'}</div>}
               </>
-            ) : <span className="muted">{pts.loading ? 'Loading crashes…' : 'Click a point for details'}</span>}
+            ) : pts.loading ? <span className="muted">Loading crashes…</span> : null}
           </div>
         </div>
       </section>
 
       <div className="vru-grid" ref={gridRef}>
         <section className="section vru-card vru-wide" aria-labelledby="vru-hd" data-r="1">
-          <SecHead id="vru-hd" icon="clock" title="Hour of week" why="Crashes by day and hour, all filters applied. Peak: busiest 3-hour window."
+          <SecHead id="vru-hd" icon="clock" title="Hour of week" why={<>
+            <p>Crashes by day and hour, all filters applied. Peak: the busiest 3-hour window; a uniform spread would put 12.5% in any 3 hours.</p>
+            {pk.n > 0 && <p>KA share in the window {pct(pk.ka, pk.kaN)}% (n = {pk.kaN}, 95% CI {nf(100 * wilson(pk.ka, pk.kaN)[0], 0)}–{nf(100 * wilson(pk.ka, pk.kaN)[1], 0)}%) against {pct(share.ka, share.n)}% overall.</p>}
+            <p>{heat.unk > 0 && <>{heat.unk} without a recorded time are omitted. </>}{heat.noonGap
+              ? <>No crash is recorded at 12:00–12:59 while {heat.midnight} are at 00:00–00:59: the source time field likely codes noon as “12 AM”.</>
+              : <>The source has no “12 PM” times. “12 AM” crashes in daylight are read as noon; in darkness, as midnight.</>}</p>
+            <p>Click a cell to filter the page.</p>
+          </>}
             actions={<><ExportBtn kind="png" onClick={() => heatFig.current && downloadPNG(`roadscope-vru-hour-of-week-${suffix}.png`, heatFig.current, caption)} />
               <ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-hour-of-week-${suffix}.csv`, heat.grid.flatMap((r, d) => r.map((v, h) => ({ dow: DOW[d], hour: h, crashes: v }))))} /></>} />
           <div className="vru-heat-wrap">
             <Heatmap ref={heatFig} grid={heat.grid} max={heat.max} cell={cell} onCell={setCell} peak={pk.n > 0 ? pk.start : null} />
             {pk.n > 0 && (
               <aside className="vru-peak" aria-label="Peak window">
-                <span className="vru-peak-k"><Icon name="target" size={16} />Peak 3-hour window</span>
+                <span className="vru-peak-k"><Icon name="target" size={16} />Peak 3 h</span>
                 <span className="vru-peak-v measure">{hh(pk.start)}:00–{hh(pk.start + 3)}:00</span>
-                <span className="vru-peak-s"><span className="num">{pk.n}</span> of <span className="num">{pk.timed}</span> timed crashes (<span className="num">{pct(pk.n, pk.timed)}</span>%; uniform: <span className="num">12.5</span>%)</span>
-                <span className="vru-peak-s">KA share in window <b className="num">{pct(pk.ka, pk.kaN)}%</b> (n = <span className="num">{pk.kaN}</span>, CI <span className="num">{nf(100 * wilson(pk.ka, pk.kaN)[0], 0)}–{nf(100 * wilson(pk.ka, pk.kaN)[1], 0)}%</span>) vs <span className="num">{pct(share.ka, share.n)}%</span> overall</span>
+                <span className="vru-peak-s"><span className="num">{pk.n}</span> / <span className="num">{pk.timed}</span> · <span className="num">{pct(pk.n, pk.timed)}%</span></span>
+                <span className="vru-peak-s">KA <b className="num">{pct(pk.ka, pk.kaN)}%</b> vs <span className="num">{pct(share.ka, share.n)}%</span></span>
               </aside>
             )}
           </div>
-          <p className="muted vru-note">
-            {heat.unk > 0 && <><span className="num">{heat.unk}</span> without a recorded time are omitted. </>}
-            {heat.noonGap
-              ? <><Icon name="warning" size={14} /> No crash is recorded at 12:00–12:59 while <span className="num">{heat.midnight}</span> are at 00:00–00:59: the source time field likely codes noon as “12 AM”.</>
-              : <>The source has no “12 PM” times. “12 AM” crashes in daylight are read as noon; in darkness, as midnight.</>}
-          </p>
         </section>
 
         <section className="section vru-card" aria-labelledby="vru-lt" data-r="2">
-          <SecHead id="vru-lt" icon="moon" title="Light condition" why="KA share by CRIS light condition. Roadway lighting is an FHWA Proven Safety Countermeasure."
+          <SecHead id="vru-lt" icon="moon" title="Light condition" why={<>
+            <p>KA share by CRIS light condition, with 95% Wilson intervals. Roadway lighting is an FHWA Proven Safety Countermeasure.</p>
+            {lightFind && <p>{lightFind}</p>}
+            <p>Dashed rule: overall KA share. Click a row to filter the page.</p>
+          </>}
             actions={<><ExportBtn kind="png" onClick={() => lightFig.current && downloadPNG(`roadscope-vru-light-${suffix}.png`, lightFig.current, caption)} />
               <ExportBtn kind="csv" onClick={() => rowsCsv('light', lightRows)} /></>} />
           <Breakdown ref={lightFig} rows={lightRows} overall={overallShare} selected={focus?.kind === 'light' ? focus.key : null}
-            onPick={(k) => toggleFocus('light', k)} finding={lightFind} label="Crashes and KA share by light condition" loading={pts.loading} />
+            onPick={(k) => toggleFocus('light', k)} label="Crashes and KA share by light condition" loading={pts.loading} />
         </section>
 
         <section className="section vru-card" aria-labelledby="vru-sp" data-r="3">
-          <SecHead id="vru-sp" icon="gauge" title="Posted speed and severity" why="Posted limit as recorded in CRIS, a network proxy for impact speed."
+          <SecHead id="vru-sp" icon="gauge" title="Posted speed" why={<>
+            <p>Posted limit as recorded in CRIS, a network proxy for impact speed. KA share with 95% Wilson intervals.</p>
+            {speedFind && <p>{speedFind}</p>}
+            <p>Dashed rule: overall KA share. Click a row to filter the page.</p>
+          </>}
             actions={<><ExportBtn kind="png" onClick={() => speedFig.current && downloadPNG(`roadscope-vru-speed-${suffix}.png`, speedFig.current, caption)} />
               <ExportBtn kind="csv" onClick={() => rowsCsv('posted-speed', speedRows)} /></>} />
           <Breakdown ref={speedFig} rows={speedRows} overall={overallShare} selected={focus?.kind === 'speed' ? focus.key : null} unit="mph"
-            onPick={(k) => toggleFocus('speed', k)} finding={speedFind} label="Crashes and KA share by posted speed limit" loading={pts.loading} />
+            onPick={(k) => toggleFocus('speed', k)} label="Crashes and KA share by posted speed limit" loading={pts.loading} />
         </section>
 
         <section className="section vru-card vru-wide" aria-labelledby="vru-st" data-r="4">
-          <SecHead id="vru-st" icon="warning" title="Darkness and speed together" why="KA share in each combination of light and posted speed, so one condition is not credited with the other’s effect."
+          <SecHead id="vru-st" icon="warning" title="Darkness and speed" why={<>
+            <p>KA share in each combination of light and posted speed, so one condition is not credited with the other’s effect. 95% Wilson intervals.</p>
+            <p>{strataText(strata.c)}</p>
+            <p>{strata.rows} crashes with a recorded light condition and posted speed; dawn, dusk and unknown excluded.</p>
+          </>}
             actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-dark-by-speed-${suffix}.csv`, ([['Daylight', 0], ['Dark (lit or unlit)', 1]] as const).flatMap(([l, d]) => (['< 50 mph', '≥ 50 mph'] as const).map((sp, f) => { const c = strata.c[d][f]; const [lo, hi] = wilson(c.ka, c.n); return { light: l, posted: sp, crashes: c.n, ka: c.ka, ka_share_pct: c.n ? +(100 * c.ka / c.n).toFixed(1) : '', ci95_lo_pct: +(100 * lo).toFixed(1), ci95_hi_pct: +(100 * hi).toFixed(1) }; })))} />} />
-          <Strata c={strata.c} n={strata.rows} />
+          <Strata c={strata.c} />
         </section>
 
         <section className="section vru-card" aria-labelledby="vru-fy" data-r="5">
-          <SecHead id="vru-fy" icon="sign" title="Failure to yield" why="Pedestrian crashes only. Driver-yielding treatments target motorist failure to yield."
+          <SecHead id="vru-fy" icon="sign" title="Failure to yield" why={<>
+            <p>Pedestrian crashes only ({yieldRows.peds} in view). Driver-yielding treatments target motorist failure to yield.</p>
+            <p>{ysrc === 'pbcat' ? 'PBCAT: crash type assigned from the crash narrative and diagram.' : <>CRIS factor: officer-coded contributing factors, up to three per crash{yieldRows.both ? `, so ${yieldRows.both} count in both groups` : ''}.</>}</p>
+            <p>Click a card to filter the page.</p>
+          </>}
             actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-failure-to-yield-${ysrc}-${suffix}.csv`, yieldRows.out.map((y) => ({ source: ysrc === 'pbcat' ? 'PBCAT crash type' : 'CRIS contributing factor', group: y.label, crashes: y.n, ka: y.ka, ka_share_pct: y.n ? +(100 * y.ka / y.n).toFixed(1) : '', of_pedestrian_crashes: yieldRows.peds })))} />} />
           <div className="seg vru-ysrc" role="group" aria-label="Yield classification source">
-            <button type="button" aria-pressed={ysrc === 'pbcat'} onClick={() => { setYsrc('pbcat'); if (focus?.kind === 'yield') setFocus(null); }}>PBCAT crash type</button>
-            <button type="button" aria-pressed={ysrc === 'factor'} onClick={() => { setYsrc('factor'); if (focus?.kind === 'yield') setFocus(null); }}>CRIS contributing factor</button>
+            <button type="button" aria-pressed={ysrc === 'pbcat'} onClick={() => { setYsrc('pbcat'); if (focus?.kind === 'yield') setFocus(null); }}>PBCAT</button>
+            <button type="button" aria-pressed={ysrc === 'factor'} onClick={() => { setYsrc('factor'); if (focus?.kind === 'yield') setFocus(null); }}>CRIS factor</button>
           </div>
-          <YieldSpot rows={yieldRows.out} peds={yieldRows.peds} both={yieldRows.both} src={ysrc}
+          <YieldSpot rows={yieldRows.out}
             selected={focus?.kind === 'yield' ? focus.key : null} onPick={(k) => toggleFocus('yield', k)} />
         </section>
 
         <section className="section vru-card" aria-labelledby="vru-pb" data-r="6">
-          <SecHead id="vru-pb" icon="ped" title={<>Ten most frequent <Term k="PBCAT" /> types</>} why="Pre-crash manoeuvre type. Bar: crashes; red: KA."
+          <SecHead id="vru-pb" icon="ped" title={<>Top <Term k="PBCAT" /> types</>} why={<p>The ten most frequent PBCAT pre-crash manoeuvre types. Bar length: crashes; red part: KA.</p>}
             actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-pbcat-${suffix}.csv`, agg.pbcat.map(([k, e]) => ({ pbcat: k, crashes: e.n, ka: e.ka })))} />} />
           <ol className="vru-bars" data-ui>
             {agg.pbcat.map(([k, e]) => (
@@ -509,19 +537,28 @@ export default function Vru() {
         </section>
       </div>
 
-      <footer className="vru-source">
-        <span className="vru-src-row"><Icon name="methods" size={15} />KA shares, Wilson intervals, peak window and groupings computed from CRIS records <ProvChip kind="derived" /></span>
-        <span className="muted">Informational use only; crash records are protected from discovery and use in litigation (23 U.S.C. §407). Counts are not exposure-adjusted rates. <MetricInfo spec={COUNT_SPEC} /></span>
-      </footer>
     </div>
   );
 }
 
-function Strata({ c, n }: { c: { n: number; ka: number }[][]; n: number }) {
+/** One-sentence reading of the light × speed table. */
+function strataText(c: { n: number; ka: number }[][]): ReactNode {
+  const hi = c[1][1], lo = c[0][0];
+  if (!hi.n || !lo.n) return 'Too few crashes in this view to compare the four groups.';
+  const sh = (x: { n: number; ka: number }) => (x.n ? x.ka / x.n : NaN);
+  const dark = sh(c[1][0]) > sh(c[0][0]) && sh(c[1][1]) > sh(c[0][1]);
+  const fast = sh(c[0][1]) > sh(c[0][0]) && sh(c[1][1]) > sh(c[1][0]);
+  return <>Dark and posted 50 mph or more: {pct(hi.ka, hi.n, 0)}% KA against {pct(lo.ka, lo.n, 0)}% in daylight under 50 mph. {dark && fast ? 'Darkness raises the share at both speed levels, and higher posted speed raises it in both light conditions.'
+    : dark ? 'Darkness raises the share at both speed levels; the speed effect is not consistent across light conditions here.'
+      : fast ? 'Higher posted speed raises the share in both light conditions; the darkness effect is not consistent here.'
+        : 'Neither condition raises the share consistently in this view.'}</>;
+}
+
+function Strata({ c }: { c: { n: number; ka: number }[][] }) {
   const cellTxt = (x: { n: number; ka: number }) => {
     if (!x.n) return <span className="muted">no crashes</span>;
     const [lo, hi] = wilson(x.ka, x.n);
-    return <><b className="num">{pct(x.ka, x.n, 0)}%</b> <span className="muted num">CI {nf(100 * lo, 0)}–{nf(100 * hi, 0)}%</span><span className="vru-st-n">n = <span className="num">{x.n}</span>{x.n < 20 ? ' · small n' : ''}</span></>;
+    return <><b className="num">{pct(x.ka, x.n, 0)}%</b> <span className="muted num">{nf(100 * lo, 0)}–{nf(100 * hi, 0)}</span><span className="vru-st-n">n = <span className="num">{x.n}</span>{x.n < 20 ? ' · small n' : ''}</span></>;
   };
   const hi = c[1][1], lo = c[0][0];
   return (
@@ -529,39 +566,26 @@ function Strata({ c, n }: { c: { n: number; ka: number }[][]; n: number }) {
       <div className="vru-st-scroll" role="region" aria-label="KA share by light and posted speed" tabIndex={0}>
         <table className="data vru-st-t">
           <caption className="sr-only">KA share of crashes by light condition (rows) and posted speed (columns), 95% Wilson intervals</caption>
-          <thead><tr><th>Light</th><th className="r">Posted under 50 mph</th><th className="r">Posted 50 mph or more</th></tr></thead>
+          <thead><tr><th>Light</th><th className="r">&lt; 50 mph</th><th className="r">≥ 50 mph</th></tr></thead>
           <tbody>
             <tr><th scope="row"><Icon name="sun" size={15} />Daylight</th><td className="r" style={{ background: rampSoft(lo.n ? lo.ka / lo.n : 0) }}>{cellTxt(c[0][0])}</td><td className="r" style={{ background: rampSoft(c[0][1].n ? c[0][1].ka / c[0][1].n : 0) }}>{cellTxt(c[0][1])}</td></tr>
-            <tr><th scope="row"><Icon name="moon" size={15} />Dark, lit or unlit</th><td className="r" style={{ background: rampSoft(c[1][0].n ? c[1][0].ka / c[1][0].n : 0) }}>{cellTxt(c[1][0])}</td><td className="r" style={{ background: rampSoft(hi.n ? hi.ka / hi.n : 0) }}>{cellTxt(c[1][1])}</td></tr>
+            <tr><th scope="row"><Icon name="moon" size={15} />Dark</th><td className="r" style={{ background: rampSoft(c[1][0].n ? c[1][0].ka / c[1][0].n : 0) }}>{cellTxt(c[1][0])}</td><td className="r" style={{ background: rampSoft(hi.n ? hi.ka / hi.n : 0) }}>{cellTxt(c[1][1])}</td></tr>
           </tbody>
         </table>
       </div>
-      <p className="vru-st-read">
-        {hi.n && lo.n
-          ? <>Dark and posted 50 mph or more: <b className="num">{pct(hi.ka, hi.n, 0)}%</b> KA against <b className="num">{pct(lo.ka, lo.n, 0)}%</b> in daylight under 50 mph. {(() => {
-              const sh = (x: { n: number; ka: number }) => (x.n ? x.ka / x.n : NaN);
-              const dark = sh(c[1][0]) > sh(c[0][0]) && sh(c[1][1]) > sh(c[0][1]);
-              const fast = sh(c[0][1]) > sh(c[0][0]) && sh(c[1][1]) > sh(c[1][0]);
-              return dark && fast ? 'Darkness raises the share at both speed levels, and higher posted speed raises it in both light conditions.'
-                : dark ? 'Darkness raises the share at both speed levels; the speed effect is not consistent across light conditions here.'
-                  : fast ? 'Higher posted speed raises the share in both light conditions; the darkness effect is not consistent here.'
-                    : 'Neither condition raises the share consistently in this view.';
-            })()}</>
-          : 'Too few crashes in this view to compare the four groups.'}
-        {' '}<span className="muted"><span className="num">{n}</span> crashes with a recorded light condition and posted speed; dawn, dusk and unknown excluded.</span>
-      </p>
     </div>
   );
 }
 
+/** Short title, the explanation behind an info button, exports at the right. */
 function SecHead({ id, icon, title, why, actions }: { id: string; icon: IconName; title: ReactNode; why: ReactNode; actions?: ReactNode }) {
   return (
     <div className="vru-sh">
       <div className="vru-sh-t">
         <h2 id={id}><Icon name={icon} size={20} weight="duotone" />{title}</h2>
+        <Info label="About this chart" title={typeof title === 'string' ? title : undefined}>{why}</Info>
         {actions && <div className="vru-sh-a">{actions}</div>}
       </div>
-      <p>{why}</p>
     </div>
   );
 }
@@ -578,8 +602,8 @@ function ExportBtn({ kind, onClick }: { kind: 'png' | 'csv'; onClick: () => void
  * Two aligned panels on one row set: crash count (stacked KA | other, shared scale) and KA share with its
  * Wilson 95% interval against the filtered overall share. Rows are clickable drill-downs.
  */
-function Breakdown({ ref, rows, overall, selected, onPick, label, unit, loading, finding }: {
-  ref: React.Ref<HTMLDivElement>; finding?: ReactNode; rows: Row[]; overall: number; selected: string | null; onPick: (k: string) => void; label: string; unit?: string; loading?: boolean;
+function Breakdown({ ref, rows, overall, selected, onPick, label, unit, loading }: {
+  ref: React.Ref<HTMLDivElement>; rows: Row[]; overall: number; selected: string | null; onPick: (k: string) => void; label: string; unit?: string; loading?: boolean;
 }) {
   const [box, w] = useWidth<HTMLDivElement>();
   const [hov, setHov] = useState<string | null>(null);
@@ -596,7 +620,6 @@ function Breakdown({ ref, rows, overall, selected, onPick, label, unit, loading,
   const ticks = (pw < 150 ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1]).filter((t) => t <= sMax + 1e-9);
   return (
     <div className="vru-bd">
-      {finding && <p className="vru-bd-find">{finding}</p>}
       <div ref={ref} className="vru-bd-fig">
       <div ref={box} className="vru-bd-box">
         {w > 0 && (
@@ -606,10 +629,11 @@ function Breakdown({ ref, rows, overall, selected, onPick, label, unit, loading,
             {ticks.map((t) => (
               <g key={t}>
                 <line x1={sx(t)} x2={sx(t)} y1={TOP - 4} y2={H - BOT + 2} className="vru-bd-grid" />
-                <text x={sx(t)} y={H - 6} textAnchor="middle" className="vru-bd-ax">{Math.round(t * 100)}%</text>
+                {Math.abs(sx(t) - sx(overall)) > 26 && <text x={sx(t)} y={H - 6} textAnchor="middle" className="vru-bd-ax">{Math.round(t * 100)}%</text>}
               </g>
             ))}
             <line x1={sx(overall)} x2={sx(overall)} y1={TOP - 6} y2={H - BOT + 2} className="vru-bd-ref" />
+            <text x={sx(overall)} y={H - 6} textAnchor="middle" className="vru-bd-refl">all {nf(100 * overall, 0)}%</text>
             {rows.map((r, i) => {
               const y = TOP + i * RH, cy = y + RH / 2;
               const wn = (r.n / nMax) * (pw - 34), wk = r.n ? (r.ka / r.n) * wn : 0;
@@ -622,8 +646,10 @@ function Breakdown({ ref, rows, overall, selected, onPick, label, unit, loading,
                   onClick={() => r.n && onPick(r.key)} onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && r.n) { e.preventDefault(); onPick(r.key); } }}>
                   <rect x={0} y={y + 1} width={w} height={RH - 2} rx={6} className="vru-bd-hit" />
                   <text x={LW - 12} y={cy + 5} textAnchor="end" className="vru-bd-l">{r.label}</text>
-                  {wk > 0 && <rect x={x1} y={cy - 7} width={Math.max(2, wk - (wn > wk ? 1 : 0))} height={14} rx={3} style={{ fill: 'var(--sev-a)' }} />}
-                  {wn - wk > 1 && <rect x={x1 + wk + (wk > 0 ? 1 : 0)} y={cy - 7} width={Math.max(1, wn - wk - (wk > 0 ? 1 : 0))} height={14} rx={3} className="vru-bd-rest" />}
+                  <g className="vru-bd-bars" style={{ "--bd-i": i } as React.CSSProperties}>
+                    {wk > 0 && <rect x={x1} y={cy - 7} width={Math.max(2, wk - (wn > wk ? 1 : 0))} height={14} rx={3} style={{ fill: 'var(--sev-a)' }} />}
+                    {wn - wk > 1 && <rect x={x1 + wk + (wk > 0 ? 1 : 0)} y={cy - 7} width={Math.max(1, wn - wk - (wk > 0 ? 1 : 0))} height={14} rx={3} className="vru-bd-rest" />}
+                  </g>
                   <text x={x1 + wn + 6} y={cy + 5} className="vru-bd-n">{r.n}</text>
                   {r.n > 0 && <>
                     <line x1={sx(lo)} x2={sx(hi)} y1={cy} y2={cy} className="vru-bd-ci" />
@@ -639,14 +665,14 @@ function Breakdown({ ref, rows, overall, selected, onPick, label, unit, loading,
       </div>
       <p className="vru-bd-read" aria-live="polite">
         {show ? (() => { const [lo, hi] = wilson(show.ka, show.n); return <><b>{show.label}{unit && show.key !== 'unk' ? ` ${unit}` : ''}</b> · <span className="num">{show.n}</span> crashes, <span className="num">{show.ka}</span> KA (<span className="num">{pct(show.ka, show.n)}%</span>, CI <span className="num">{nf(100 * lo, 0)}–{nf(100 * hi, 0)}%</span>){selected === show.key ? ' · filter on' : ''}</>; })()
-          : <>Vertical rule: overall KA share <span className="num">{nf(100 * overall, 1)}%</span>. Click a row to filter.</>}
+          : null}
       </p>
     </div>
   );
 }
 
-function YieldSpot({ rows, peds, both, src, selected, onPick }: {
-  rows: { key: string; label: string; short: string; icon: IconName; n: number; ka: number; ctx: Record<'dark' | 'mid' | 'fast', number | null> }[]; peds: number; both: number; src: YieldSrc; selected: string | null; onPick: (k: string) => void;
+function YieldSpot({ rows, selected, onPick }: {
+  rows: { key: string; label: string; short: string; icon: IconName; n: number; ka: number; ctx: Record<'dark' | 'mid' | 'fast', number | null> }[]; selected: string | null; onPick: (k: string) => void;
 }) {
   const tot = rows.reduce((a, r) => a + r.n, 0);
   return (
@@ -661,17 +687,17 @@ function YieldSpot({ rows, peds, both, src, selected, onPick }: {
             <button key={r.key} type="button" className="vru-ycard" data-k={r.key} aria-pressed={selected === r.key} disabled={!r.n} onClick={() => onPick(r.key)}
               aria-label={`${r.label}: ${r.n} crashes, ${r.ka} KA. Filter the page`}>
               <span className="vru-yk"><Icon name={r.icon} size={18} weight="duotone" />{r.label}</span>
-              <span className="vru-yv"><span className="num">{r.n}</span><small>{tot ? `${pct(r.n, tot, 0)}% of yield-coded` : ''}</small></span>
-              <span className="vru-ys"><span className="num">{r.ka}</span> KA · <span className="num">{pct(r.ka, r.n)}%</span> <span className="muted">(CI <span className="num">{nf(100 * lo, 0)}–{nf(100 * hi, 0)}%</span>)</span></span>
+              <span className="vru-yv"><span className="num">{r.n}</span><small>{tot ? `${pct(r.n, tot, 0)}%` : ''}</small></span>
+              <span className="vru-ys" title={`KA share ${pct(r.ka, r.n)}%, 95% CI ${nf(100 * lo, 0)}–${nf(100 * hi, 0)}%`}><span className="num">{r.ka}</span> KA · <span className="num">{pct(r.ka, r.n)}%</span></span>
             </button>
           );
         })}
       </div>
       <table className="data vru-yctx">
         <caption className="sr-only">Context of yield-coded pedestrian crashes</caption>
-        <thead><tr><th>Share of crashes</th>{rows.map((r) => <th key={r.key} className="r">{r.short}</th>)}</tr></thead>
+        <thead><tr><th>Share</th>{rows.map((r) => <th key={r.key} className="r">{r.short}</th>)}</tr></thead>
         <tbody>
-          {([['dark', 'In darkness (lit or unlit)', 'moon'], ['mid', 'Not at an intersection', 'path'], ['fast', 'On roads posted ≥ 40 mph', 'gauge']] as const).map(([k, l, ic]) => (
+          {([['dark', 'Dark', 'moon'], ['mid', 'Midblock', 'path'], ['fast', 'Posted ≥ 40 mph', 'gauge']] as const).map(([k, l, ic]) => (
             <tr key={k}>
               <td><Icon name={ic} size={15} />{l}</td>
               {rows.map((r) => <td key={r.key} className="r num">{r.ctx[k] == null ? '—' : `${nf(100 * r.ctx[k]!, 0)}%`}</td>)}
@@ -679,11 +705,6 @@ function YieldSpot({ rows, peds, both, src, selected, onPick }: {
           ))}
         </tbody>
       </table>
-      <p className="vru-ynote muted">
-        <span className="num">{peds}</span> pedestrian crashes in view. {src === 'pbcat'
-          ? 'PBCAT type assigned from the crash narrative and diagram.'
-          : <>Officer-coded contributing factors; up to three per crash{both ? <>, so <span className="num">{both}</span> count in both groups</> : ''}.</>}
-      </p>
     </div>
   );
 }
@@ -736,7 +757,7 @@ function Heatmap({ ref, grid, max, cell, onCell, peak }: { ref: React.Ref<HTMLEl
         <span className="vru-steps" aria-hidden="true">{[0, 0.25, 0.5, 0.75, 1].map((t) => <i key={t} style={{ background: ramp(t) }} />)}</span>
         <span className="num">{max}</span>
         <span className="vru-cell">
-          {show ? <><span className="measure">{DOW[show[0]]} {hh(show[1])}:00</span>, <span className="num">{grid[show[0]][show[1]]}</span> crashes</> : 'crashes per hour of the week · click to filter'}
+          {show ? <><span className="measure">{DOW[show[0]]} {hh(show[1])}:00</span>, <span className="num">{grid[show[0]][show[1]]}</span> crashes</> : 'crashes'}
         </span>
       </figcaption>
     </figure>

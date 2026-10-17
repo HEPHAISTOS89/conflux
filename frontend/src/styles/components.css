@@ -4,30 +4,27 @@
 :root { --f-measure: 'JetBrains Mono Variable', ui-monospace, monospace; }
 .measure { font-family: var(--f-measure); font-size: max(12px, round(nearest, 0.92em, 1px)); letter-spacing: -0.02em; font-variant-numeric: tabular-nums slashed-zero; }
 
-/* Page header: what the sheet is, on which data, the figures that matter. */
-.ph { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s5) var(--s7); align-items: end; }
-.ph-main { display: grid; gap: 12px; max-width: 760px; }
-.ph-title { display: flex; align-items: center; gap: 14px; }
-.ph-title h1 { font-size: var(--step-head); }
-.ph-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-l); background: var(--raise); color: var(--accent); flex: none; }
-.ph-lede { font-size: var(--t-lede) !important; color: var(--ink) !important; line-height: 1.45; max-width: 58ch; }
-.ph-source { display: flex; align-items: flex-start; gap: 6px; font-size: var(--t-label); line-height: 1.45; color: var(--ink-3) !important; }
+/* Page header: icon, title, the figures that matter. Explanations open from the info button. */
+.ph { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s6); }
+.ph-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ph-title h1 { font-size: var(--t-h1); line-height: 1.1; min-width: 0; }
+.ph-title .mi-btn { width: 32px; height: 32px; color: var(--ink-3); }
+.ph-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-m); background: var(--raise); color: var(--accent); flex: none; }
+.ph-source { display: flex; align-items: flex-start; gap: 6px; font-size: var(--t-label); line-height: 1.45; color: var(--ink-3); }
 .ph-source .icon { flex: none; margin-top: 2px; }
-.ph-side { display: grid; gap: var(--s4); justify-items: end; }
-.ph-readouts { display: flex; flex-wrap: wrap; gap: 2px; margin: 0; border-radius: var(--r-l); overflow: hidden; }
-.ph-fig { display: grid; gap: 2px; padding: 12px 18px; background: var(--sheet); min-width: 118px; }
-.ph-fig dt { font-size: var(--t-label); color: var(--ink-3); }
+.ph-side { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
+.ph-readouts { display: flex; flex-wrap: wrap; gap: 2px; margin: 0; border-radius: var(--r-m); overflow: hidden; }
+.ph-fig { display: grid; gap: 0; padding: 8px 14px; background: var(--sheet); min-width: 96px; }
+.ph-fig dt { font-size: var(--t-label); color: var(--ink-3); line-height: 1.35; }
 .ph-fig dd { margin: 0; display: flex; align-items: baseline; gap: 4px; }
-.ph-fig dd .num { font-size: var(--t-fig); font-weight: var(--w-head); letter-spacing: -0.03em; line-height: 1.05; }
+.ph-fig dd .num { font-size: 22px; font-weight: var(--w-head); letter-spacing: -0.02em; line-height: 1.15; }
 .ph-fig dd small { font-size: var(--t-label); color: var(--ink-3); }
 .ph-fig[data-tone='alert'] dd .num { color: var(--sev-a); }
 .ph-fig[data-tone='accent'] dd .num { color: var(--accent); }
-.ph-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-@media (max-width: 1100px) {
-  .ph { grid-template-columns: 1fr; align-items: start; }
-  .ph-side { justify-items: start; }
-  .ph-readouts { flex-wrap: wrap; }
-  .ph-actions { justify-content: flex-start; }
+.ph-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 640px) {
+  .ph-side, .ph-readouts { width: 100%; }
+  .ph-fig { flex: 1 1 calc(50% - 2px); }
 }
 
 /* Select (listbox) */
@@ -56,12 +53,12 @@
 .field-input input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--ink); font-size: var(--t-ui); }
 .field-input input::placeholder { color: var(--ink-3); }
 
-/* Provenance */
-.prov { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-label); line-height: 1.35; font-weight: var(--w-strong); padding: 2px 9px 2px 7px; border-radius: var(--r-pill); background: var(--raise); color: var(--ink-2); white-space: nowrap; }
-.prov[data-kind='observed'] .icon { color: var(--go); }
-.prov[data-kind='derived'] .icon { color: var(--accent); }
-.prov[data-kind='simulated'] .icon { color: var(--caution); }
-.prov[data-kind='public'] .icon { color: var(--ink-2); }
+/* Provenance: a quiet dot and one word. */
+.prov { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-label); line-height: 1.35; color: var(--ink-3); white-space: nowrap; }
+.prov > i { width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--ink-3); flex: none; }
+.prov[data-kind='observed'] > i { background: var(--go); }
+.prov[data-kind='derived'] > i { background: var(--accent); }
+.prov[data-kind='simulated'] > i { background: var(--caution); }
 
 /* Methodology popover */
 .mi { position: relative; display: inline-flex; vertical-align: middle; }
@@ -79,13 +76,20 @@
 .mi-formula { font-family: var(--f-measure); font-size: var(--t-label); }
 .mi-note { color: var(--ink-2); font-size: var(--t-label); }
 
-/* Status chips */
-.status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-label); line-height: 1.35; font-weight: var(--w-strong); padding: 3px 10px; border-radius: var(--r-pill); background: var(--raise); }
-.status[data-s='ok'] { color: var(--go); }
-.status[data-s='warn'] { color: var(--caution); }
+/* Status: icon + short word, no pill. Long explanations belong in a title or an Info panel. */
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-label); line-height: 1.35; font-weight: var(--w-strong); color: var(--ink-2); white-space: nowrap; }
+.status .icon { flex: none; }
+.status[data-s='ok'] .icon { color: var(--go); }
+.status[data-s='warn'] .icon { color: var(--caution); }
 .status[data-s='down'] { color: var(--stop); }
 .status[data-s='idle'] { color: var(--ink-3); }
 
 /* Tables wider than their column scroll inside a labelled, focusable region, never the page. */
 .t-scroll { overflow-x: auto; max-width: 100%; }
 .t-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-m); }
+
+/* Info disclosure (components/Info.tsx): secondary text lives behind a button. */
+.info-pop { display: grid; gap: 10px; }
+.info-pop p { margin: 0; color: var(--ink-2); font-size: var(--t-ui); line-height: 1.5; }
+.info-btn { min-height: var(--ctl-s); padding: 0 10px; }
+.info-pop > .mi-head b { font-size: var(--t-body); }

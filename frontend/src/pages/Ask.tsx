@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import PageHeader from '../components/PageHeader';
-import { ProvChip, type Provenance } from '../components/MetricInfo';
+import Info from '../components/Info';
 import { Icon, type IconName } from '../components/Icon';
 import { API_BASE } from '../lib/api';
 import { useReveal } from '../lib/motion';
@@ -8,17 +8,16 @@ import type { AskResponse } from '../lib/types';
 import '../styles/ask.css';
 
 const MAX = 500;
-const TOOLS = 8;
 const RATE = 30;
 
-/** Each suggestion exercises a different named tool, so a reviewer can see the whole tool surface in six clicks. */
+/** Each suggestion exercises a different named tool (the tool name stays in `tool`, for the record, not on screen). */
 const SUGGESTED: { q: string; icon: IconName; tool: string }[] = [
-  { q: 'Which US 84 segments have the highest EB excess of ped/bike crashes, and what is their AADT?', icon: 'rank', tool: 'query_screening' },
-  { q: 'How many KA pedestrian crashes happened in dark-not-lighted conditions?', icon: 'moon', tool: 'vru_count' },
-  { q: 'At Peachtree, how many rear-end conflicts had TTC below 1.0 s?', icon: 'crosshair', tool: 'intersection_conflicts' },
-  { q: 'Which SPF does each site type use, and how well does it fit (MAD, Pearson χ²/df)?', icon: 'trend', tool: 'get_spf' },
-  { q: 'Which PBCAT crash type is most frequent among pedestrian crashes?', icon: 'ped', tool: 'vru_summary' },
-  { q: 'Did the Kalman RTS smoother beat linear interpolation on occluded tracks at Lankershim?', icon: 'path', tool: 'get_repair' },
+  { q: 'Top US 84 segments by EB excess?', icon: 'rank', tool: 'query_screening' },
+  { q: 'KA pedestrian crashes in dark, unlit conditions?', icon: 'moon', tool: 'vru_count' },
+  { q: 'Rear-end conflicts at Peachtree, TTC below 1.0 s?', icon: 'crosshair', tool: 'intersection_conflicts' },
+  { q: 'How well does each SPF fit?', icon: 'trend', tool: 'get_spf' },
+  { q: 'Most frequent PBCAT type for pedestrian crashes?', icon: 'ped', tool: 'vru_summary' },
+  { q: 'Kalman vs linear repair at Lankershim?', icon: 'path', tool: 'get_repair' },
 ];
 
 type Turn = { id: number; q: string; res?: AskResponse; error?: string; limited?: string; ms?: number };
@@ -50,16 +49,6 @@ async function ask(question: string): Promise<{ res?: AskResponse; error?: strin
     return { error: `${r.status}: ${String(detail).slice(0, 200)}` };
   }
   return { res: (await r.json()) as AskResponse };
-}
-
-/** Provenance of a cited table, read from its file name and source label. */
-function citeProv(c: string): Provenance {
-  const s = c.toLowerCase();
-  if (/screening|spf|conflict|repair|ssm/.test(s)) return 'derived';
-  if (s.includes('fars') || s.includes('fatal')) return 'public';
-  if (s.includes('vru') || s.includes('cris') || s.includes('active transportation')) return 'observed';
-  if (s.includes('manifest') || s.includes('aadt') || s.includes('inventory')) return 'public';
-  return 'derived';
 }
 
 export default function Ask() {
@@ -100,42 +89,43 @@ export default function Ask() {
   }
   const onSubmit = (e: FormEvent) => { e.preventDefault(); void submit(q); };
   const left = MAX - q.length;
-  const answered = turns.filter((t) => t.res).length;
+  const isBedrock = model.state === 'bedrock';
 
-  const chip = model.state === 'bedrock'
-    ? <span className="status" data-s="ok"><Icon name="bedrock" size={14} />Bedrock · <span className="measure">{model.id}</span></span>
-    : model.state === 'fallback'
-      ? <span className="status" data-s="warn" title="Bedrock did not answer: model access awaits AWS account verification (or the daily Bedrock cap was reached). The same tools answer deterministically."><Icon name="warning" size={14} />Rule-based fallback · Bedrock not active</span>
-      : <span className="status" data-s="warn"><Icon name="bedrock" size={14} />Bedrock awaiting AWS account verification</span>;
+  // Model state: a dot and one word; the reason sits behind the info button.
+  const chip = (
+    <span className="ask-model-state">
+      <Info label="About the model" title={isBedrock ? 'Amazon Bedrock' : 'Rule-based fallback'} align="right">
+        {isBedrock
+          ? <p>Answered by <span className="measure">{model.id}</span> through Bedrock Converse with tool use.</p>
+          : <p>Bedrock model access awaits AWS account verification (or the daily Bedrock cap was reached). The same named tools answer deterministically, over the same curated tables.</p>}
+        <p>Eight named tools, {RATE} questions per minute per client. Every answer lists its tool calls and cited tables.</p>
+      </Info>
+    </span>
+  );
 
   return (
     <div className="page ask" ref={pageRef}>
       <PageHeader
         icon="ask"
         title="Ask the data"
-        lede="Questions answered from RoadScope's curated tables through named tools. Each answer lists its tool calls and cited tables."
+        lede="Questions answered from RoadScope's curated tables through named tools."
         source="Bedrock Converse with tool use; rule-based fallback over the same tools"
         actions={chip}
-        readouts={[
-          { label: 'Named tools', value: TOOLS },
-          { label: 'Answered here', value: answered },
-          { label: 'Limit', value: RATE, unit: '/ min' },
-        ]}
       />
 
       <form className="ask-form" onSubmit={onSubmit} data-ui data-r="2" data-busy={busy || undefined} aria-busy={busy}>
-        <label htmlFor="ask-q" className="ask-label"><Icon name="ask" size={16} />Question</label>
+        <label htmlFor="ask-q" className="sr-only">Question</label>
         <textarea
           id="ask-q" ref={area} rows={2} maxLength={MAX} value={q} disabled={busy}
-          placeholder="Which segments have a critical-rate ratio above 1.5?"
+          placeholder="Ask about crashes, conflicts or SPFs…"
           aria-describedby="ask-count ask-keys"
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submit(q); } }}
         />
         <div className="ask-actions">
           <span className="ask-hint">
-            <span id="ask-count" className="ask-count num" data-warn={left < 50 || undefined} aria-live={left < 50 ? 'polite' : 'off'}>{q.length}/{MAX}</span>
-            <span id="ask-keys"><kbd>⌘</kbd> or <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send</span>
+            <span id="ask-count" className="ask-count num" data-warn={left < 50 || undefined} data-show={q.length > 0 || undefined} aria-live={left < 50 ? 'polite' : 'off'}>{q.length}/{MAX}</span>
+            <span id="ask-keys" aria-label="Command or Control plus Enter to send"><kbd>⌘</kbd><kbd>↵</kbd></span>
           </span>
           <span className="ask-btns">
             {q && !busy && <button type="button" className="btn ghost" onClick={() => { setQ(''); area.current?.focus(); }}>Clear</button>}
@@ -148,14 +138,13 @@ export default function Ask() {
       </form>
 
       <section className="section ask-try" aria-labelledby="ask-sugg" data-r="3">
-        <h2 id="ask-sugg">Example questions</h2>
+        <h2 id="ask-sugg" className="sr-only">Examples</h2>
         <ul className="ask-sugg">
           {SUGGESTED.map((s) => (
             <li key={s.q}>
               <button type="button" className="ask-sq" disabled={busy} title={busy ? 'Answering the previous question' : undefined} onClick={() => void submit(s.q)}>
                 <Icon name={s.icon} size={20} weight="duotone" />
                 <span className="ask-sq-q">{s.q}</span>
-                <code className="ask-sq-t">{s.tool}</code>
               </button>
             </li>
           ))}
@@ -207,22 +196,20 @@ function TurnView({ t, busy, onRetry }: { t: Turn; busy: boolean; onRetry: () =>
           {r.citations.length > 0 && (
             <ul className="ask-cites" aria-label="Cited tables">
               {r.citations.map((c) => (
-                <li key={c} className="ask-cite"><Icon name="db" size={14} /><span>{c}</span><ProvChip kind={citeProv(c)} /></li>
+                <li key={c} className="ask-cite"><Icon name="db" size={14} /><span>{c}</span></li>
               ))}
             </ul>
           )}
-          {caveat && <p className="ask-caveat"><Icon name="info" size={14} />{caveat.replace(/^limitations?:\s*/i, '')}</p>}
           <div className="ask-foot">
-            <span className="status" data-s={r.fallback ? 'warn' : 'ok'}><Icon name={r.fallback ? 'warning' : 'bedrock'} size={14} />{r.fallback ? 'Rule-based fallback' : 'Bedrock'}</span>
-            <span className="measure ask-model">{r.model}</span>
+            {caveat && <Info label="Limitations of this answer" title="Limitations"><p>{caveat.replace(/^limitations?:\s*/i, '')}</p><p className="measure">{r.model}</p></Info>}
             {t.ms != null && <span className="measure ask-model">{(t.ms / 1000).toFixed(2)} s</span>}
             <button type="button" className="ask-copy" onClick={() => void copy()} aria-label="Copy answer with citations">
-              <Icon name={copied === 'ok' ? 'check' : copied === 'fail' ? 'warning' : 'copy'} size={14} /><span aria-live="polite">{copied === 'ok' ? 'Copied' : copied === 'fail' ? 'Copy blocked by browser' : 'Copy answer'}</span>
+              <Icon name={copied === 'ok' ? 'check' : copied === 'fail' ? 'warning' : 'copy'} size={14} /><span aria-live="polite">{copied === 'ok' ? 'Copied' : copied === 'fail' ? 'Copy blocked' : 'Copy'}</span>
             </button>
           </div>
           {r.tool_calls.length > 0 && (
             <details className="ask-tools">
-              <summary><Icon name="caret" size={14} />{r.tool_calls.length} tool call{r.tool_calls.length === 1 ? '' : 's'}: {r.tool_calls.map((c) => c.name).join(', ')}</summary>
+              <summary><Icon name="caret" size={14} />{r.tool_calls.length} tool call{r.tool_calls.length === 1 ? '' : 's'}</summary>
               <ol>
                 {r.tool_calls.map((c, i) => (
                   <li key={i}>

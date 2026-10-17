@@ -4,6 +4,7 @@ import PageHeader from '../components/PageHeader';
 import Select from '../components/Select';
 import MetricInfo, { type MetricSpec } from '../components/MetricInfo';
 import { Icon } from '../components/Icon';
+import Info from '../components/Info';
 import DataHealth from '../components/lab/DataHealth';
 import Shortcuts from '../components/lab/Shortcuts';
 import SpeedHistogram from '../components/lab/SpeedHistogram';
@@ -108,22 +109,21 @@ export default function IntersectionPage() {
     <div className="page ixlab">
       <PageHeader
         icon="signal" title="Intersection lab"
-        lede="Rear-end, crossing and lane-change conflicts screened by TTC, PET and DRAC on 10 Hz vehicle trajectories. 3D view: simulated roadside LiDAR."
+        lede="Rear-end, crossing and lane-change conflicts screened by TTC, PET and DRAC on 10 Hz vehicle trajectories. The 3D view is a simulated roadside LiDAR built from the same tracks. NGSIM has vehicle tracks only, no pedestrians. Select a vehicle in any view for its kinematics; select two for live TTC and PET."
         source={<>FHWA NGSIM vehicle trajectories · USDOT ITS DataHub · {site} · 90 s window · vehicles only</>}
         readouts={[
           { label: 'Conflicts', value: ready ? counts.n : null },
-          { label: <span title={`Critical events, excluding ${counts.overlap} overlap flags (likely position error)`}>Critical, excl. overlap</span>, value: ready ? counts.crit : null, tone: 'alert' },
+          { label: <span title={`Critical events, excluding ${counts.overlap} overlap flags (likely position error)`}>Critical</span>, value: ready ? counts.crit : null, tone: 'alert' },
           { label: 'Worst TTC', value: ready ? counts.ttc : null, unit: 's', digits: 2 },
-          { label: 'Data completeness', value: health?.completeness ?? null, unit: '%', digits: 1, tone: 'accent' },
+          { label: 'Complete', value: health?.completeness ?? null, unit: '%', digits: 1, tone: 'accent' },
         ]}
-        actions={<button className="btn ghost" onClick={() => setHelp(true)} title="Keyboard shortcuts (?)"><Icon name="keyboard" size={16} /> Shortcuts</button>}
       />
 
       <nav className="cor-tabs ix-tabs" aria-label="Intersections">
         {(cards.data ?? []).map((c) => (
           <button key={c.id} aria-pressed={c.id === id} onClick={() => { select(null); clock.setT(0); nav(`/intersections/${c.id}`); }}>
             <span>{c.name}</span>
-            <small className="num">{c.n_tracks} tracks · {c.n_conflicts} conflicts</small>
+            <small className="num" title={`${c.n_tracks} tracks`}>{c.n_conflicts} conflicts</small>
           </button>
         ))}
       </nav>
@@ -138,7 +138,7 @@ export default function IntersectionPage() {
               <div className="ix-view-bar">
                 <div className="seg" role="group" aria-label="View">
                   <button aria-pressed={view === 'plan'} onClick={() => setView('plan')} title="Plan view (2)">Plan</button>
-                  <button aria-pressed={view === 'lidar'} onClick={() => setView('lidar')} title="Simulated roadside LiDAR, 3D (3)">3D LiDAR</button>
+                  <button aria-pressed={view === 'lidar'} onClick={() => setView('lidar')} title="Simulated roadside LiDAR, 3D (3)">3D</button>
                 </div>
                 <Player conflicts={conflicts} />
                 <div className="ix-view-tools">
@@ -194,16 +194,14 @@ export default function IntersectionPage() {
                     </tbody>
                   </table>
                 </div>
-                <p className="ix-foot muted">DRAC in ft/s². Dotted: above tyre–road friction (26 ft/s²), likely position error.</p>
               </div>
             </aside>
           </Reveal>
 
           <Reveal className="section" aria-labelledby="ts-h">
-            <div className="section-head" data-r="1">
-              <h2 id="ts-h">Time–space diagram</h2>
-              <p className="ix-ts-sub">Shockwaves and queue discharge along the corridor. Drag to scrub time.</p>
-              <button className="btn ghost" onClick={exportTs} title="Download time–space diagram as PNG" aria-label="Download time–space diagram as PNG"><Icon name="image" size={16} /> Download PNG</button>
+            <div className="section-head sh-info" data-r="1">
+              <h2 id="ts-h">Time–space diagram</h2><Info label="About the time–space diagram"><p>Vehicle positions along the corridor against time: shockwaves and queue discharge read as the slope of the lines. Drag to scrub time; click a line to select a vehicle.</p></Info>
+              <button className="btn ghost ic" onClick={exportTs} title="Download PNG" aria-label="Download time–space diagram as PNG"><Icon name="image" size={16} /></button>
             </div>
             <div className="panel ix-ts" data-ui data-r="2"><TimeSpace data={ix.data!} conflicts={cf.data!} label="Time–space diagram; drag to scrub time, click a line to select a vehicle" /></div>
           </Reveal>
@@ -212,9 +210,8 @@ export default function IntersectionPage() {
 
       {ready && (
         <Reveal className="section" aria-labelledby="spd-h">
-          <div className="section-head" data-r="1">
-            <h2 id="spd-h">Approach spot speeds</h2>
-            <p>Northbound and southbound approach speeds, 5 mph bins, 85th percentile marked.</p>
+          <div className="section-head sh-info" data-r="1">
+            <h2 id="spd-h">Spot speeds</h2><Info label="About spot speeds"><p>Northbound and southbound approach speeds at a line upstream of the intersection, in 5 mph bins, with the 85th percentile marked.</p></Info>
           </div>
           <div className="panel" data-r="2"><SpeedHistogram data={ix.data!} /></div>
         </Reveal>
@@ -287,7 +284,7 @@ function VehicleReadout({ data, conflicts }: { data: IntersectionT; conflicts: C
                   </button>
                 </li>
               ))}
-              {mine.length > 3 && <li className="muted ix-more">+{mine.length - 3} more, highlighted in the table</li>}
+              {mine.length > 3 && <li className="muted ix-more" title="Highlighted in the conflict table">+{mine.length - 3} more</li>}
             </ul>
           )}
         </div>

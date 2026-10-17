@@ -127,3 +127,51 @@ Evidence and per-control results in docs/qa/intersection.md (51/51 automated con
 - `cdk deploy` (diff: API DefaultPolicy + lambda:InvokeFunction on ingest ARN + s3 ops/*; code of Api and Ingest; no replacements). Curated data republished.
 - Real ingest via POST /api/v1/ops/ingest: 202 → run 20261017T181225Z running → succeeded, 20,708 records, 11.8 s. Second POST → 429 Retry-After 1792. POST with body → 400.
 - Post-ingest API: 395 screened, US 84 EB excess 1.55, on-system K+A 43. Frontend main 305c113 on Vercel; Platform shows the manual run, cooldown 28 min, Last ingest 0.0 h.
+
+## Shell diet — 2026-10-17
+Owner feedback: too much text, headings too big, remove ledes/source lines/pills/chips, more motion, collapsible sidebar, drop Roadmap.
+- **Collapsible rail** (desktop > 1100 px): toggle at the top (Phosphor SidebarSimple), `[` shortcut (ignored while typing; yields to pages that bind `[` themselves, e.g. the intersection lab's risk-event stepping, by checking `defaultPrevented` after dispatch), state in localStorage (`rs-rail`, try/catch). 232 → 64 px by animating `grid-template-columns` (240 ms); the rail's inner column keeps its full width so nothing reflows — labels are clipped by an animated `clip-path` while icons stay on the same axis. Collapsed: floating label tooltip (with shortcut) on hover and keyboard focus; accessible names unchanged. A `resize` event fires after the transition; maps and 3D canvases measured to refill the column (VRU map 952 → 1120 px at 1280).
+- **Rail stripped**: District/County/Data build/Sources table moved into an "About the data" panel; rail holds nav, Jump to (⌘K), theme, About the data — all one row style. Nav labels fit one line (accent dot removed; 156 px label box vs 151 px longest label).
+- **Motion**: one active fill that slides between nav items (280 ms ease-out), accent icon on the active item; page fade on section change (180 ms, WAAPI, none under reduced motion); tooltip and panel entrances ≤ 150 ms.
+- **Roadmap** removed from nav, palette and router (`/roadmap` → `/`); page file kept, unreferenced.
+- **Page header diet**: title `--t-h1` = clamp(28 px, 2.2vw, 40 px) on one line, 36 px badge, lede + source moved into one info button beside the title; readouts compact (22 px figures) and no longer tween on load. H2 token 22 px.
+- **Quiet marks**: ProvChip is now a 6 px dot + word (no pill); MetricInfo shows provenance as a plain "Provenance" row; `.status` is icon + word without a pill.
+- Verified headless (Chromium): 10 routes at 1440 expanded/collapsed, 6 routes at 1280/1024/768/390, dark + light; no page-level horizontal scroll except the landing WebGL stage at 390 (landing scope); no console errors from the shell.
+
+## Text diet — analysis pages (2026-10-17)
+Owner feedback: too much text, reads as AI. Screening, Corridor, VRU and Brief rebuilt around titles, figures, axes and controls; every explanation moved behind an `Info` button.
+
+Visible words (`.page` innerText, Chromium 1440, after scrolling every section; "prose" hides `tbody` and `svg`, i.e. excludes table rows and chart ticks; the "before" figures include the header lede/source the shell pass also moved):
+
+| Page | Total before → after | Prose before → after |
+|---|---|---|
+| /screening | 5,509 → 5,323 (395 ranked table rows dominate) | 283 → 122 (−57 %) |
+| /corridors/us-84 | 298 → 158 (−47 %) | 235 → 100 (−57 %) |
+| /vru | 658 → 326 (−50 %) | 538 → 220 (−59 %) |
+| /brief | 956 → 356 (−63 %) | 571 → 149 (−74 %) |
+
+- **Moved to Info**: measure definitions + formula + threshold + citation, keyboard shortcuts, SPF offset/pooled fallback, CURE reading, scatter caveats (65 mph cap, per-segment ρ), SLD method, CRIS 12 AM caveat, findings sentences (light, speed, strata), yield classification notes, §407 disclaimer (into header source), Brief diagnostic prompts and next steps.
+- **Deleted**: "hover/click to…" hints, "Alt-click isolates", restating subtitles under every H2, Observed/Derived pills, the "confirmed" pill (now a 7 px KA-red dot with label), duplicate counts (screened length, station counts), long readout units.
+- **Headings**: ≤ 4 words, 22 px (`--t-h2`): Rank stability, SPFs by site type, Speed vs crash density, Posted speed, Darkness and speed, Top PBCAT types, Countywide VRU crashes. Brief H1 override removed; it follows the shell scale (32 px at 1440).
+- **Brief**: one-line verdict under the header; prompts become icon cells in the top-10 table (full text in Info and on paper); appendix behind a toggle on screen, always printed; print 3 Letter pages (was 4).
+- **Motion (≤ 420 ms, none under reduced motion)**: FLIP re-rank of the screening table on measure/facility change (WAAPI); bump-chart paths/dots tween (`d`, `cx`, `cy`) and new lines draw in; map halo pulse on selection (screening segment, corridor pin, VRU crash) via MapLibre paint transitions; VRU breakdown and PBCAT bars grow from 0 on reveal and resize on filter; corridor scatter dots slide on the axis toggle and rise on first draw.
+- Verified: measure switch (URL + FLIP), facility filter, row select, J/K, CSV/PNG exports, corridor pin/tab/axis toggle, VRU chips/heat cell/row filter/CSV, Brief appendix/Info/CSV/print; 1440/1024/390 × light/dark: no page overflow, H2 22 px, console clean; `tsc` + `npm run build` pass.
+
+## Text diet — lab & ops pages (2026-10-17)
+Owner feedback: too much text, reads as AI. Intersection lab, Methods, Platform, Ask, 404.
+- Explanations, captions, method notes and honesty notes moved behind `Info` buttons beside section titles (time–space, spot speeds, threshold sensitivity, trajectory repair, architecture, ingest, runs, freshness, guardrails, data health). Provenance chips removed from these pages; source lines stay in the PageHeader Info.
+- Honesty kept visible in short form: 3D view carries a "Simulated" badge (detail in its tooltip); Ask shows a dot + "Fallback" with the Bedrock reason in Info; Platform status is icon + one word (Local / Healthy / Errors / Down / Simulation) with the full verdict in Info; the outage banner keeps the "Simulation" badge plus "this browser only".
+- Ask: composer + six example chips (≤ 8 words, tool names off screen, each still routes to its own tool); header readouts removed; answer caveat behind Info.
+- Methods: metric cards show name, formula and threshold; unit, data, reference and links open under "Details". Derivations keep their equations with a one-line "where"; prose, SPF caveats, repair protocol and SSM rules sit in smooth `<details>` folds; limitations are eight one-line rows that expand; references fold.
+- Platform: ingest status is one line (Ready / Unavailable here / Cooling down + minutes / Running + clock / Succeeded + records); planned pilot nodes lose their duplicate "Planned" chip; FARS years merge into one freshness row; guardrails show a value, detail in Info.
+- Section H2 at `--t-h2` (22 px) on all five pages. Motion: catalogue card stagger (also on filter change), conflict-row stagger, guardrail stagger, status-line fade on state change, simulation panel drop-in, pulsing fallback dot, fold height interpolation; all off under reduced motion.
+- Visible words (main innerText, sr-only/footer excluded; total / outside data tables), before → after: Intersection 1440 / 767 → 863 / 193; Methods 3147 / 2391 → 1123 / 654; Platform 590 / 525 → 284 / 244; Ask 141 → 47; 404 87 → 21.
+- Verified headless at 1440/1024/390, light and dark: no horizontal overflow, console clean. Flows re-tested: Ask examples, Info panels, 500 error + Retry; ingest unavailable and mocked cooldown; outage simulate → restore → live; node panel; Methods folds and filters; conflict selection, repair toggles, 3D view, layers, playback.
+
+## Landing world (2026-10-17)
+- Hero rebuilt as a full-bleed Three.js street (`components/world/`): 170 NGSIM Peachtree St & 10th St trajectories replayed in real time on the road derived by `lib/lab/road.ts` (arms extended as stylised context beyond the study area, cross street, MUTCD markings, stop bars), instanced vehicles at true length/width with `renderPose` interpolation and held heading, emissive head/tail lamps (tails brighten from deceleration), headlight throw on the road, street lights with light pools, abstract low-rise massing with procedural lit windows (night) or paper massing (dusk, light theme). ACES + sRGB, DPR ≤ 2, ~20 draw calls, glows as one additive Points draw, no post-processing.
+- Signal heads at the derived NB/SB stop bars and the cross-street box edges; phase **inferred from flow** (`world/signals.ts`, unit-tested): green while through vehicles discharge (> 2 m/s) across the bar, red while a through queue stands at it, 5 s minimum green, assumed 3.5 s yellow + 1 s all-red. On the real data: NS green 6.8–45.7 s, EW green 50.2–90 s; never both green. Stated as an inference in the hero Info.
+- Conflicts (overlap flags excluded) flare as amber/critical rings at `conflictPoint` and their time window with pooled TTC/PET labels (no stacking).
+- Camera: slow pendulum dolly with breathing radius/elevation; horizontal drag orbits, mouse vertical drag tilts; wheel never captured; `touch-action: pan-y` on touch. Pause/Play button; reduced motion = composed still (critical conflict near the centre with most traffic), loop stopped. rAF stops off screen, in hidden tabs and when paused and settled.
+- Text cut: one-line title, one CTA + one link, mono HUD (t, vehicles, conflicts, critical) with the place name; source, licence (NGSIM CC BY-SA 3.0), LiDAR stand-in, legend and signal inference in one Info. Verdict reduced to four figures with 3–6-word labels and arrows, basis behind one Info; TTC instrument and ranked network keep labels only; EB worked example and photo close removed. Section H2 now `--t-h1`.
+- Verified (headless Chrome, Metal): 120 fps (display cap) at 1440/1280/1024/768/390, worst frame 9.5 ms; no horizontal scroll at any width; pause freezes t, play resumes, drag changes the view, wheel scrolls the page (600 px), off-screen fps counter frozen, Info fits the viewport (flips up, scrolls inside on phones); console clean in both themes. tsc, build, 51 tests pass.

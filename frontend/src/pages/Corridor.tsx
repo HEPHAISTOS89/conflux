@@ -4,11 +4,12 @@ import MapView, { type MapLayer } from '../components/MapView';
 import { Icon } from '../components/Icon';
 import Term from '../components/Term';
 import PageHeader from '../components/PageHeader';
-import MetricInfo, { ProvChip, type MetricSpec } from '../components/MetricInfo';
+import MetricInfo, { type MetricSpec } from '../components/MetricInfo';
+import Info from '../components/Info';
 import { useApi } from '../lib/api';
 import { copyLink, downloadCSV, downloadPNG } from '../lib/export';
 import { CHART, nf } from '../lib/format';
-import { useReveal } from '../lib/motion';
+import { reducedMotion, useReveal } from '../lib/motion';
 import '../styles/corridor.css';
 
 interface St { dfo: number; route: string; lon: number; lat: number; lanes: number | null; speed_limit: number | null; aadt: number | null; truck_pct: number | null; speed_all: number | null; speed_am: number | null; speed_md: number | null; speed_pm: number | null; crashes_per_mi: number | null; seg_id?: string | null }
@@ -112,6 +113,14 @@ export default function CorridorPage() {
     setParams((prev) => { const p = new URLSearchParams(prev); if (s) p.set('at', `${s.route}:${s.dfo}`); else p.delete('at'); return p; }, { replace: true });
   };
   const cur = hov ?? pin;
+  // a pinned station flashes a halo on the map (skipped with reduced motion)
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    if (!atParam || reducedMotion()) return;
+    setPulse(true);
+    const t = setTimeout(() => setPulse(false), 60);
+    return () => clearTimeout(t);
+  }, [atParam]);
   const [figRef, W] = useWidth<HTMLDivElement>(900);
   const sldRef = useRef<HTMLDivElement>(null);
   const reveal = useReveal<HTMLDivElement>();
@@ -144,12 +153,14 @@ export default function CorridorPage() {
     const dots = { type: 'FeatureCollection' as const, features: st.map((s, i) => ({ type: 'Feature', properties: { i, c: s.crashes_per_mi ?? 0 }, geometry: { type: 'Point', coordinates: [s.lon, s.lat] } })) };
     const pt = (s: St, kind: string) => ({ type: 'Feature', properties: { kind }, geometry: { type: 'Point', coordinates: [s.lon, s.lat] } });
     const marker = { type: 'FeatureCollection' as const, features: [...(pinned ? [pt(pinned, 'pin')] : []), ...(hovered ? [pt(hovered, 'hov')] : [])] };
+    const halo = { type: 'FeatureCollection' as const, features: pinned ? [pt(pinned, 'pin')] : [] };
     return [
       { id: 'cor', data: line as any, layers: [{ id: 'cor-line', type: 'line', paint: { 'line-color': CHART.ink, 'line-width': 2.5 } } as any] },
       { id: 'cor-dots', data: dots as any, layers: [{ id: 'cor-dot', type: 'circle', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'c'], 0, 1.5, 3, 8], 'circle-color': CHART.critical, 'circle-opacity': ['case', ['>', ['get', 'c'], 0], 0.75, 0] } } as any] },
+      { id: 'cor-halo', data: halo as any, layers: [{ id: 'cor-halo-c', type: 'circle', paint: { 'circle-radius': pulse ? 26 : 8, 'circle-color': CHART.accent, 'circle-opacity': pulse ? 0.5 : 0, 'circle-radius-transition': { duration: pulse ? 0 : 420, delay: 0 }, 'circle-opacity-transition': { duration: pulse ? 0 : 420, delay: 0 } } } as any] },
       { id: 'cor-mk', data: marker as any, layers: [{ id: 'cor-mk-c', type: 'circle', paint: { 'circle-radius': ['match', ['get', 'kind'], 'pin', 8, 6], 'circle-color': ['match', ['get', 'kind'], 'pin', CHART.accent, CHART.ink], 'circle-stroke-color': CHART.ground, 'circle-stroke-width': 2 } } as any] },
     ];
-  }, [st, pinned, hovered]);
+  }, [st, pinned, hovered, pulse]);
 
   const bbox = cor.data?.summary.bbox;
   const bounds = useMemo(() => (bbox ? ([[bbox[0], bbox[1]], [bbox[2], bbox[3]]] as [[number, number], [number, number]]) : undefined), [bbox]);
@@ -227,11 +238,11 @@ export default function CorridorPage() {
         icon="corridor"
         title={name.split(' (')[0]}
         lede={<>{name.includes('(') ? `${name.split(' (')[1].replace(')', '')}: ` : ''}lanes, speed, AADT, trucks and ped/bike crashes at 0.25-mi stations by <Term k="DFO" />.</>}
-        source={<>Roadway Inventory 2024 · AADT · Statewide Speed 2024 · CRIS 2021–2023 · <ProvChip kind="public" /></>}
+        source={<>Public data: TxDOT Roadway Inventory 2024, TxDOT AADT, TxDOT Statewide Speed 2024; ped/bike crash density derived from TxDOT CRIS 2021–2023.</>}
         readouts={[
           { label: <span className="rd-l">Crash density <MetricInfo spec={SPECS.density} align="right" /></span>, value: stats.density, unit: '/mi/yr', digits: 2, tone: 'alert' },
           { label: <span className="rd-l">Worst DFO</span>, value: worstSt?.dfo ?? null, unit: worstSt ? `${route(worstSt.route)} · ${nf(worstSt.crashes_per_mi, 2)}/mi/yr` : undefined, digits: 2 },
-          { label: <span className="rd-l">Operating speed <MetricInfo spec={SPECS.speed} align="right" /></span>, value: stats.op, unit: stats.posted != null ? `mph · ${nf(stats.posted, 0)} posted · ${stats.nBoth} stations` : 'mph', digits: 1, tone: stats.op != null && stats.posted != null && stats.op > stats.posted ? 'alert' : undefined },
+          { label: <span className="rd-l">Operating speed <MetricInfo spec={SPECS.speed} align="right" /></span>, value: stats.op, unit: stats.posted != null ? `mph · ${nf(stats.posted, 0)} posted` : 'mph', digits: 1, tone: stats.op != null && stats.posted != null && stats.op > stats.posted ? 'alert' : undefined },
         ]}
         actions={<>
           <button type="button" className="btn ghost" onClick={exportCsv} disabled={!st.length}><Icon name="download" size={16} /><span>Download CSV</span></button>
@@ -242,24 +253,27 @@ export default function CorridorPage() {
 
       <nav className="cor-tabs" aria-label="Corridors">
         {(list.data ?? []).map((c, k) => (
-          <button key={c.id} style={{ '--i': k } as React.CSSProperties} aria-pressed={c.id === id} onClick={() => { setHov(null); nav(`/corridors/${c.id}${params.get('x') ? `?x=${params.get('x')}` : ''}`); }}>
+          <button key={c.id} style={{ '--i': k } as React.CSSProperties} aria-pressed={c.id === id} title={`${nf(c.len_mi, 1)} mi · ${nf(c.summary.crashes_per_yr, 1)} ped/bike crashes per year`} onClick={() => { setHov(null); nav(`/corridors/${c.id}${params.get('x') ? `?x=${params.get('x')}` : ''}`); }}>
             <span>{c.name.split(' (')[0]}</span>
-            <small className="measure">{nf(c.len_mi, 1)} mi · {nf(c.summary.crashes_per_yr, 1)}/yr</small>
+            <small className="measure">{nf(c.summary.crashes_per_yr, 1)}/yr</small>
           </button>
         ))}
         {list.loading && Array.from({ length: 7 }, (_, k) => <div key={k} className="skeleton cor-tab-sk" aria-hidden="true" />)}
       </nav>
       {list.error && <div className="error-box">Corridor list unavailable: {list.error}</div>}
-      {cor.data?.summary.note && <p className="cor-note"><Icon name="warning" size={16} />{cor.data.summary.note}</p>}
+      {cor.data?.summary.note && <div className="cor-note"><Info label="Data note" text="Data note"><p>{cor.data.summary.note}</p></Info></div>}
       {cor.error && <div className="error-box" role="alert">Corridor unavailable: {cor.error} <button type="button" className="btn ghost" onClick={() => location.reload()}><Icon name="reset" size={16} /><span>Retry</span></button></div>}
 
       <section className="cor-grid">
         <figure className="panel sld" data-ui data-r="4">
           <div className="sld-bar">
             <span className="sld-axis"><Icon name="sign" size={16} /><span><Term k="DFO" />, mi</span></span>
-            <span className="sld-hint" aria-hidden="true">
-              <span className="sld-hint-kb">{pin != null ? <><kbd>←</kbd><kbd>→</kbd> step <kbd>Esc</kbd> unpin</> : 'Click to pin a station'}</span>
-              <span className="sld-hint-touch">{pin != null ? 'Tap again to unpin' : 'Tap to pin a station'}</span>
+            <span className="sld-hint">
+              <Info label="About this diagram" title="Straight-line diagram" align="right">
+                <p>Inventory, traffic and crash attributes sampled every 0.25 mi along the route by distance from origin (DFO).</p>
+                <p>Click or tap to pin a station; with a station pinned, ← → step and Esc unpins. The pin is kept in the link.</p>
+                <p>Stations inherit the ped/bike crash density of the one-mile screened segment that contains them.</p>
+              </Info>
             </span>
           </div>
           <div className="sld-box" ref={(el) => { figRef.current = el; sldRef.current = el; }}>
@@ -294,10 +308,10 @@ export default function CorridorPage() {
           </div>
           <figcaption className="sld-legend">
             <span><i className="k solid" /> posted</span>
-            <span><i className="k" style={{ background: CHART.sb }} /> AM peak</span>
+            <span><i className="k" style={{ background: CHART.sb }} /> AM</span>
             <span><i className="k" style={{ background: CHART.midday }} /> midday</span>
-            <span><i className="k" style={{ background: CHART.pm }} /> PM peak</span>
-            <span className="sld-legend-mi"><Term k="AADT" /><MetricInfo spec={SPECS.aadt} /> Crash density<MetricInfo spec={SPECS.density} align="right" /></span>
+            <span><i className="k" style={{ background: CHART.pm }} /> PM</span>
+            <span className="sld-legend-mi"><Term k="AADT" /><MetricInfo spec={SPECS.aadt} align="right" /></span>
           </figcaption>
         </figure>
 
@@ -322,16 +336,14 @@ export default function CorridorPage() {
               </>
             ) : cor.data ? (
               <>
-                <h3>Corridor summary</h3>
+                <h3>Summary</h3>
                 <dl>
-                  <dt>Screened segments</dt><dd className="measure">{nf(cor.data.summary.segments)}</dd>
-                  <dt>Ped/bike crashes</dt><dd className="measure">{nf(cor.data.summary.crashes_total)} in {cor.data.summary.crash_years} yr{cor.data.summary.crashes_ka != null ? ` · ${cor.data.summary.crashes_ka} KA` : ''}</dd>
-                  <dt>Screened length</dt><dd className="measure">{nf(cor.data.summary.seg_len_mi, 1)} mi</dd>
+                  <dt>Segments</dt><dd className="measure">{nf(cor.data.summary.segments)}</dd>
+                  <dt>Crashes, {cor.data.summary.crash_years} yr</dt><dd className="measure">{nf(cor.data.summary.crashes_total)}{cor.data.summary.crashes_ka != null ? ` · ${cor.data.summary.crashes_ka} KA` : ''}</dd>
                   <dt>Mean <Term k="AADT" /></dt><dd className="measure">{nf(cor.data.summary.aadt_mean)} veh/d</dd>
                   <dt>Peak AADT</dt><dd className="measure">{nf(cor.data.summary.aadt_max)} veh/d</dd>
-                  <dt>Mean truck share</dt><dd className="measure">{nf(cor.data.summary.truck_pct_mean, 1)}%</dd>
+                  <dt>Trucks</dt><dd className="measure">{nf(cor.data.summary.truck_pct_mean, 1)}%</dd>
                 </dl>
-                <p className="muted cor-tip">Hover the diagram or scatter to read a station.</p>
               </>
             ) : null}
           </div>
@@ -340,8 +352,12 @@ export default function CorridorPage() {
 
       <section className="section cor-sc-sec" aria-labelledby="sc-h">
         <div className="cor-sec-h">
-          <h2 id="sc-h"><Icon name="gauge" size={22} />Operating speed and ped/bike crash density</h2>
-          <p>One dot per 0.25-mi station, linked to the diagram.</p>
+          <h2 id="sc-h"><Icon name="gauge" size={22} />Speed vs crash density</h2>
+          <Info label="About this chart" title="Operating speed and ped/bike crash density">
+            <p>One dot per 0.25-mi station, linked to the diagram above.</p>
+            <p>Stations inherit the crash density of their one-mile segment, so dots stack in runs; ρ is computed per segment and is descriptive only.</p>
+            <p>Speed: TxDOT Statewide Speed 2024, which reports no value above 65 mph. Stations posted above 65 sit at the cap and are left out of the operating − posted view.</p>
+          </Info>
         </div>
         {st.length ? <SpeedScatter st={st} cur={cur} pin={pin} onHover={setHov} onPick={pick} id={id} name={name} mode={params.get('x') === 'delta' ? 'delta' : 'abs'}
           setMode={(m) => setParams((prev) => { const p = new URLSearchParams(prev); if (m === 'delta') p.set('x', 'delta'); else p.delete('x'); return p; }, { replace: true })} /> : !cor.error && <div className="skeleton" style={{ height: 380 }} aria-label="Loading scatter" />}
@@ -397,7 +413,7 @@ function SpeedScatter({ st, cur, pin, onHover, onPick, id, name, mode, setMode }
           <button aria-pressed={mode === 'abs'} onClick={() => setMode('abs')}>Operating speed</button>
           <button aria-pressed={mode === 'delta'} onClick={() => setMode('delta')}>Operating − posted</button>
         </div>
-        <span className="sc-stat">ρ <b className="measure">{rho == null ? '—' : rho.toFixed(2)}</b><MetricInfo spec={SPECS.rho} /> <span className="muted">n = {segPts.length} segments ({pts.length} stations) · {above} stations above posted</span></span>
+        <span className="sc-stat">ρ <b className="measure">{rho == null ? '—' : rho.toFixed(2)}</b><MetricInfo spec={SPECS.rho} /> <span className="muted measure" title={`${pts.length} stations, ${above} above posted${nCapped ? `, ${nCapped} at the 65 mph cap` : ''}${nCens ? `, ${nCens} omitted` : ''}`}>n = {segPts.length}</span></span>
         <button type="button" className="btn ghost" onClick={save}><Icon name="image" size={16} /><span>Download PNG</span></button>
       </div>
       <div ref={box}>
@@ -408,7 +424,7 @@ function SpeedScatter({ st, cur, pin, onHover, onPick, id, name, mode, setMode }
             {yt.map((v) => <g key={v}><line x1={P.l} x2={W - P.r} y1={Y(v)} y2={Y(v)} className="sc-grid" /><text x={P.l - 8} y={Y(v) + 4} textAnchor="end" className="sc-tick">{v === 0 ? '0' : v.toFixed(v < 1 ? 2 : 1)}</text></g>)}
             {mode === 'abs'
               ? posted.map((p) => <g key={p}><line x1={X(p)} x2={X(p)} y1={P.t} y2={H - P.b} className="sc-posted" />{W >= 640 && <text x={X(p) + 3} y={P.t + 10} className="sc-posted-l">{p}</text>}</g>)
-              : <g><line x1={X(0)} x2={X(0)} y1={P.t} y2={H - P.b} className="sc-zero" /><text x={X(0) + 5} y={P.t + 10} className="sc-posted-l">posted limit</text></g>}
+              : <g><line x1={X(0)} x2={X(0)} y1={P.t} y2={H - P.b} className="sc-zero" /><text x={X(0) + 5} y={P.t + 10} className="sc-posted-l">posted</text></g>}
             {pts.map(({ s, i }) => {
               const hit = (s.crashes_per_mi ?? 0) > 0;
               return <circle key={i} cx={X(xv(s))} cy={Y(s.crashes_per_mi!)} r={hit ? 4.5 : 3} className="sc-dot" data-hit={hit || undefined} data-over={s.speed_all! > s.speed_limit! || undefined} data-pin={i === pin || undefined} />;
@@ -426,13 +442,12 @@ function SpeedScatter({ st, cur, pin, onHover, onPick, id, name, mode, setMode }
                 </g>
               );
             })()}
-            <text x={W - P.r} y={H - 6} textAnchor="end" className="sc-axis">{mode === 'abs' ? 'Operating speed, mph (dashed: posted limits)' : 'Operating minus posted speed, mph'}</text>
-            <text x={0} y={12} className="sc-axis">Ped/bike crashes per mi per yr</text>
+            <text x={W - P.r} y={H - 6} textAnchor="end" className="sc-axis">{mode === 'abs' ? 'Operating speed, mph · dashed = posted' : 'Operating − posted, mph'}</text>
+            <text x={0} y={12} className="sc-axis">Crashes /mi/yr</text>
           </svg>
         </div>
       </div>
-      <p className="sc-key" aria-hidden="true"><span><i data-k="hit" />crashes, at or below posted</span><span><i data-k="over" />crashes, above posted</span><span><i data-k="none" />no crash</span></p>
-      <p className="sc-foot muted">Stations inherit the crash density of their one-mile segment, so dots stack in runs; ρ is computed per segment and is descriptive only. Speed: TxDOT Statewide Speed 2024, which reports no value above 65 mph{mode === 'abs' && nCapped ? ` (${nCapped} stations posted above 65 sit at the cap)` : ''}{nCens ? `; ${nCens} stations posted above 65 omitted here` : ''}.</p>
+      <p className="sc-key" aria-hidden="true"><span><i data-k="hit" />crash, ≤ posted</span><span><i data-k="over" />crash, &gt; posted</span><span><i data-k="none" />no crash</span></p>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApi } from '../lib/api';
 import { useReveal } from '../lib/motion';
+import Info from './Info';
 
 interface Rule { rule?: string; citation?: string; note?: string; threshold_mps2?: number }
 interface Ssm {
@@ -21,21 +22,24 @@ export default function SsmPanel({ id }: { id: string }) {
   const ref = useReveal<HTMLElement>();
   return (
     <section ref={ref} className="section ssm" aria-labelledby="ssm-h">
-      <div className="section-head" data-r="1">
-        <h2 id="ssm-h">Detection rules and threshold sensitivity</h2>
-        <p>{s ? `${s.counts.total} events · ${s.counts.drac_flag} with DRAC ≥ 11.2 ft/s² · ${s.counts.overlap} simultaneous-occupancy flags` : ''}</p>
-      </div>
-      {r.error && <div className="error-box">{r.error}</div>}
-      {s && (
-        <div className="ssm-grid" data-r="2">
-          <div className="panel ssm-rules">
-            <dl>
+      <div className="section-head sh-info" data-r="1">
+        <h2 id="ssm-h">Threshold sensitivity</h2>{s && (
+          <Info label="Detection rules" title="Detection rules as run">
+            <p>{s.counts.total} events · {s.counts.drac_flag} with DRAC ≥ 11.2 ft/s² · {s.counts.overlap} simultaneous-occupancy flags.</p>
+            <dl className="ssm-rules-dl">
               <dt>Detection</dt><dd>{ops(s.rules.detection.rule)}<cite>{ops(s.rules.detection.citation)}</cite></dd>
               <dt>TTC severity</dt><dd>{ops(s.rules.severity_ttc.rule)}<cite>{ops(s.rules.severity_ttc.note)}</cite></dd>
               <dt>PET severity</dt><dd>{ops(s.rules.severity_pet.rule)}<cite>{ops(s.rules.severity_pet.note)}</cite></dd>
               <dt>DRAC flag</dt><dd>DRAC ≥ 11.2 ft/s² (3.4 m/s²), reported with TTC events, not used for detection.<cite>{s.rules.drac.citation}</cite></dd>
             </dl>
-            <h3>Counts at alternative thresholds</h3>
+            {s.scatter_note && <p>{ops(s.scatter_note)}</p>}
+          </Info>
+        )}
+      </div>
+      {r.error && <div className="error-box">{r.error}</div>}
+      {s && (
+        <div className="ssm-grid" data-r="2">
+          <div className="panel ssm-rules">
             <table className="data">
               <thead><tr><th>TTC ≤</th><th className="r">Rear-end</th><th className="r">Lane change</th><th className="r">DRAC flag</th></tr></thead>
               <tbody>
@@ -53,14 +57,14 @@ export default function SsmPanel({ id }: { id: string }) {
               </tbody>
             </table>
           </div>
-          <div className="panel ssm-scatter"><Scatter pts={s.scatter} note={s.scatter_note} /></div>
+          <div className="panel ssm-scatter"><Scatter pts={s.scatter} /></div>
         </div>
       )}
     </section>
   );
 }
 
-function Scatter({ pts, note }: { pts: Ssm['scatter']; note?: string }) {
+function Scatter({ pts }: { pts: Ssm['scatter'] }) {
   // drawn at the rendered width so tick and label text stays at its CSS size on every screen
   const box = useRef<HTMLElement>(null);
   const [W, setW] = useState(560);
@@ -87,7 +91,7 @@ function Scatter({ pts, note }: { pts: Ssm['scatter']; note?: string }) {
         <line x1={P.l} x2={W - P.r} y1={Y(26.2)} y2={Y(26.2)} className="thr dim" />
         <text x={X(1.5) + 4} y={P.t + 12} className="lbl">SSAM TTC 1.5 s</text>
         <text x={W - P.r - 4} y={Y(11.2) - 4} className="lbl" textAnchor="end">AASHTO 11.2 ft/s²</text>
-        <text x={W - P.r - 4} y={Y(26.2) - 4} className="lbl" textAnchor="end">≈ friction limit, 26 ft/s²</text>
+        <text x={W - P.r - 4} y={Y(26.2) - 4} className="lbl" textAnchor="end">friction 26 ft/s²</text>
         {pts.map(([ttc, drac, type, sev], i) => (
           <circle key={i} cx={X(Math.min(3, ttc))} cy={Y(drac * FT)} r={3.6} fill={sev ? col[sev] : 'none'} stroke={sev ? 'var(--sheet)' : 'var(--ink-3)'} strokeWidth={sev ? 0.8 : 1.2}>
             <title>{`${type.replace('_', ' ')} · TTC ${ttc.toFixed(2)} s · DRAC ${(drac * FT).toFixed(1)} ft/s²`}</title>
@@ -96,7 +100,7 @@ function Scatter({ pts, note }: { pts: Ssm['scatter']; note?: string }) {
         <text x={(W + P.l) / 2} y={H - 6} className="axis" textAnchor="middle">minimum TTC (s)</text>
         <text transform={`translate(14 ${(H - P.b) / 2}) rotate(-90)`} className="axis" textAnchor="middle">maximum DRAC (ft/s²)</text>
       </svg>
-      <figcaption className="muted">Filled: detected, by TTC severity · hollow: TTC 1.5–3.0 s, below detection. {ops(note)}</figcaption>
+      <figcaption className="muted ssm-key"><span><i data-k="on" />detected</span><span><i data-k="off" />below detection</span></figcaption>
     </figure>
   );
 }

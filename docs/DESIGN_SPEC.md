@@ -17,7 +17,7 @@ mono eyebrows.
 | Role | Token | Size / line-height | Weight |
 |---|---|---|---|
 | Display (landing H1 only) | `--step-display` | clamp 52–136 px / 0.95 | head |
-| Page title (H1) | `--step-head` | clamp 32–64 px / 1.0 | head |
+| Page title (H1) | `--t-h1` | clamp(28 px, 2.2vw, 40 px) / 1.1, one line | head |
 | Section title (H2) | `--t-h2` | 22 px / 1.2 | strong |
 | Panel title (H3) | `--t-h3` | 18 px / 1.3 | strong |
 | Lede | `--t-lede` | 18 px / 1.45, max 60ch | body |
@@ -54,9 +54,15 @@ Phosphor, regular weight; duotone only in page-header badges. Sizes: 14 (inline 
 icon at 44 px box). Icon and text share the label's cap-height centre.
 
 ## Navigation
-Rail 232 px, collapses to a top bar with disclosure ≤ 1100 px. Item 40 px tall, 16-px icon,
-14–15 px label that wraps to two lines rather than truncating. Active: raise fill, ink text,
-accent dot. Hover: paper-2 fill. Keyboard: ⌘K palette, visible focus.
+Rail 232 px, collapsible to a 64 px icon rail (toggle at the top, `[` shortcut, state in
+localStorage, tooltips with the label when collapsed); top bar with disclosure ≤ 1100 px. Item 40 px
+tall, 16-px icon, 15 px label on one line. Active: one raise fill that slides between items, accent
+icon. Hover: paper-2 fill. Rail holds navigation, Jump to (⌘K), theme and About the data only.
+
+## Page header
+Icon badge 36 px, title, one info button (lede and data source live in its panel, never inline),
+compact readouts (22 px figures), actions. No ledes, source lines or chips on the page itself.
+Provenance is a 6 px dot + word inside panels and tables; status is icon + one or two words.
 
 ## Colour roles
 Ground `--paper`, panel `--sheet`, raised `--raise`, rule `--rule`, text `--ink/-2/-3`, action

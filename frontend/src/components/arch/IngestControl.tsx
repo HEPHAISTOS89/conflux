@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '../Icon';
+import Info from '../Info';
 import { nf } from '../../lib/format';
 import type { PlatformRun, PlatformStatus } from '../../lib/types';
 import {
@@ -124,36 +125,40 @@ export default function IngestControl({ data, refresh }: { data?: PlatformStatus
     : k === 'checking' ? 'Checking whether a run is allowed' : undefined;
   const label = k === 'starting' ? 'Starting…' : k === 'running' ? 'Running…' : k === 'failed' && !blocked ? 'Retry' : 'Run ingest';
 
+  const until = (k === 'cooldown' || k === 'succeeded' || k === 'failed') && 'until' in ui && ui.until ? minutesUntil(ui.until, now) : null;
+  const next = until != null && (k !== 'failed' || blocked) ? <span className="pf-ops-next" title={`Next run allowed ${inMinutes((ui as { until: string }).until, now)}`}><Icon name="clock" size={14} /><span className="measure">{until <= 1 ? '< 1' : until} min</span></span> : null;
+
   return (
     <section className="pf-ops" aria-labelledby="pf-ops-h" data-k={k}>
       <div className="pf-ops-t">
         <h2 id="pf-ops-h">Ingest on demand</h2>
-        <p>Starts <span className="measure">roadscope-ingest</span> on AWS Lambda now, the same job EventBridge runs every Monday. Asynchronous; one manual run per 30 minutes.</p>
+        <Info label="About Run ingest" title="Ingest on demand">
+          <p>Starts <span className="measure">roadscope-ingest</span> on AWS Lambda now, the same job EventBridge runs every Monday. Asynchronous: the control polls the run record every 3 s and only reports success from a record marked succeeded. One manual run per 30 minutes.</p>
+          {k === 'unavailable' && <p>{ui.message}</p>}
+        </Info>
       </div>
       <div className="pf-ops-act">
         <button type="button" className="btn" onClick={blocked ? undefined : run} aria-busy={isBusy || undefined} disabled={isBusy}
           aria-disabled={blocked || undefined} title={reason}>
           <Icon name={isBusy ? 'spinner' : k === 'failed' && !blocked ? 'reset' : 'upload'} size={16} />{label}
         </button>
-        <p className="pf-ops-msg" role="status" aria-live="polite">
-          {k === 'checking' && <>Checking whether a run is allowed…</>}
-          {k === 'unavailable' && <><Icon name="info" size={16} /><span><b>Unavailable.</b> {ui.message}</span></>}
-          {k === 'ready' && <><Icon name="ok" size={16} /><span>Ready. Lambda refreshes TxDOT layers in about 10–15 s.</span></>}
-          {k === 'cooldown' && <><Icon name="clock" size={16} /><span>An ingest ran recently. Next run allowed {inMinutes(ui.until, Date.now())}.</span></>}
-          {k === 'starting' && <><Icon name="spinner" size={16} /><span>Sending the request…</span></>}
+        <p className="pf-ops-msg" role="status" aria-live="polite" key={k}>
+          {k === 'checking' && <>Checking…</>}
+          {k === 'unavailable' && <><span className="pf-ops-dot" data-s="idle" /><span title={ui.message}><b>Unavailable</b> here</span></>}
+          {k === 'ready' && <><span className="pf-ops-dot" data-s="ok" /><span>Ready</span></>}
+          {k === 'cooldown' && <><span className="pf-ops-dot" data-s="warn" /><span>Cooling down</span>{next}</>}
+          {k === 'starting' && <><Icon name="spinner" size={16} /><span>Sending…</span></>}
           {k === 'running' && <><Icon name="spinner" size={16} /><span>
-            {ui.run ? <>Run <span className="measure">{ui.run.detail?.run_id}</span> {String(ui.run.detail?.status ?? 'running')}</> : <>Invoked at <span className="measure">{utc(ui.requestedAt)}</span>, waiting for its run record</>}
-            {' · '}<span className="measure">{clock(now - ui.t0)}</span> elapsed{ui.pollError ? ` · status check failed (${ui.pollError}), retrying` : ''}
+            {ui.run ? <>Run <span className="measure">{ui.run.detail?.run_id}</span></> : <>Invoked <span className="measure">{utc(ui.requestedAt)}</span></>}
+            {' · '}<span className="measure">{clock(now - ui.t0)}</span>{ui.pollError ? ` · status check failed (${ui.pollError}), retrying` : ''}
           </span></>}
-          {k === 'succeeded' && <><Icon name="ok" size={16} weight="fill" /><span>
-            <b>Succeeded.</b> {typeof ui.run.detail?.records === 'number' ? <><span className="measure">{nf(ui.run.detail.records)}</span> records from {ui.run.detail?.sources ?? '—'} sources</> : 'Curated data rewritten'}
-            {typeof ui.run.detail?.seconds === 'number' ? <> in <span className="measure">{nf(ui.run.detail.seconds, 1)} s</span></> : null}
-            {' '}· run <span className="measure">{ui.run.detail?.run_id}</span>. Figures, runs and freshness below are refreshed. Next run allowed {inMinutes(ui.until, Date.now())}.
-          </span></>}
+          {k === 'succeeded' && <><Icon name="ok" size={16} weight="fill" /><span title={`Run ${ui.run.detail?.run_id ?? ''}. Figures, runs and freshness below are refreshed.`}>
+            <b>Succeeded</b> · {typeof ui.run.detail?.records === 'number' ? <><span className="measure">{nf(ui.run.detail.records)}</span> records</> : 'data rewritten'}
+            {typeof ui.run.detail?.seconds === 'number' ? <> · <span className="measure">{nf(ui.run.detail.seconds, 1)} s</span></> : null}
+          </span>{next}</>}
           {k === 'failed' && <><Icon name="fail" size={16} weight="fill" /><span>
             <b>Failed.</b> {ui.message}{ui.run?.detail?.run_id ? <> (run <span className="measure">{ui.run.detail.run_id}</span>)</> : null}
-            {blocked && ui.until ? ` Next run allowed ${inMinutes(ui.until, Date.now())}.` : ''}
-          </span></>}
+          </span>{next}</>}
         </p>
       </div>
     </section>

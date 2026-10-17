@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import MapView, { type MapLayer } from '../MapView';
 import { Icon } from '../Icon';
-import MetricInfo, { ProvChip, type MetricSpec } from '../MetricInfo';
+import MetricInfo, { type MetricSpec } from '../MetricInfo';
 import { useApi } from '../../lib/api';
 import { useReveal } from '../../lib/motion';
 import { EB_STOPS, nf } from '../../lib/format';
@@ -66,13 +66,13 @@ export default function NetworkRank() {
   return (
     <section ref={ref} className="nr" aria-labelledby="nr-h">
       <div className="nr-side">
-        <h2 id="nr-h" data-r="1">{miles ? `Network screening, ${nf(miles)} mi` : 'Network screening'}</h2>
-        <p data-r="2">{nf(screened.length)} Lubbock County state-system segments screened for pedestrian and cyclist crashes (HSM Part B){unmatched > 0 ? `; ${nf(unmatched)} more lack a Roadway Inventory / AADT match and are shown unranked in grey` : ''}.</p>
+        <h2 id="nr-h" data-r="1">Ranked network</h2>
+        {miles > 0 && <span className="nr-meta measure" data-r="1">{nf(screened.length)} segments · {nf(miles)} mi</span>}
         <div className="nr-ctl" data-r="3">
           <div className="nr-switch" role="group" aria-label="Screening measure" data-ui>
             {MEASURES.map((m) => <button key={m.id} type="button" aria-pressed={mk === m.id} onClick={() => setMk(m.id)}>{m.label}</button>)}
           </div>
-          <MetricInfo spec={M.spec} align="right" />
+          <MetricInfo spec={{ ...M.spec, note: [M.spec.note, unmatched > 0 ? `${nf(unmatched)} more segments lack a Roadway Inventory / AADT match and are drawn unranked in grey.` : null].filter(Boolean).join(' ') || undefined }} align="right" />
         </div>
         <ol className="nr-list" data-r="4" aria-label={`Top five segments by ${M.label}`}>
           {top.length ? top.map((s, i) => (
@@ -85,7 +85,6 @@ export default function NetworkRank() {
             </li>
           )) : Array.from({ length: 5 }, (_, i) => <li key={i}><span className="skeleton" style={{ height: 44, display: 'block' }} /></li>)}
         </ol>
-        <div className="nr-prov" data-r="5"><ProvChip kind="derived" /><span>TxDOT CRIS 2021–2023, AADT, Roadway Inventory</span></div>
       </div>
       <div className="nr-map" data-ui>
         <MapView key={theme}

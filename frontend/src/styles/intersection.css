@@ -361,3 +361,34 @@
 @media (max-width: 720px) { .hud-trace { display: none; } }
 .plan-hint::after { content: 'Scroll to zoom · drag to pan'; }
 @media (pointer: coarse) { .plan-hint::after { content: 'Pinch to zoom · drag to pan'; } }
+
+/* Text diet: section titles at the spec size, explanations behind an info button beside them. */
+.ixlab h2 { font-size: var(--t-h2); line-height: 1.2; letter-spacing: -0.02em; }
+.sh-info { justify-content: flex-start; align-items: center; gap: var(--s2); }
+.sh-info > .btn:last-child { margin-left: auto; }
+.ssm-rules-dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: var(--t-ui); }
+.ssm-rules-dl dt { font-weight: 500; color: var(--ink); }
+.ssm-rules-dl dd { margin: 0; color: var(--ink-2); }
+.ssm-rules-dl cite { display: block; font-style: normal; font-size: var(--t-label); color: var(--ink-3); margin-top: 2px; }
+.ssm-key { display: flex; gap: 18px; }
+.ssm-key span { display: inline-flex; align-items: center; gap: 6px; }
+.ssm-key i { width: 8px; height: 8px; border-radius: 50%; background: var(--sev-a); }
+.ssm-key i[data-k='off'] { background: none; box-shadow: inset 0 0 0 1.2px var(--ink-3); }
+.rep-win { display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: var(--t-ui); color: var(--ink-2); }
+.rep-win .measure { font-size: var(--t-fig); color: var(--accent); line-height: 1; }
+.rep-win small { font-size: var(--t-ui); margin-left: 1px; }
+.lidar-sim { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: var(--r-pill); font-size: var(--t-label); color: var(--caution); background: color-mix(in srgb, var(--paper) 82%, transparent); }
+.lidar-sim::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+/* Rows of the conflict table arrive in sequence the first time the list fills. */
+.ix-conf-list tbody tr { animation: ix-row-in 360ms var(--ease-out) both; }
+.ix-conf-list tbody tr:nth-child(2) { animation-delay: 30ms; }
+.ix-conf-list tbody tr:nth-child(3) { animation-delay: 60ms; }
+.ix-conf-list tbody tr:nth-child(4) { animation-delay: 90ms; }
+.ix-conf-list tbody tr:nth-child(5) { animation-delay: 120ms; }
+.ix-conf-list tbody tr:nth-child(6) { animation-delay: 150ms; }
+.ix-conf-list tbody tr:nth-child(n+7) { animation-delay: 180ms; }
+@keyframes ix-row-in { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .ix-conf-list tbody tr { animation: none; } }
+/* The gesture hint shows once, then gets out of the way. */
+.plan-hint { animation: plan-hint-out 500ms var(--ease-out) 4s forwards; }
+@keyframes plan-hint-out { to { opacity: 0; visibility: hidden; } }

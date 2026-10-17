@@ -38,7 +38,7 @@ export default function LidarView(props: Props) {
     return (
       <div className="lidar lidar-fallback">
         <PlanView data={props.data} conflicts={props.conflicts} label={props.label.replace('Simulated roadside LiDAR point cloud', 'Plan view')} />
-        <p className="lidar-nogl" role="status"><Icon name="warning" size={16} /> No WebGL2 in this browser; showing the plan view. Readouts, timeline and conflict table are unaffected.</p>
+        <p className="lidar-nogl" role="status"><Icon name="warning" size={16} /> No WebGL2: showing the plan view.</p>
       </div>
     );
   }
@@ -159,7 +159,7 @@ function Lidar3D({ data, conflicts, label }: Props) {
           ) : focus && (
             <>
               <span className="lidar-moment-k"><Icon name="alert" size={15} /> Near-miss at <span className="measure">{focus.t.toFixed(1)} s</span></span>
-              <button className="btn" onClick={() => eng.current?.replay()} title="Replays the conflict three times: behind each vehicle, then overhead (R)"><Icon name="camera" size={15} /> Replay from 3 angles</button>
+              <button className="btn" onClick={() => eng.current?.replay()} title="Replays the conflict three times: behind each vehicle, then overhead (R)"><Icon name="camera" size={15} /> Replay</button>
             </>
           )}
         </div>
@@ -182,9 +182,8 @@ function Lidar3D({ data, conflicts, label }: Props) {
               <span><i style={{ background: PT.hot }} />in conflict now</span>
               <span><i style={{ background: PT.sel }} />selected</span>
               <span><i style={{ background: PT.partner }} />partner</span>
-              <span><i className="bar" />stop bar (queue head)</span>
+              <span><i className="bar" />stop bar</span>
             </div>
-            <p className="lidar-note">Returns simulated from NGSIM vehicle tracks: {SENSOR.z} m pole, {SENSOR.range} m range. Vehicles only.</p>
           </>
         )}
       </div>

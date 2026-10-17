@@ -192,7 +192,6 @@ export default function FlowDiagram({ live, down, overrides, badges, selected, o
           <Icon name={n.icon} size={20} weight="duotone" />
           <b className="ar-n-t">{n.title}</b>
           <span className="ar-n-c measure"><i />{chip}</span>
-          <span className="ar-n-s">{id === 'cw' ? 'Metrics and JSON logs from every compute stage' : 'One role per component'}</span>
           {badges?.[id] && <span className="ar-badge measure">{badges[id]}</span>}
         </button>
       );
@@ -202,8 +201,7 @@ export default function FlowDiagram({ live, down, overrides, badges, selected, o
         style={{ gridColumn: (n.col ?? 0) + 1, gridRow: ROWS[n.row ?? 'r0'] }}>
         <span className="ar-ring" aria-hidden="true" />
         <span className="ar-n-h"><span className="ar-n-ico"><Icon name={n.icon} size={20} weight="duotone" /></span></span><b className="ar-n-t">{n.title.replace(' · ', '\u00a0· ')}</b>
-        <span className="ar-n-s">{sub}</span>
-        <span className="ar-n-c measure"><i />{chip}</span>
+        {state !== 'planned' && <><span className="ar-n-s">{sub}</span><span className="ar-n-c measure"><i />{chip}</span></>}
         {badges?.[id] && <span className="ar-badge measure">{badges[id]}</span>}
       </button>
     );
@@ -250,12 +248,12 @@ export default function FlowDiagram({ live, down, overrides, badges, selected, o
         ))}
       </svg>
 
-      <div className="ar-lanehead"><span className="ar-lane">Deployed</span><span className="ar-lane-note">AWS us-east-2 · account-level budget alarm</span></div>
+      <div className="ar-lanehead"><span className="ar-lane">Deployed</span><span className="ar-lane-note">us-east-2</span></div>
       {node('iam')}
       <div className="ar-grid" data-lane="live">{LIVE.map((n) => node(n.id))}</div>
       {node('cw')}
       <div className="ar-pilot">
-        <div className="ar-lanehead"><span className="ar-lane">Pilot</span><span className="ar-lane-note">Planned roadside-LiDAR pedestrian warning; not deployed</span></div>
+        <div className="ar-lanehead" title="Planned roadside-LiDAR pedestrian warning; not deployed"><span className="ar-lane">Pilot</span><span className="ar-lane-note">Planned</span></div>
         <div className="ar-grid" data-lane="pilot">{PILOT.map((n) => node(n.id))}</div>
       </div>
 

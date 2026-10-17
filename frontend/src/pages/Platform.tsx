@@ -6,6 +6,7 @@ import type { PlatformStatus } from '../lib/types';
 import PageHeader from '../components/PageHeader';
 import Select from '../components/Select';
 import MetricInfo from '../components/MetricInfo';
+import Info from '../components/Info';
 import { Icon, type IconName } from '../components/Icon';
 import FlowDiagram from '../components/arch/FlowDiagram';
 import NodePanel from '../components/arch/NodePanel';
@@ -36,13 +37,13 @@ function usePlatformStatus() {
   return { ...s, reload, retry };
 }
 
-const GUARDS: { icon: IconName; t: string; d: string }[] = [
-  { icon: 'warning', t: 'Alarms', d: 'API errors, ingest errors, DLQ depth, idle worker' },
-  { icon: 'gauge', t: 'Throttle', d: '20 req/s, burst 40; ETag + 300 s cache' },
-  { icon: 'ask', t: 'Ask limits', d: '10/min per client + daily cap → 429' },
-  { icon: 'ec2', t: 'Self-stopping EC2', d: 'one job, then shutdown; idle alarm backstop' },
-  { icon: 'lambda', t: 'Concurrency', d: 'account cap of 10 Lambda executions' },
-  { icon: 'iam', t: 'Budget', d: 'US$40/month AWS Budget outside the stack' },
+const GUARDS: { icon: IconName; t: string; v: string; d: string }[] = [
+  { icon: 'warning', t: 'Alarms', v: '4', d: 'API errors, ingest errors, DLQ depth, idle worker' },
+  { icon: 'gauge', t: 'Throttle', v: '20 req/s', d: '20 req/s, burst 40; ETag + 300 s cache' },
+  { icon: 'ask', t: 'Ask limit', v: '10 / min', d: '10/min per client + daily cap → 429' },
+  { icon: 'ec2', t: 'EC2', v: 'self-stops', d: 'one job, then shutdown; idle alarm backstop' },
+  { icon: 'lambda', t: 'Concurrency', v: '10', d: 'account cap of 10 Lambda executions' },
+  { icon: 'iam', t: 'Budget', v: 'US$40 / mo', d: 'US$40/month AWS Budget outside the stack' },
 ];
 
 export default function Platform() {
@@ -112,17 +113,28 @@ export default function Platform() {
   const down = replay === 'down' && rec ? rec.node : simDown ? sim.target : null;
   const overrides = view?.impacts;
   const badges = view ? { [view.target]: view.queue.draining ? `draining ${view.queue.value}` : `${view.queue.value} ${view.queue.unit}` } : undefined;
-  const simTag = (label: string) => (view ? <>{label}<i className="pf-simtag">Simulation</i></> : label);
+  const simTag = (label: string) => label;
   const loadedAt = useMemo(() => (d ? new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''), [d]);
   const hhmm = (iso: string) => iso.replace(/.*T(\d{2}:\d{2}).*/, '$1');
 
   const headRef = useReveal<HTMLDivElement>(), lowerRef = useReveal<HTMLDivElement>();
   const runs = d?.runs ?? [];
   const sources = d?.manifest?.sources ?? [];
+  // FARS arrives as one file per year: one row for the series keeps the table to one line per dataset.
+  const srcRows = useMemo(() => {
+    const fars = sources.filter((x) => /^fars_\d{4}$/.test(x.id));
+    if (fars.length < 2) return sources;
+    const yrs = fars.map((x) => x.id.slice(5)).sort();
+    const row = { ...fars[0], id: `fars_${yrs[0]}–${yrs[yrs.length - 1].slice(2)}`, records: fars.reduce((a, x) => a + x.records, 0),
+      fetched_at: fars.map((x) => x.fetched_at).sort()[0] };
+    return [...sources.filter((x) => !fars.includes(x)), row].sort((a, b) => a.id.localeCompare(b.id));
+  }, [sources]);
   const r = view ? view.readouts : live.readouts;
   const verdict = view
-    ? { s: 'warn' as const, text: `Simulation: ${view.title} ${view.phase === 'restoring' ? 'recovering' : 'down'}` }
+    ? { s: 'warn' as const, text: `${view.title} ${view.phase === 'restoring' ? 'recovering' : 'down'}` }
     : live.verdict;
+
+  const shortVerdict = view ? (view.phase === 'restoring' ? 'Recovering' : 'Down') : !d ? 'Checking…' : verdict.s === 'down' ? 'Down' : verdict.s === 'warn' ? 'Errors' : live.local ? 'Local' : 'Healthy';
 
   return (
     <div className="page platform">
@@ -138,13 +150,13 @@ export default function Platform() {
             { label: simTag('API p95'), value: r.p95, unit: 'ms' },
             { label: 'Monthly est.', value: d ? live.cost.total : null, unit: 'US$', digits: 2 },
           ]}
-          actions={<span className="status" data-s={verdict.s}><Icon name={verdict.s === 'down' ? 'fail' : verdict.s === 'ok' ? 'ok' : view ? 'warning' : 'info'} size={15} weight="fill" />{verdict.text}</span>}
+          actions={<span className="pf-verdict">
+            <span className="status" data-s={verdict.s}><Icon name={verdict.s === 'down' ? 'fail' : verdict.s === 'ok' ? 'ok' : view ? 'warning' : 'info'} size={15} weight="fill" />{shortVerdict}</span>
+            <Info label="Platform status" title="Status" align="right"><p>{verdict.text}.</p>{live.local && <p>Local mode: CloudWatch metrics, S3 run history and Run ingest are AWS-only; they work on the deployed portal.</p>}</Info>
+          </span>}
         />
       </div>
 
-      {live.local && (
-        <p className="pf-local" role="status"><Icon name="info" size={16} />Local mode: CloudWatch metrics, S3 run history and Run ingest are AWS-only. They work on the deployed portal.</p>
-      )}
       {st.error && (
         <div className="error-box pf-err" role="alert"><Icon name="fail" size={16} /><span>Platform status unavailable: {st.error}</span>
           <button type="button" className="btn ghost sm" onClick={st.retry} disabled={st.loading} aria-busy={st.loading || undefined}><Icon name={st.loading ? 'spinner' : 'reset'} size={16} />{st.loading ? 'Retrying…' : 'Retry'}</button>
@@ -156,9 +168,14 @@ export default function Platform() {
 
       <section className="section ar" aria-labelledby="ar-h">
         <div className="ar-head">
-          <div>
+          <div className="pf-h">
             <h2 id="ar-h">Architecture</h2>
-            <p className="ar-why">Moving dots scale with volume per link (runs, records, requests; log scale). Select a component for its metrics.</p>
+            <Info label="About the architecture diagram" title="Architecture">
+              <p>Moving dots scale with volume per link (runs, records, requests; log scale). Select a component for its metrics, configuration and cost.</p>
+              <p>Bedrock and CloudFront are defined in CDK and await AWS account verification. The pilot lane is planned, not deployed.</p>
+              <p>Simulate outage plays a failure in this browser only, on a compressed clock (1 s = {SIM_MIN_PER_S} min); live AWS state is unchanged. Replay recovery replays a real failure from the run history.</p>
+              {live.local && <p>Local mode: CloudWatch metrics, S3 run history and Run ingest are AWS-only; they work on the deployed portal.</p>}
+            </Info>
           </div>
           <div className="ar-ctl" role="group" aria-label="Outage scenarios">
             {rec && (
@@ -178,24 +195,23 @@ export default function Platform() {
         <ul className="ar-legend" aria-label="Flow colours">
           {FLOWS.map((x) => <li key={x.f} data-flow={x.f}><i />{x.label}</li>)}
           <li className="ar-lg-state"><span className="ar-sw" data-s="down" />Down</li>
-          <li className="ar-lg-state"><span className="ar-sw" data-s="warn" />Degraded or awaiting AWS</li>
+          <li className="ar-lg-state" title="Degraded, or awaiting AWS account verification"><span className="ar-sw" data-s="warn" />Degraded</li>
           <li className="ar-lg-state"><span className="ar-sw" data-s="idle" />Idle</li>
         </ul>
 
         <div className="ar-banner" role="status" aria-live="polite" data-kind={view ? 'sim' : replay ? 'replay' : 'live'}>
           {!view && !replay && (
-            <><b>Live</b><span>{d ? <>Read at <span className="measure">{loadedAt}</span> local time. Bedrock and CloudFront: defined in CDK, awaiting AWS account verification. Pilot lane: planned, not deployed.</> : 'Reading platform status…'}</span></>
+            <><b>Live</b><span>{d ? <>Read at <span className="measure">{loadedAt}</span></> : 'Reading platform status…'}</span></>
           )}
           {view && (
-            <><b>Simulation</b><span>
+            <><b>{view.phase === 'down' ? 'Down' : 'Recovering'}</b><span>
               {view.phase === 'down'
-                ? <>{view.title} failing in this browser only. Clock <span className="measure">T+{Math.round(view.t)} min</span> (1 s = {SIM_MIN_PER_S} min).</>
-                : <>{view.title} restored; draining the backlog, then every figure returns to live.</>}
-              {' '}Live AWS state is unchanged.
-            </span></>
+                ? <>{view.title} down · <span className="measure">T+{Math.round(view.t)} min</span></>
+                : <>{view.title} restored · draining</>}
+                          </span></>
           )}
           {replay && rec && (
-            <><b>Replay</b><span>Recorded event: the {rec.job} job failed at {hhmm(finished(rec.failed))} UTC (run <span className="measure">{rec.failed.detail?.run_id}</span>) and succeeded {rec.minutes} min later (run <span className="measure">{rec.recovered.detail?.run_id}</span>). Compressed to 6 s.{replay === 'draining' ? ' Recovered; queue draining.' : ''}</span></>
+            <><b>Replay</b><span title={`Recorded event: the ${rec.job} job failed at ${hhmm(finished(rec.failed))} UTC (run ${rec.failed.detail?.run_id}) and succeeded ${rec.minutes} min later (run ${rec.recovered.detail?.run_id}). Compressed to 6 s.`}>{rec.job} failed {hhmm(finished(rec.failed))} UTC · recovered after {rec.minutes} min{replay === 'draining' ? ' · draining' : ''}</span></>
           )}
         </div>
 
@@ -213,15 +229,14 @@ export default function Platform() {
                     <span className="status" data-s={a.state === 'ALARM' ? 'down' : a.state === 'PENDING' ? 'warn' : 'ok'}>
                       <Icon name={a.state === 'ALARM' ? 'warning' : a.state === 'PENDING' ? 'clock' : 'ok'} size={14} weight="fill" />{a.state}
                     </span>
-                    <span><span className="measure">{a.name}</span> <small>{a.rule}</small><br /><span className="ar-sim-why">{a.why}</span></span>
+                    <span title={`${a.rule}. ${a.why}`}><span className="measure">{a.name}</span></span>
                   </li>
                 ))}
               </ul>
             </div>
             <div className="ar-sim-cons">
-              <small>What follows</small>
-              <ul>{view.consequences.map((c) => <li key={c}>{c}</li>)}</ul>
-              <button type="button" className="btn text sm" onClick={() => dispatch({ type: 'reset' })}>End simulation now</button>
+              <small>What follows <Info label="What follows" title="Consequences"><ul className="ar-cons">{view.consequences.map((c) => <li key={c}>{c}</li>)}</ul></Info></small>
+              <button type="button" className="btn text sm" onClick={() => dispatch({ type: 'reset' })}>End simulation</button>
             </div>
           </div>
         )}
@@ -231,7 +246,7 @@ export default function Platform() {
             <FlowDiagram live={live} down={down} overrides={replay === 'down' && rec ? { [rec.node]: { state: 'down', chip: 'Failed · queueing (replay)' } } : overrides}
               badges={badges} selected={selected} onSelect={select} motion={motion} />
           </div>
-          <p className="ar-pan"><Icon name="arrow" size={14} /><span>Scroll sideways for the full diagram<span className="ar-pan-m">, or use the list below</span>.</span></p>
+          <p className="ar-pan"><Icon name="arrow" size={14} /><span>Scroll sideways<span className="ar-pan-m"> or use the list</span></span></p>
           {selected && selFrom === 'diagram' && <NodePanel key={selected} id={selected} live={live} data={d} impact={view?.impacts[selected]} replayDown={replay === 'down' && rec?.node === selected} onClose={close} />}
         </div>
 
@@ -262,10 +277,9 @@ export default function Platform() {
 
       <div className="pf-lower" ref={lowerRef}>
         <section className="section pf-wide" aria-labelledby="pf-runs" data-r="1">
-          <h2 id="pf-runs">Pipeline runs</h2>
-          <p className="pf-why">One S3 run record per job, failures included; the ten most recent.</p>
+          <div className="pf-h"><h2 id="pf-runs">Pipeline runs</h2><Info label="About pipeline runs"><p>One S3 run record per job, failures included; the ten most recent.</p></Info></div>
           {st.loading && !d && <div className="skeleton pf-skel" />}
-          {d && runs.length === 0 && <p className="pf-empty"><Icon name="info" size={16} />{d.on_aws ? 'No run records in curated/runs/ yet.' : 'No run records in local mode: run history lives in S3 on the deployed portal.'}</p>}
+          {d && runs.length === 0 && <p className="pf-empty"><Icon name="info" size={16} />{d.on_aws ? 'No run records yet.' : 'No run records in local mode (S3 only).'}</p>}
           {runs.length > 0 && (
             <div className="pf-scroll" data-ui role="region" aria-label="Pipeline runs table" tabIndex={0}>
               <table className="data">
@@ -293,14 +307,13 @@ export default function Platform() {
         </section>
 
         <section className="section" aria-labelledby="pf-fresh" data-r="2">
-          <h2 id="pf-fresh">Data freshness</h2>
-          <p className="pf-why">Records per source in the curated manifest; licence on hover.{d?.manifest?.generated_at ? <> Manifest written <span className="measure">{String(d.manifest.generated_at).replace('T', ' ').slice(0, 16)}</span> UTC ({ago(d.manifest.generated_at)}).</> : null}</p>
+          <div className="pf-h"><h2 id="pf-fresh">Data freshness</h2><Info label="About data freshness"><p>Records per source in the curated manifest; licence on hover.{d?.manifest?.generated_at ? <> Manifest written <span className="measure">{String(d.manifest.generated_at).replace('T', ' ').slice(0, 16)}</span> UTC ({ago(d.manifest.generated_at)}).</> : null}</p></Info></div>
           {sources.length > 0 && (
             <div className="pf-scroll" data-ui role="region" aria-label="Data freshness table" tabIndex={0}>
               <table className="data">
                 <thead><tr><th>Source</th><th className="r">Records</th><th className="r">Fetched</th></tr></thead>
                 <tbody>
-                  {sources.map((s) => (
+                  {srcRows.map((s) => (
                     <tr key={s.id}>
                       <td><span className="pf-srcid" title={s.licence}>{s.id}</span></td>
                       <td className="r measure">{nf(s.records)}</td>
@@ -315,27 +328,27 @@ export default function Platform() {
 
         <section className="section pf-costsec" aria-labelledby="pf-cost" data-r="3">
           <div className="pf-costhead">
-            <h2 id="pf-cost">Monthly cost estimate</h2>
+            <h2 id="pf-cost">Monthly cost</h2>
             <MetricInfo align="right" spec={{
               name: 'Monthly cost estimate', provenance: 'derived', unit: 'US$ / 30 days',
               formula: <>Σ (metered usage × list price), scaled from the {d?.metrics?.window_days ?? 7}-day CloudWatch window to 30 days</>,
               source: 'CloudWatch Lambda invocations and p95 duration; S3 run records for EC2 job time; AWS list prices, us-east-2',
-              note: 'Upper bound for Lambda (p95 duration for every call). Excludes S3 storage (< 1 GB), data transfer, and free-tier and credit offsets.',
+              note: 'Upper bound for Lambda (p95 duration for every call). Excludes S3 storage (< 1 GB), data transfer, and free-tier and credit offsets. Budget alarm at US$40 / month. Hover a line for its basis.',
             }} />
           </div>
-          <p className="pf-total"><span className="measure">US$ {live.cost.total.toFixed(2)}</span><small>per month at current traffic · budget alarm at US$40</small></p>
+          <p className="pf-total"><span className="measure">US$ {live.cost.total.toFixed(2)}</span><small>/ month</small></p>
           <ul className="pf-costs">
             {live.cost.lines.map((l) => (
-              <li key={l.item}><span>{l.item}</span><small>{l.basis}</small><span className="measure">{l.usd < 0.01 && l.usd > 0 ? '< 0.01' : l.usd.toFixed(2)}</span></li>
+              <li key={l.item} title={l.basis}><span>{l.item}</span><span className="measure">{l.usd < 0.01 && l.usd > 0 ? '< 0.01' : l.usd.toFixed(2)}</span></li>
             ))}
           </ul>
-          {!live.cost.metered && <p className="pf-empty"><Icon name="info" size={16} />Lambda and API lines need CloudWatch; local mode shows fixed costs only.</p>}
+          {!live.cost.metered && <p className="pf-empty"><Icon name="info" size={16} />Fixed costs only (local mode).</p>}
         </section>
 
         <section className="section" aria-labelledby="pf-guard" data-r="4">
-          <h2 id="pf-guard">Guardrails</h2>
+          <div className="pf-h"><h2 id="pf-guard">Guardrails</h2><Info label="About the guardrails" title="Guardrails"><ul className="ar-cons">{GUARDS.map((g) => <li key={g.t}><b>{g.t}</b>: {g.d}</li>)}</ul></Info></div>
           <ul className="pf-guards">
-            {GUARDS.map((g) => <li key={g.t}><Icon name={g.icon} size={20} weight="duotone" /><b>{g.t}</b><span>{g.d}</span></li>)}
+            {GUARDS.map((g) => <li key={g.t} title={g.d}><Icon name={g.icon} size={20} weight="duotone" /><b>{g.t}</b><span className="measure">{g.v}</span></li>)}
           </ul>
         </section>
       </div>

@@ -12,7 +12,6 @@ const LINKS: [string, string, string, IconName][] = [
   ['/brief', 'District brief', 'One printable page for county officials', 'sheet'],
   ['/methods', 'Methods and data', 'Formulas, thresholds, sources and licences', 'methods'],
   ['/platform', 'Platform', 'AWS pipeline, runs and alarms', 'platform'],
-  ['/roadmap', 'Roadmap', 'Built, prototype and planned work', 'flag'],
   ['/ask', 'Ask the data', 'Questions answered from the curated tables', 'ask'],
 ];
 
@@ -26,7 +25,7 @@ export default function NotFound() {
           <li key={to}>
             <Link to={to} className="nf-link">
               <Icon name={ic} size={20} weight="duotone" />
-              <span><b>{t}</b><small>{d}</small></span>
+              <span title={d}><b>{t}</b></span>
               <Icon name="arrow" size={16} />
             </Link>
           </li>

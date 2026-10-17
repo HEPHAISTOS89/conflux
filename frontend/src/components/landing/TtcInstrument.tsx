@@ -42,13 +42,12 @@ export default function TtcInstrument() {
   return (
     <section ref={ref} className="ti" aria-labelledby="ti-h">
       <div className="ti-head" data-r="1">
-        <h2 id="ti-h">TTC detection threshold</h2>
-        <p>Peachtree St & 10th St, Atlanta. 90 s of NGSIM trajectories, 10 Hz, standing in for roadside LiDAR. SSAM rear-end detection: <Term k="TTC">TTC</Term> ≤ {def.toFixed(1)} s.</p>
+        <h2 id="ti-h"><Term k="TTC">TTC</Term> threshold</h2>
       </div>
       <div className="ti-read" data-r="2">
         <p className="ti-count" aria-live="polite">
           <b className="num">{ssm.data ? Math.round(shown) : '—'}</b>
-          <span>rear-end and lane-change conflicts at TTC ≤ {step} s</span>
+          <span>conflicts at TTC ≤ {step} s</span>
         </p>
         <div className="ti-steps" role="radiogroup" aria-label="TTC detection threshold, seconds" data-ui>
           {steps.map((s, i) => (

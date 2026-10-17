@@ -105,3 +105,38 @@
 /* Card-style links read as targets, not prose links: opt out of the global underline (interactions.css). */
 a.nf-link, .m-card-f a { text-decoration-line: none !important; }
 .methods-toc a { text-decoration-line: none !important; }
+
+/* Text diet: cards show name, formula and threshold; everything else opens on request. */
+.methods h2 { font-size: var(--t-h2); }
+.m-card { grid-template-rows: auto; align-content: start; }
+.methods-body p.m-thr { display: flex; gap: 8px; align-items: flex-start; margin: 0; font-size: var(--t-ui); line-height: 1.45; color: var(--ink); }
+.m-thr .icon { flex: none; margin-top: 2px; color: var(--accent); }
+.methods-body p.m-wh { margin: 0; font-size: var(--t-ui); color: var(--ink-3); line-height: 1.45; }
+.m-limits { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.methods-body .m-limits li { max-width: none; }
+
+/* Folds: a summary row; the body opens by height where the browser can interpolate it, else instantly. */
+.m-fold, .m-card-more { interpolate-size: allow-keywords; }
+.m-fold > summary, .m-card-more > summary { display: inline-flex; align-items: center; gap: 8px; min-height: var(--ctl-s); padding: 0 10px 0 6px; margin-left: -6px; border-radius: var(--r-m); list-style: none; cursor: pointer; font-size: var(--t-ui); color: var(--ink-2); transition: background-color 140ms, color 140ms; }
+.m-fold > summary::-webkit-details-marker, .m-card-more > summary::-webkit-details-marker { display: none; }
+@media (hover: hover) { .m-fold > summary:hover, .m-card-more > summary:hover { background: var(--sheet); color: var(--ink); } }
+.m-card-more > summary:hover { background: var(--raise); }
+.m-fold > summary .icon, .m-card-more > summary .icon { transform: rotate(-90deg); transition: transform 200ms var(--ease-out); color: var(--ink-3); }
+.m-fold[open] > summary .icon, .m-card-more[open] > summary .icon { transform: none; }
+.m-limits .m-fold > summary { font-size: var(--t-body); color: var(--ink); }
+.m-fold::details-content, .m-card-more::details-content { block-size: 0; overflow: clip; opacity: 0; transition: block-size 260ms var(--ease-out), opacity 200ms var(--ease-out), content-visibility 260ms allow-discrete; }
+.m-fold[open]::details-content, .m-card-more[open]::details-content { block-size: auto; opacity: 1; }
+.m-fold-b { display: grid; gap: var(--s3); padding: var(--s2) 0 var(--s3) 22px; }
+.m-card-more .m-fold-b { padding-left: 0; gap: 10px; }
+@media (prefers-reduced-motion: reduce) { .m-fold::details-content, .m-card-more::details-content { transition: none; } }
+
+/* Catalogue cards arrive in sequence on load and when the family filter changes. */
+.m-cat .m-card { animation: m-card-in 420ms var(--ease-out) both; animation-delay: calc(min(var(--i, 0), 8) * 40ms); }
+@keyframes m-card-in { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) { .m-cat .m-card { animation: none; } }
+
+/* 404 index: links arrive one after another. */
+.nf-links li { animation: m-card-in 380ms var(--ease-out) both; }
+.nf-links li:nth-child(2) { animation-delay: 30ms; } .nf-links li:nth-child(3) { animation-delay: 60ms; } .nf-links li:nth-child(4) { animation-delay: 90ms; }
+.nf-links li:nth-child(5) { animation-delay: 120ms; } .nf-links li:nth-child(6) { animation-delay: 150ms; } .nf-links li:nth-child(n+7) { animation-delay: 180ms; }
+@media (prefers-reduced-motion: reduce) { .nf-links li { animation: none; } }
