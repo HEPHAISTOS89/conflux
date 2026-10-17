@@ -1,0 +1,63 @@
+/* Roadmap: a route with four stops. The line is solid where things run and dashed where they do not yet. */
+.roadmap { gap: clamp(32px, 4vw, 56px); --rm-done: var(--accent); --rm-progress: var(--fl-api, #8fb3c9); --rm-prototype: var(--caution); --rm-planned: var(--ink-3); }
+:root[data-theme='light'] .roadmap { --rm-progress: #2f6f99; }
+@media (prefers-color-scheme: light) { :root:not([data-theme='dark']) .roadmap { --rm-progress: #2f6f99; } }
+.roadmap [data-s='done'] { --c: var(--rm-done); }
+.roadmap [data-s='progress'] { --c: var(--rm-progress); }
+.roadmap [data-s='prototype'] { --c: var(--rm-prototype); }
+.roadmap [data-s='planned'] { --c: var(--rm-planned); }
+
+.rm-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 18px; align-items: start; }
+.rm-col { display: grid; gap: 14px; }
+.rm-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+/* The stop: node on a route segment that runs the full column width. */
+.rm-stop { position: relative; display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start; padding-top: 4px; }
+.rm-stop::before { content: ''; position: absolute; left: 11px; right: -18px; top: 14px; height: 3px; border-radius: 2px; background: var(--c); z-index: 0; }
+.rm-col:last-child .rm-stop::before { right: 0; }
+.rm-col[data-s='prototype'] .rm-stop::before, .rm-col[data-s='planned'] .rm-stop::before { background: repeating-linear-gradient(90deg, var(--c) 0 8px, transparent 8px 15px); }
+.rm-col[data-s='progress'] .rm-stop::before { background: linear-gradient(90deg, var(--c) 50%, transparent 50%) 0 0 / 100% 100%, repeating-linear-gradient(90deg, var(--c) 0 8px, transparent 8px 15px); }
+.rm-node { position: relative; z-index: 1; width: 22px; height: 22px; border-radius: 50%; background: var(--paper); box-shadow: inset 0 0 0 3px var(--c); /* taste-skill-ignore: ring marker */ }
+.rm-col[data-s='done'] .rm-node { background: var(--c); }
+.rm-col[data-s='progress'] .rm-node { background: linear-gradient(90deg, var(--c) 50%, var(--paper) 50%); }
+.rm-col[data-s='planned'] .rm-node { box-shadow: none; border: 2.5px dashed var(--c); }
+.rm-stop > div { padding-top: 26px; margin-left: -34px; }
+.rm-stop h2 { font-size: 1.25rem; letter-spacing: -0.02em; margin: 0; display: flex; align-items: baseline; gap: 8px; }
+.rm-stop h2 .measure { font-size: 0.85em; color: var(--c); }
+.rm-col[data-s='planned'] .rm-stop h2 .measure { color: var(--ink-3); }
+.rm-stop p { margin: 2px 0 0; color: var(--ink-3); font-size: 14px; }
+
+.rm-card { position: relative; display: grid; gap: 8px; padding: 14px 16px 14px; background: var(--sheet); border-radius: 12px; }
+.rm-col[data-s='planned'] .rm-card { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rule); /* taste-skill-ignore: outlined = not built */ }
+.rm-ct { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; }
+.rm-ico { grid-row: span 2; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); }
+.rm-col[data-s='planned'] .rm-ico { background: var(--raise); color: var(--ink-2); }
+.rm-ct h3 { margin: 0; font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; }
+.rm-ct .status { justify-self: start; font-size: 12px; padding: 1px 8px; }
+.rm-col[data-s='progress'] .rm-ct .status { color: var(--rm-progress); }
+.rm-card > p { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.45; }
+.rm-needs { display: flex; gap: 7px; align-items: flex-start; font-size: 13.5px !important; color: var(--ink-3) !important; padding-top: 8px; border-top: 1px solid var(--rule); }
+.rm-needs .icon { flex: none; margin-top: 2px; color: var(--c); }
+.rm-needs b { font-weight: 600; color: var(--ink-2); margin-right: 2px; }
+.rm-open { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: var(--ink-3); text-decoration: none; }
+.rm-open:hover { background: var(--raise); color: var(--ink); }
+.rm-open .icon { transition: transform 160ms var(--ease-out); }
+.rm-open:hover .icon { transform: translateX(2px); }
+.rm-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rm-card:has(.rm-open) .rm-ct { padding-right: 30px; }
+@media (max-width: 1180px) {
+  .rm-board { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 18px; }
+  .rm-col:nth-child(2n) .rm-stop::before { right: 0; }
+}
+/* Phone: the route turns vertical and runs down the left of each stop's cards. */
+@media (max-width: 640px) {
+  .rm-board { grid-template-columns: 1fr; gap: 32px; }
+  .rm-col { position: relative; padding-left: 34px; }
+  .rm-col::before { content: ''; position: absolute; left: 10px; top: 14px; bottom: -32px; width: 3px; border-radius: 2px; background: var(--c); }
+  .rm-col:last-child::before { bottom: 0; }
+  .rm-col[data-s='prototype']::before, .rm-col[data-s='planned']::before { background: repeating-linear-gradient(180deg, var(--c) 0 8px, transparent 8px 15px); }
+  .rm-col[data-s='progress']::before { background: linear-gradient(180deg, var(--c) 40%, transparent 40%), repeating-linear-gradient(180deg, var(--c) 0 8px, transparent 8px 15px); }
+  .rm-stop { margin-left: -34px; }
+  .rm-stop::before { display: none; }
+  .rm-stop > div { padding-top: 0; margin-left: 0; }
+}

@@ -75,7 +75,7 @@ export default function MapView({ sources, center = LUBBOCK, zoom = 10.3, bounds
     let disposed = false;
     baseStyle().then((style) => {
       if (disposed || !el.current) return;
-      const m = new maplibregl.Map({ container: el.current, style, center, zoom, attributionControl: { compact: true }, cooperativeGestures: true, maxPitch: 0 });
+      const m = new maplibregl.Map({ container: el.current, style, center, zoom, attributionControl: { compact: true }, cooperativeGestures: true, maxPitch: 0, canvasContextAttributes: { preserveDrawingBuffer: true } }); // keeps the basemap in PNG exports
       m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
       map.current = m;
       m.on('load', () => {

@@ -1,34 +1,102 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import MapView, { type MapLayer } from '../components/MapView';
-import { Icon } from '../components/Icon';
+import PageHeader from '../components/PageHeader';
+import MetricInfo, { ProvChip, type MetricSpec } from '../components/MetricInfo';
+import { Icon, type IconName } from '../components/Icon';
 import Term from '../components/Term';
 import { useApi } from '../lib/api';
-import { useReveal, useTween } from '../lib/motion';
+import { useReveal } from '../lib/motion';
+import { downloadCSV, downloadPNG } from '../lib/export';
 import { CHART, nf, SEV_HEX, SEV_LABEL } from '../lib/format';
 import type { FC, Severity, VruProps } from '../lib/types';
 import '../styles/vru.css';
 
 type Crash = Omit<VruProps, 'mode'> & { mode: string; intersection?: string | null; contributing?: string | null; ka_count?: number };
-type Dim = 'sev' | 'mode' | 'year' | 'cell';
+type FocusKind = 'light' | 'speed' | 'yield';
+type Focus = { kind: FocusKind; key: string } | null;
+type Dim = 'sev' | 'mode' | 'year' | 'cell' | FocusKind;
+type Row = { key: string; label: string; n: number; ka: number };
+
 const SEVS: Severity[] = ['K', 'A', 'B', 'C', 'O'];
 const MODES = ['ped', 'bike', 'scooter'];
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MODE_LABEL: Record<string, string> = { ped: 'Pedestrian', bike: 'Cyclist', scooter: 'Scooter / other' };
-const hh = (h: number) => String(h).padStart(2, '0');
+const MODE_ICON: Record<string, IconName> = { ped: 'ped', bike: 'bike', scooter: 'path' };
+const hh = (h: number) => String(((h % 24) + 24) % 24).padStart(2, '0');
+const isKA = (p: Crash) => p.severity === 'K' || p.severity === 'A';
+const pct = (a: number, b: number, d = 1) => (b ? nf((100 * a) / b, d) : '—');
 
-/** Sequential ramp from --sheet to --sev-a, resolved by CSS so it follows the theme. */
-const ramp = (t: number) => `color-mix(in srgb, var(--sev-a) ${Math.round(t * 100)}%, var(--sheet))`;
-const lightLabel = (s: string) => s.replace(/^\d+\s*-\s*/, '').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
-const typing = (e: KeyboardEvent) => e.metaKey || e.ctrlKey || e.altKey || !!(e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable]') || !!document.querySelector('.cmdk-scrim');
+/* ---------- Derived breakdowns (pure, from CRIS fields as recorded) ---------- */
 
-const csvCell = (v: unknown) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-function downloadCsv(name: string, cols: string[], rows: unknown[][]) {
-  const text = [cols, ...rows].map((r) => r.map(csvCell).join(',')).join('\n');
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
-  const a = Object.assign(document.createElement('a'), { href: url, download: name });
-  document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+/** CRIS light condition grouped into the bands a lighting programme acts on. */
+const LIGHT_GROUPS: [string, string][] = [['day', 'Daylight'], ['dark-lit', 'Dark, lighted'], ['dark-unlit', 'Dark, not lighted'], ['twilight', 'Dawn or dusk'], ['unk', 'Not recorded']];
+export function lightGroup(light?: string | null): string {
+  const s = (light ?? '').toUpperCase();
+  if (s.includes('DAYLIGHT')) return 'day';
+  if (s.includes('NOT LIGHTED')) return 'dark-unlit';
+  if (s.includes('DARK, LIGHTED')) return 'dark-lit';
+  if (s.includes('DAWN') || s.includes('DUSK')) return 'twilight';
+  return 'unk';
 }
+
+/** Posted speed bins (mph): the speed–severity relationship pedestrian safety programmes plan around. */
+const SPEED_BINS: [string, string][] = [['le25', '≤ 25'], ['30', '30'], ['35', '35'], ['40', '40'], ['45', '45'], ['50-55', '50–55'], ['60-65', '60–65'], ['70-75', '70–75'], ['unk', 'Not recorded']];
+export function speedBin(v?: number | null): string {
+  if (v == null || v <= 0) return 'unk';
+  if (v <= 25) return 'le25';
+  if (v <= 30) return '30';
+  if (v <= 35) return '35';
+  if (v <= 40) return '40';
+  if (v <= 45) return '45';
+  if (v <= 55) return '50-55';
+  if (v <= 65) return '60-65';
+  return '70-75';
+}
+
+/** Yield-related crashes, by PBCAT crash type or by the officer-coded CRIS contributing factor. */
+type YieldSrc = 'pbcat' | 'factor';
+const YIELD: { key: string; label: string; short: string; icon: IconName; test: Record<YieldSrc, (p: Crash) => boolean> }[] = [
+  { key: 'motorist', label: 'Motorist failed to yield', short: 'Motorist', icon: 'car',
+    test: { pbcat: (p) => p.pbcat === 'Motorist Failed To Yield', factor: (p) => !!p.contributing?.includes('FAILED TO YIELD RIGHT OF WAY - TO PEDESTRIAN') } },
+  { key: 'pedestrian', label: 'Pedestrian failed to yield', short: 'Pedestrian', icon: 'ped',
+    test: { pbcat: (p) => p.pbcat === 'Pedestrian Failed To Yield', factor: (p) => !!p.contributing?.includes('PEDESTRIAN FAILED TO YIELD') } },
+];
+
+/** Wilson score interval for a binomial share (95 %), robust at small n. */
+export function wilson(k: number, n: number, z = 1.96): [number, number] {
+  if (!n) return [0, 0];
+  const p = k / n, z2 = z * z, d = 1 + z2 / n;
+  const c = (p + z2 / (2 * n)) / d, h = (z * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n))) / d;
+  return [Math.max(0, c - h), Math.min(1, c + h)];
+}
+
+/** Contiguous w-hour window (wrapping midnight) with the most crashes, all days pooled. */
+export function peakWindow(byHour: number[], w = 3): { start: number; n: number } {
+  let best = { start: 0, n: -1 };
+  for (let s = 0; s < 24; s++) {
+    let n = 0;
+    for (let i = 0; i < w; i++) n += byHour[(s + i) % 24];
+    if (n > best.n) best = { start: s, n };
+  }
+  return best;
+}
+
+const KA_SPEC: MetricSpec = {
+  name: 'KA share', provenance: 'derived', unit: '% of crashes',
+  formula: 'KA share = (K + A) / N;  95% CI: Wilson score',
+  source: 'TxDOT CRIS crash severity (KABCO), as recorded by the reporting officer',
+  citation: 'FHWA KABCO scale (MMUCC 5th ed.); Wilson (1927) score interval',
+  note: 'Small groups carry wide intervals: compare whiskers, not just dots.',
+};
+const COUNT_SPEC: MetricSpec = {
+  name: 'Crash count', provenance: 'observed', unit: 'crashes, 2021–2023',
+  source: 'TxDOT CRIS via the Active Transportation Crashes layer; one record per crash involving a pedestrian, cyclist or scooter rider',
+  note: 'Counts, not rates: no pedestrian exposure (volumes) is available county-wide, so a high count can reflect high walking activity.',
+};
+
+const typing = (e: KeyboardEvent) => e.metaKey || e.ctrlKey || e.altKey || !!(e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable]') || !!document.querySelector('.cmdk-scrim');
+const ramp = (t: number) => `color-mix(in srgb, var(--sev-a) ${Math.round(t * 100)}%, var(--raise))`;
+const titleCase = (s: string) => s.replace(/^\d+\s*-\s*/, '').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
 /** Toggle one member; with Alt/Option, isolate it (or show all again if it is already the only one shown). */
 function toggleSet<T>(off: Set<T>, all: T[], v: T, isolate: boolean): Set<T> {
@@ -41,11 +109,27 @@ function toggleSet<T>(off: Set<T>, all: T[], v: T, isolate: boolean): Set<T> {
   return n;
 }
 
+function useWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [w, setW] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.round(e.contentRect.width)));
+    ro.observe(el);
+    setW(Math.round(el.getBoundingClientRect().width));
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w] as const;
+}
+
 export default function Vru() {
   const [sevOff, setSevOff] = useState<Set<Severity>>(new Set());
   const [modeOff, setModeOff] = useState<Set<string>>(new Set());
   const [year, setYear] = useState<number | null>(null);
   const [cell, setCell] = useState<[number, number] | null>(null);
+  const [focus, setFocus] = useState<Focus>(null);
+  const [ysrc, setYsrc] = useState<YieldSrc>('pbcat');
   const [selId, setSelId] = useState<string | null>(null);
   const [hover, setHover] = useState<Crash | null>(null);
 
@@ -53,14 +137,24 @@ export default function Vru() {
   const pts = useApi<FC<Crash>>('/vru');
   const all = useMemo(() => (pts.data?.features ?? []) as (FC<Crash>['features'][number])[], [pts.data]);
   const years = useMemo(() => [...new Set(all.map((f) => f.properties.year))].sort(), [all]);
+  const span = years.length ? `${years[0]}–${years[years.length - 1]}` : '2021–2023';
+
+  const focusTest = (p: Crash, f: NonNullable<Focus>) =>
+    f.kind === 'light' ? lightGroup(p.light) === f.key
+      : f.kind === 'speed' ? speedBin(p.speed_limit) === f.key
+        : !!YIELD.find((y) => y.key === f.key)?.test[ysrc](p);
 
   const pass = (p: Crash, skip?: Dim) =>
     (skip === 'sev' || !sevOff.has(p.severity)) &&
     (skip === 'mode' || !modeOff.has(p.mode)) &&
     (skip === 'year' || year == null || p.year === year) &&
-    (skip === 'cell' || !cell || (p.dow === cell[0] && p.hour === cell[1]));
+    (skip === 'cell' || !cell || (p.dow === cell[0] && p.hour === cell[1])) &&
+    (!focus || skip === focus.kind || focusTest(p, focus));
 
-  const feats = useMemo(() => all.filter((f) => pass(f.properties)), [all, sevOff, modeOff, year, cell]); // eslint-disable-line react-hooks/exhaustive-deps
+  const deps = [all, sevOff, modeOff, year, cell, focus, ysrc];
+  const feats = useMemo(() => all.filter((f) => pass(f.properties)), deps); // eslint-disable-line react-hooks/exhaustive-deps
+  const without = (d: Dim) => all.filter((f) => pass(f.properties, d)).map((f) => f.properties);
+
   const counts = useMemo(() => {
     const sev: Record<string, number> = {}, mode: Record<string, number> = {};
     for (const { properties: p } of all) {
@@ -68,49 +162,72 @@ export default function Vru() {
       if (pass(p, 'mode')) mode[p.mode] = (mode[p.mode] ?? 0) + 1;
     }
     return { sev, mode };
-  }, [all, sevOff, modeOff, year, cell]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The heatmap ignores its own cell filter so the rest of the week stays visible around the selection.
+  // Each breakdown ignores its own drill-down so the alternatives stay visible around the selection.
   const heat = useMemo(() => {
     const grid = Array.from({ length: 7 }, () => Array(24).fill(0) as number[]);
+    const byHour = Array(24).fill(0) as number[], kaHour = Array(24).fill(0) as number[];
     let unk = 0;
-    for (const { properties: p } of all) {
-      if (!pass(p, 'cell')) continue;
-      if (p.hour != null && p.dow != null) grid[p.dow][p.hour]++; else unk++;
+    for (const p of without('cell')) {
+      if (p.hour != null && p.dow != null) { grid[p.dow][p.hour]++; byHour[p.hour]++; if (isKA(p)) kaHour[p.hour]++; } else unk++;
     }
-    return { grid, unk, max: Math.max(1, ...grid.flat()) };
-  }, [all, sevOff, modeOff, year]); // eslint-disable-line react-hooks/exhaustive-deps
+    const pk = peakWindow(byHour, 3);
+    const timed = byHour.reduce((a, b) => a + b, 0);
+    const pkKa = [0, 1, 2].reduce((a, i) => a + kaHour[(pk.start + i) % 24], 0);
+    return { grid, unk, max: Math.max(1, ...grid.flat()), peak: { ...pk, ka: pkKa, timed }, noonGap: byHour[12] === 0 && byHour[0] >= 5, midnight: byHour[0] };
+  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const group = (rows: Crash[], defs: [string, string][], key: (p: Crash) => string): Row[] => {
+    const m = new Map(defs.map(([k, l]) => [k, { key: k, label: l, n: 0, ka: 0 }]));
+    for (const p of rows) { const e = m.get(key(p))!; e.n++; if (isKA(p)) e.ka++; }
+    return [...m.values()].filter((r) => r.n > 0 || r.key !== 'unk');
+  };
+  const lightRows = useMemo(() => group(without('light'), LIGHT_GROUPS, (p) => lightGroup(p.light)), deps); // eslint-disable-line react-hooks/exhaustive-deps
+  const speedRows = useMemo(() => group(without('speed'), SPEED_BINS, (p) => speedBin(p.speed_limit)), deps); // eslint-disable-line react-hooks/exhaustive-deps
+  const yieldRows = useMemo(() => {
+    const rows = without('yield').filter((p) => p.mode === 'ped');
+    const share = (hit: Crash[], f: (p: Crash) => boolean) => (hit.length ? hit.filter(f).length / hit.length : null);
+    const out = YIELD.map((y) => {
+      const hit = rows.filter(y.test[ysrc]);
+      return {
+        ...y, n: hit.length, ka: hit.filter(isKA).length,
+        ctx: {
+          dark: share(hit, (p) => lightGroup(p.light).startsWith('dark')),
+          mid: share(hit, (p) => p.intersection === 'NON INTERSECTION'),
+          fast: share(hit, (p) => (p.speed_limit ?? 0) >= 40),
+        },
+      };
+    });
+    const both = rows.filter((p) => YIELD.every((y) => y.test[ysrc](p))).length;
+    return { out, both, peds: rows.length };
+  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
 
   const agg = useMemo(() => {
-    const pbcat = new Map<string, number>(), light = new Map<string, { n: number; ka: number }>();
-    let ka = 0;
+    const pbcat = new Map<string, { n: number; ka: number }>();
+    let ka = 0, unlit = 0;
     for (const { properties: p } of feats) {
-      const isKa = p.severity === 'K' || p.severity === 'A';
-      if (isKa) ka++;
+      if (isKA(p)) ka++;
+      if (lightGroup(p.light) === 'dark-unlit') unlit++;
       const c = p.pbcat ?? 'Not recorded';
-      pbcat.set(c, (pbcat.get(c) ?? 0) + 1);
-      const l = p.light ? lightLabel(p.light) : 'Not recorded';
-      const e = light.get(l) ?? { n: 0, ka: 0 };
-      e.n++; if (isKa) e.ka++;
-      light.set(l, e);
+      const e = pbcat.get(c) ?? { n: 0, ka: 0 };
+      e.n++; if (isKA(p)) e.ka++;
+      pbcat.set(c, e);
     }
-    return { ka, n: feats.length, pbcat: [...pbcat].sort((a, b) => b[1] - a[1]).slice(0, 10), light: [...light].sort((a, b) => b[1].n - a[1].n) };
+    return { ka, unlit, n: feats.length, pbcat: [...pbcat].sort((a, b) => b[1].n - a[1].n).slice(0, 10) };
   }, [feats]);
-
 
   const sources = useMemo<MapLayer[]>(() => {
     const sevColor = ['match', ['get', 'severity'], ...SEVS.flatMap((s) => [s, SEV_HEX[s]]), SEV_HEX.O];
     return [{
       id: 'vru', data: { type: 'FeatureCollection', features: feats },
-      layers: [
-        {
-          id: 'vru-pt', type: 'circle',
-          paint: {
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, ['match', ['get', 'severity'], ['K', 'A'], 4, 3], 14, ['match', ['get', 'severity'], ['K', 'A'], 8, 6]],
-            'circle-color': sevColor, 'circle-stroke-color': CHART.ground, 'circle-stroke-width': 1, 'circle-opacity': 0.9,
-          },
-        } as any,
-      ],
+      layers: [{
+        id: 'vru-pt', type: 'circle',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, ['match', ['get', 'severity'], ['K', 'A'], 4, 3], 14, ['match', ['get', 'severity'], ['K', 'A'], 8, 6]],
+          'circle-color': sevColor, 'circle-stroke-color': CHART.ground, 'circle-stroke-width': 1, 'circle-opacity': 0.9,
+        },
+      } as any],
     }];
   }, [feats]);
   const selFeature = selId ? feats.find((f) => f.properties.id === selId) : undefined;
@@ -122,50 +239,77 @@ export default function Vru() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || typing(e)) return;
-      if (selId) setSelId(null); else if (cell) setCell(null);
+      if (selId) setSelId(null); else if (focus) setFocus(null); else if (cell) setCell(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selId, cell]);
+  }, [selId, cell, focus]);
 
-  const filtered = sevOff.size > 0 || modeOff.size > 0 || year != null || cell != null;
-  const reset = () => { setSevOff(new Set()); setModeOff(new Set()); setYear(null); setCell(null); };
-  const exportCsv = () => downloadCsv(`roadscope-vru-crashes${year ? `-${year}` : ''}${filtered ? '-filtered' : ''}.csv`,
-    ['crash_id', 'date', 'year', 'hour', 'dow', 'severity', 'mode', 'pbcat', 'light', 'speed_limit_mph', 'street', 'on_system', 'intersection', 'contributing', 'lon', 'lat'],
-    feats.map(({ properties: p, geometry: g }) => [p.id, p.date, p.year, p.hour, p.dow != null ? DOW[p.dow] : '', p.severity, p.mode, p.pbcat, p.light, p.speed_limit, p.street, p.on_system, p.intersection, p.contributing, ...(g.coordinates as number[])]));
+  const filtered = sevOff.size > 0 || modeOff.size > 0 || year != null || cell != null || focus != null;
+  const reset = () => { setSevOff(new Set()); setModeOff(new Set()); setYear(null); setCell(null); setFocus(null); };
+  const toggleFocus = (kind: FocusKind, key: string) => setFocus((f) => (f?.kind === kind && f.key === key ? null : { kind, key }));
+  const focusLabel = focus
+    ? focus.kind === 'light' ? LIGHT_GROUPS.find(([k]) => k === focus.key)?.[1]
+      : focus.kind === 'speed' ? `Posted ${SPEED_BINS.find(([k]) => k === focus.key)?.[1]} mph`
+        : `${YIELD.find((y) => y.key === focus.key)?.label} (${ysrc === 'pbcat' ? 'PBCAT' : 'CRIS factor'})`
+    : null;
+  const suffix = `${year ?? span.replace('–', '-')}${filtered ? '-filtered' : ''}`;
+  const exportCsv = () => downloadCSV(`roadscope-vru-crashes-${suffix}.csv`, feats.map(({ properties: p, geometry: g }) => ({
+    crash_id: p.id, date: p.date, year: p.year, hour: p.hour, dow: p.dow != null ? DOW[p.dow] : '', severity: p.severity, mode: p.mode,
+    pbcat: p.pbcat, light: p.light, light_group: lightGroup(p.light), speed_limit_mph: p.speed_limit, street: p.street, on_system: p.on_system,
+    intersection: p.intersection, contributing: p.contributing, lon: (g.coordinates as number[])[0], lat: (g.coordinates as number[])[1],
+  })));
+  const rowsCsv = (name: string, rows: Row[]) => downloadCSV(`roadscope-vru-${name}-${suffix}.csv`, rows.map((r) => {
+    const [lo, hi] = wilson(r.ka, r.n);
+    return { group: r.label, crashes: r.n, ka: r.ka, ka_share_pct: r.n ? +(100 * r.ka / r.n).toFixed(1) : '', ci95_lo_pct: +(100 * lo).toFixed(1), ci95_hi_pct: +(100 * hi).toFixed(1) };
+  }));
+  const caption = `RoadScope · TxDOT CRIS VRU crashes, Lubbock County ${year ?? span}${filtered ? ' (filtered)' : ''}`;
 
-  const pbMax = agg.pbcat[0]?.[1] ?? 1;
-  const shown = useTween(agg.n);
-  const headRef = useReveal<HTMLElement>(), mapRef = useReveal<HTMLElement>(), colsRef = useReveal<HTMLDivElement>(), lightRef = useReveal<HTMLElement>();
+  const pk = heat.peak;
+  // One-line findings computed from the same rows the charts draw.
+  const sum = (rows: Row[], keys: string[]) => rows.filter((r) => keys.includes(r.key)).reduce((a, r) => ({ n: a.n + r.n, ka: a.ka + r.ka }), { n: 0, ka: 0 });
+  const lightFind = (() => {
+    const d = sum(lightRows, ['day']), u = sum(lightRows, ['dark-unlit']);
+    if (!d.n || !u.n) return null;
+    return <>Dark, unlit: <b className="num">{pct(u.ka, u.n)}%</b> KA (n = <span className="num">{u.n}</span>) against <b className="num">{pct(d.ka, d.n)}%</b> in daylight (n = <span className="num">{d.n}</span>).</>;
+  })();
+  const speedFind = (() => {
+    const lo = sum(speedRows, ['le25', '30', '35']), hi = sum(speedRows, ['50-55', '60-65', '70-75']);
+    if (!lo.n || !hi.n) return null;
+    return <>Posted ≥ 50 mph: <b className="num">{pct(hi.ka, hi.n)}%</b> KA (n = <span className="num">{hi.n}</span>) against <b className="num">{pct(lo.ka, lo.n)}%</b> at ≤ 35 mph (n = <span className="num">{lo.n}</span>).</>;
+  })();
   const sel = selFeature?.properties ?? null;
   const readout = sel ?? hover;
+  const overallShare = agg.n ? agg.ka / agg.n : 0;
+  const mapRef = useReveal<HTMLElement>(), gridRef = useReveal<HTMLDivElement>();
+  const heatFig = useRef<HTMLElement>(null), lightFig = useRef<HTMLDivElement>(null), speedFig = useRef<HTMLDivElement>(null);
 
   return (
     <div className="page vru">
-      <header className="page-head vru-head" ref={headRef}>
-        <h1 data-r="1">Pedestrian and cyclist crashes</h1>
-        <p data-r="2">
-          TxDOT CRIS{years.length ? `, ${years[0]}–${years[years.length - 1]}` : ''}, Lubbock County, on and off the state system. Candidates for field review, not findings of cause.
-        </p>
-      </header>
+      <PageHeader
+        icon="ped"
+        title="Pedestrian and cyclist crashes"
+        lede={agg.n
+          ? <>{pct(agg.ka, agg.n)}% of {nf(agg.n)} crashes killed or seriously injured the person walking or riding; {pct(agg.unlit, agg.n)}% happened on dark, unlit roads. Candidates for field review, not findings of cause.</>
+          : pts.loading ? 'Loading crash records…' : 'No crashes match these filters.'}
+        source={<>TxDOT CRIS · Lubbock County, on and off system · {year ?? span} <ProvChip kind="observed" /></>}
+        readouts={[
+          { label: 'Crashes', value: pts.loading ? null : agg.n },
+          { label: <>KA <MetricInfo spec={KA_SPEC} align="right" /></>, value: pts.loading ? null : agg.ka, tone: 'alert', unit: agg.n ? `${pct(agg.ka, agg.n)}%` : undefined },
+          { label: 'Dark, unlit', value: agg.n ? (100 * agg.unlit) / agg.n : null, unit: '%', digits: 1 },
+          { label: <span title="Share of timed crashes in the busiest 3-hour window">Peak {pk.n > 0 ? <span className="measure">{hh(pk.start)}–{hh(pk.start + 3)} h</span> : 'window'}</span>, value: pk.timed ? (100 * pk.n) / pk.timed : null, unit: '%', digits: 1 },
+        ]}
+        actions={<button type="button" className="btn ghost" onClick={exportCsv} disabled={!feats.length}><Icon name="download" size={16} />Crashes CSV</button>}
+      />
 
       <section className="section vru-mapsec" aria-labelledby="vru-map-h" ref={mapRef}>
         <h2 id="vru-map-h" className="sr-only">Crash locations by KABCO severity</h2>
-        <div className="vru-count" data-r="1" aria-live="polite">
-          <span className="vru-big num" data-busy={pts.loading || undefined}>{nf(Math.round(shown))}</span>
-          <span className="vru-count-l">
-            crashes, <span className="num">{nf(agg.ka)}</span> killed or seriously injured
-            {agg.n ? <> (<span className="num">{nf((100 * agg.ka) / agg.n, 1)}</span>%)</> : null}
-            {cell && <> · <span className="num">{DOW[cell[0]]} {hh(cell[1])}:00</span></>}
-          </span>
-        </div>
-
-        <div className="vru-filters" role="toolbar" aria-label="Filters" data-r="2">
+        <div className="vru-filters" role="toolbar" aria-label="Filters" data-r="1">
           <div className="vru-chips" role="group" aria-label="Road user">
             {MODES.map((m) => (
               <button key={m} type="button" className="vru-chip" aria-pressed={!modeOff.has(m)} title="Alt-click to show only this"
                 onClick={(e) => setModeOff((o) => toggleSet(o, MODES, m, e.altKey))}>
-                {MODE_LABEL[m]} <span className="num">{nf(counts.mode[m] ?? 0)}</span>
+                <Icon name={MODE_ICON[m]} size={16} />{MODE_LABEL[m]} <span className="num">{nf(counts.mode[m] ?? 0)}</span>
               </button>
             ))}
           </div>
@@ -173,14 +317,19 @@ export default function Vru() {
             <button type="button" aria-pressed={year == null} onClick={() => setYear(null)}>All years</button>
             {years.map((y) => <button key={y} type="button" className="num" aria-pressed={year === y} onClick={() => setYear(y)}>{y}</button>)}
           </div>
+          {(focus || cell) && (
+            <div className="vru-drills" aria-live="polite">
+              {cell && <button type="button" className="vru-drill" onClick={() => setCell(null)} aria-label={`Remove time filter ${DOW[cell[0]]} ${hh(cell[1])}:00`}><Icon name="clock" size={14} /><span className="num">{DOW[cell[0]]} {hh(cell[1])}:00</span><Icon name="close" size={13} /></button>}
+              {focus && <button type="button" className="vru-drill" onClick={() => setFocus(null)} aria-label={`Remove filter ${focusLabel}`}><Icon name="filter" size={14} />{focusLabel}<Icon name="close" size={13} /></button>}
+            </div>
+          )}
           <div className="vru-actions">
-            {filtered && <button type="button" className="btn ghost" onClick={reset}>Reset filters</button>}
-            <button type="button" className="btn ghost" onClick={exportCsv} disabled={!feats.length}>Export CSV</button>
+            {filtered && <button type="button" className="btn ghost" onClick={reset}><Icon name="reset" size={16} />Reset</button>}
           </div>
         </div>
 
         {pts.error && <div className="error-box">Crash points unavailable: {pts.error} <button type="button" className="btn ghost" onClick={() => location.reload()}>Reload</button></div>}
-        <div className="vru-map panel" data-ui data-r="3">
+        <div className="vru-map panel" data-ui data-r="2">
           <MapView
             label="Pedestrian and cyclist crash locations coloured by KABCO severity"
             sources={mapSources}
@@ -203,19 +352,20 @@ export default function Vru() {
             {readout ? (
               <>
                 <div className="vru-readout-h">
+                  <Icon name={MODE_ICON[readout.mode] ?? 'ped'} size={16} />
                   <strong>{readout.street ?? 'Unnamed street'}</strong>
                   {sel && <button type="button" className="vru-x" onClick={() => setSelId(null)} aria-label="Clear selected crash"><Icon name="close" size={16} /></button>}
                 </div>
-                <div className="num muted">{readout.date}{readout.hour != null ? ` · ${hh(readout.hour)}:00` : ''}{readout.dow != null ? ` ${DOW[readout.dow]}` : ''}</div>
+                <div className="measure muted">{readout.date}{readout.hour != null ? ` · ${hh(readout.hour)}:00` : ''}{readout.dow != null ? ` ${DOW[readout.dow]}` : ''}</div>
                 <div><i className="vru-dot" style={{ background: SEV_HEX[readout.severity] }} />{MODE_LABEL[readout.mode] ?? readout.mode} · {SEV_LABEL[readout.severity]}</div>
                 {sel === readout ? (
                   <dl className="vru-dl">
                     <dt><Term k="PBCAT" /></dt><dd>{readout.pbcat ?? 'Not recorded'}</dd>
-                    <dt>Lighting</dt><dd>{readout.light ? lightLabel(readout.light) : 'Not recorded'}</dd>
-                    <dt>Posted</dt><dd className="num">{readout.speed_limit ? `${readout.speed_limit} mph` : '—'}</dd>
-                    <dt>Location</dt><dd>{readout.intersection ? lightLabel(readout.intersection) : '—'} · {readout.on_system ? 'on system' : 'off system'}</dd>
-                    {readout.contributing && <><dt>Contributing</dt><dd>{lightLabel(readout.contributing.replace(/;\s*/g, "; "))}</dd></>}
-                    <dt>CRIS id</dt><dd className="num">{readout.id}</dd>
+                    <dt>Lighting</dt><dd>{readout.light ? titleCase(readout.light) : 'Not recorded'}</dd>
+                    <dt>Posted</dt><dd className="measure">{readout.speed_limit ? `${readout.speed_limit} mph` : '—'}</dd>
+                    <dt>Location</dt><dd>{readout.intersection ? titleCase(readout.intersection) : '—'} · {readout.on_system ? 'on system' : 'off system'}</dd>
+                    {readout.contributing && <><dt>Contributing</dt><dd>{titleCase(readout.contributing.replace(/;\s*/g, '; '))}</dd></>}
+                    <dt>CRIS id</dt><dd className="measure">{readout.id}</dd>
                   </dl>
                 ) : <div className="muted">{readout.pbcat ?? 'PBCAT not recorded'}</div>}
               </>
@@ -224,21 +374,70 @@ export default function Vru() {
         </div>
       </section>
 
-      <div className="vru-cols" ref={colsRef}>
-        <section className="section" aria-labelledby="vru-hd" data-r="1">
-          <h2 id="vru-hd">When they happen</h2>
-          <Heatmap grid={heat.grid} max={heat.max} cell={cell} onCell={setCell} />
-          {heat.unk > 0 && <p className="muted vru-note"><span className="num">{heat.unk}</span> without a recorded time are omitted.</p>}
+      <div className="vru-grid" ref={gridRef}>
+        <section className="section vru-card vru-wide" aria-labelledby="vru-hd" data-r="1">
+          <SecHead id="vru-hd" icon="clock" title="When they happen" why="Hour of week, all filters applied. The peak window is where enforcement, signal timing and warning pilots buy the most."
+            actions={<><ExportBtn kind="png" onClick={() => heatFig.current && downloadPNG(`roadscope-vru-hour-of-week-${suffix}.png`, heatFig.current, caption)} />
+              <ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-hour-of-week-${suffix}.csv`, heat.grid.flatMap((r, d) => r.map((v, h) => ({ dow: DOW[d], hour: h, crashes: v }))))} /></>} />
+          <div className="vru-heat-wrap">
+            <Heatmap ref={heatFig} grid={heat.grid} max={heat.max} cell={cell} onCell={setCell} peak={pk.n > 0 ? pk.start : null} />
+            {pk.n > 0 && (
+              <aside className="vru-peak" aria-label="Peak window">
+                <span className="vru-peak-k"><Icon name="target" size={16} />Peak 3-hour window</span>
+                <span className="vru-peak-v measure">{hh(pk.start)}:00–{hh(pk.start + 3)}:00</span>
+                <span className="vru-peak-s"><span className="num">{pk.n}</span> of <span className="num">{pk.timed}</span> timed crashes (<span className="num">{pct(pk.n, pk.timed)}</span>%; a uniform day would give <span className="num">12.5</span>%)</span>
+                <span className="vru-peak-s">KA share in window <b className="num">{pct(pk.ka, pk.n)}%</b> vs <span className="num">{pct(agg.ka, agg.n)}%</span> overall</span>
+              </aside>
+            )}
+          </div>
+          <p className="muted vru-note">
+            {heat.unk > 0 && <><span className="num">{heat.unk}</span> without a recorded time are omitted. </>}
+            {heat.noonGap
+              ? <><Icon name="warning" size={14} /> No crash is recorded at 12:00–12:59 while <span className="num">{heat.midnight}</span> are at 00:00–00:59: the source time field likely codes noon as “12 AM”.</>
+              : <>The source has no “12 PM” times: a “12 AM” crash recorded in daylight is read as noon, dark ones stay at midnight.</>}
+          </p>
         </section>
 
-        <section className="section" aria-labelledby="vru-pb" data-r="2">
-          <h2 id="vru-pb">Ten most frequent <Term k="PBCAT" /> types</h2>
+        <section className="section vru-card" aria-labelledby="vru-lt" data-r="2">
+          <SecHead id="vru-lt" icon="moon" title="Day and night" why="Severity by CRIS light condition. Unlit darkness is where roadway lighting is a proven countermeasure."
+            actions={<><ExportBtn kind="png" onClick={() => lightFig.current && downloadPNG(`roadscope-vru-light-${suffix}.png`, lightFig.current, caption)} />
+              <ExportBtn kind="csv" onClick={() => rowsCsv('light', lightRows)} /></>} />
+          <Breakdown ref={lightFig} rows={lightRows} overall={overallShare} selected={focus?.kind === 'light' ? focus.key : null}
+            onPick={(k) => toggleFocus('light', k)} finding={lightFind} label="Crashes and KA share by light condition" loading={pts.loading} />
+        </section>
+
+        <section className="section vru-card" aria-labelledby="vru-sp" data-r="3">
+          <SecHead id="vru-sp" icon="gauge" title="Posted speed and severity" why="Survival falls steeply with impact speed; posted limit is the network proxy CRIS records."
+            actions={<><ExportBtn kind="png" onClick={() => speedFig.current && downloadPNG(`roadscope-vru-speed-${suffix}.png`, speedFig.current, caption)} />
+              <ExportBtn kind="csv" onClick={() => rowsCsv('posted-speed', speedRows)} /></>} />
+          <Breakdown ref={speedFig} rows={speedRows} overall={overallShare} selected={focus?.kind === 'speed' ? focus.key : null} unit="mph"
+            onPick={(k) => toggleFocus('speed', k)} finding={speedFind} label="Crashes and KA share by posted speed limit" loading={pts.loading} />
+        </section>
+
+        <section className="section vru-card" aria-labelledby="vru-fy" data-r="4">
+          <SecHead id="vru-fy" icon="sign" title="Failure to yield" why="Pedestrian crashes only. Motorist-yield crashes are the ones a driver-yielding warning addresses directly."
+            actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-failure-to-yield-${ysrc}-${suffix}.csv`, yieldRows.out.map((y) => ({ source: ysrc === 'pbcat' ? 'PBCAT crash type' : 'CRIS contributing factor', group: y.label, crashes: y.n, ka: y.ka, ka_share_pct: y.n ? +(100 * y.ka / y.n).toFixed(1) : '', of_pedestrian_crashes: yieldRows.peds })))} />} />
+          <div className="seg vru-ysrc" role="group" aria-label="Yield classification source">
+            <button type="button" aria-pressed={ysrc === 'pbcat'} onClick={() => { setYsrc('pbcat'); if (focus?.kind === 'yield') setFocus(null); }}>PBCAT crash type</button>
+            <button type="button" aria-pressed={ysrc === 'factor'} onClick={() => { setYsrc('factor'); if (focus?.kind === 'yield') setFocus(null); }}>CRIS contributing factor</button>
+          </div>
+          <YieldSpot rows={yieldRows.out} peds={yieldRows.peds} both={yieldRows.both} src={ysrc}
+            selected={focus?.kind === 'yield' ? focus.key : null} onPick={(k) => toggleFocus('yield', k)} />
+        </section>
+
+        <section className="section vru-card" aria-labelledby="vru-pb" data-r="5">
+          <SecHead id="vru-pb" icon="ped" title={<>Ten most frequent <Term k="PBCAT" /> types</>} why="Pre-crash manoeuvre typing; the bar is crashes, the red part KA."
+            actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-pbcat-${suffix}.csv`, agg.pbcat.map(([k, e]) => ({ pbcat: k, crashes: e.n, ka: e.ka })))} />} />
           <ol className="vru-bars" data-ui>
-            {agg.pbcat.map(([k, v]) => (
-              <li key={k}>
+            {agg.pbcat.map(([k, e]) => (
+              <li key={k} title={`${k}: ${e.n} crashes, ${e.ka} KA`}>
                 <span className="vru-bar-l">{k}</span>
-                <span className="vru-bar-t"><span className="vru-bar" style={{ transform: `scaleX(${v / pbMax})` }} /></span>
-                <span className="num vru-bar-v">{v}</span>
+                <span className="vru-bar-t">
+                  <span className="vru-bar" style={{ transform: `scaleX(${e.n / (agg.pbcat[0]?.[1].n || 1)})` }}>
+                    <span className="vru-bar-ka" style={{ width: `${(100 * e.ka) / e.n}%` }} />
+                  </span>
+                </span>
+                <span className="num vru-bar-v">{e.n}<small>{e.ka ? ` · ${e.ka} KA` : ''}</small></span>
               </li>
             ))}
             {pts.loading && <li className="muted">Loading crash types…</li>}
@@ -247,41 +446,173 @@ export default function Vru() {
         </section>
       </div>
 
-      <section className="section vru-light" aria-labelledby="vru-lt" ref={lightRef}>
-        <h2 id="vru-lt" data-r="1">Lighting</h2>
-        <div className="vru-table-wrap" data-ui data-r="2">
-          <table className="data">
-            <thead><tr><th>Lighting</th><th className="r">Crashes</th><th className="r">Share</th><th className="r">KA</th><th className="r">KA share</th></tr></thead>
-            <tbody>
-              {agg.light.map(([k, e]) => (
-                <tr key={k}>
-                  <td>{k}</td>
-                  <td className="r num">{e.n}</td>
-                  <td className="r num">{nf((100 * e.n) / Math.max(1, agg.n), 1)}%</td>
-                  <td className="r num">{e.ka}</td>
-                  <td className="r num">{nf((100 * e.ka) / e.n, 1)}%</td>
-                </tr>
-              ))}
-              {!agg.light.length && <tr><td colSpan={5} className="muted">{pts.loading ? 'Loading…' : 'No crashes match these filters.'}</td></tr>}
-            </tbody>
-          </table>
-        </div>
-        <p className="muted vru-source" data-r="3">
-          TxDOT CRIS, Active Transportation Crashes layer. Informational use only; not for litigation (23 U.S.C. §407).
-        </p>
-      </section>
+      <footer className="vru-source">
+        <span className="vru-src-row"><Icon name="db" size={15} />TxDOT Crash Records Information System (CRIS), Active Transportation Crashes layer, {span} <ProvChip kind="observed" /></span>
+        <span className="vru-src-row"><Icon name="methods" size={15} />KA shares, Wilson intervals, peak window and groupings computed in this portal <ProvChip kind="derived" /></span>
+        <span className="muted">Informational use only; crash records are protected from discovery and use in litigation (23 U.S.C. §407). Counts are not exposure-adjusted rates. <MetricInfo spec={COUNT_SPEC} /></span>
+      </footer>
     </div>
   );
 }
 
-function Heatmap({ grid, max, cell, onCell }: { grid: number[][]; max: number; cell: [number, number] | null; onCell: (c: [number, number] | null) => void }) {
-  const [hov, setHov] = useState<[number, number] | null>(null);
-  const cw = 24, ch = 24, L = 44, T = 4, W = L + 24 * cw, H = T + 7 * ch + 26;
-  const show = hov ?? cell;
+function SecHead({ id, icon, title, why, actions }: { id: string; icon: IconName; title: ReactNode; why: ReactNode; actions?: ReactNode }) {
   return (
-    <figure className="vru-heat" data-ui data-cell={cell ? '' : undefined} onMouseLeave={() => setHov(null)}>
-      <div className="vru-heat-scroll">
-        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Heatmap of crashes by hour of day and day of week; click a cell to filter the map">
+    <div className="vru-sh">
+      <div className="vru-sh-t">
+        <h2 id={id}><Icon name={icon} size={20} weight="duotone" />{title}</h2>
+        {actions && <div className="vru-sh-a">{actions}</div>}
+      </div>
+      <p>{why}</p>
+    </div>
+  );
+}
+
+function ExportBtn({ kind, onClick }: { kind: 'png' | 'csv'; onClick: () => void }) {
+  return (
+    <button type="button" className="vru-exp" onClick={onClick} aria-label={`Download ${kind.toUpperCase()}`} title={`Download ${kind.toUpperCase()}`}>
+      <Icon name={kind === 'png' ? 'image' : 'download'} size={15} />{kind.toUpperCase()}
+    </button>
+  );
+}
+
+/**
+ * Two aligned panels on one row set: crash count (stacked KA | other, shared scale) and KA share with its
+ * Wilson 95% interval against the filtered overall share. Rows are clickable drill-downs.
+ */
+function Breakdown({ ref, rows, overall, selected, onPick, label, unit, loading, finding }: {
+  ref: React.Ref<HTMLDivElement>; finding?: ReactNode; rows: Row[]; overall: number; selected: string | null; onPick: (k: string) => void; label: string; unit?: string; loading?: boolean;
+}) {
+  const [box, w] = useWidth<HTMLDivElement>();
+  const [hov, setHov] = useState<string | null>(null);
+  const narrow = w < 440;
+  const LW = narrow ? 96 : 128, G = 20, RH = 34, TOP = 26, BOT = 24;
+  const pw = Math.max(60, (w - LW - G) / 2 - 4);
+  const x1 = LW, x2 = LW + pw + G;
+  const H = TOP + rows.length * RH + BOT;
+  const nMax = Math.max(1, ...rows.map((r) => r.n));
+  const hiMax = Math.max(overall, ...rows.map((r) => wilson(r.ka, r.n)[1]));
+  const sMax = Math.min(1, Math.ceil(hiMax * 4) / 4 || 0.25);
+  const sx = (v: number) => x2 + (v / sMax) * (pw - 6);
+  const show = rows.find((r) => r.key === (hov ?? selected));
+  const ticks = (pw < 150 ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1]).filter((t) => t <= sMax + 1e-9);
+  return (
+    <div className="vru-bd">
+      {finding && <p className="vru-bd-find">{finding}</p>}
+      <div ref={ref} className="vru-bd-fig">
+      <div ref={box} className="vru-bd-box">
+        {w > 0 && (
+          <svg width={w} height={H} role="img" aria-label={`${label}. ${rows.map((r) => `${r.label}${unit && r.key !== 'unk' ? ` ${unit}` : ''}: ${r.n} crashes, ${r.ka} KA`).join('; ')}`} onMouseLeave={() => setHov(null)}>
+            <text x={x1} y={14} className="vru-bd-h">Crashes <tspan className="vru-bd-hk">■ KA</tspan></text>
+            <text x={x2} y={14} className="vru-bd-h">KA share, 95% CI</text>
+            {ticks.map((t) => (
+              <g key={t}>
+                <line x1={sx(t)} x2={sx(t)} y1={TOP - 4} y2={H - BOT + 2} className="vru-bd-grid" />
+                <text x={sx(t)} y={H - 6} textAnchor="middle" className="vru-bd-ax">{Math.round(t * 100)}%</text>
+              </g>
+            ))}
+            <line x1={sx(overall)} x2={sx(overall)} y1={TOP - 6} y2={H - BOT + 2} className="vru-bd-ref" />
+            {rows.map((r, i) => {
+              const y = TOP + i * RH, cy = y + RH / 2;
+              const wn = (r.n / nMax) * (pw - 34), wk = r.n ? (r.ka / r.n) * wn : 0;
+              const [lo, hi] = wilson(r.ka, r.n);
+              const on = selected === r.key, dim = selected != null && !on;
+              return (
+                <g key={r.key} className="vru-bd-row" data-on={on || undefined} data-dim={dim || undefined}
+                  role="button" tabIndex={0} aria-pressed={on} aria-label={`${r.label}${unit && r.key !== 'unk' ? ` ${unit}` : ''}: ${r.n} crashes, ${r.ka} KA. Filter the page to this group`}
+                  onMouseEnter={() => setHov(r.key)} onFocus={() => setHov(r.key)} onBlur={() => setHov(null)}
+                  onClick={() => r.n && onPick(r.key)} onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && r.n) { e.preventDefault(); onPick(r.key); } }}>
+                  <rect x={0} y={y + 1} width={w} height={RH - 2} rx={6} className="vru-bd-hit" />
+                  <text x={LW - 12} y={cy + 5} textAnchor="end" className="vru-bd-l">{r.label}</text>
+                  {wk > 0 && <rect x={x1} y={cy - 7} width={Math.max(2, wk - (wn > wk ? 1 : 0))} height={14} rx={3} style={{ fill: 'var(--sev-a)' }} />}
+                  {wn - wk > 1 && <rect x={x1 + wk + (wk > 0 ? 1 : 0)} y={cy - 7} width={Math.max(1, wn - wk - (wk > 0 ? 1 : 0))} height={14} rx={3} className="vru-bd-rest" />}
+                  <text x={x1 + wn + 6} y={cy + 5} className="vru-bd-n">{r.n}</text>
+                  {r.n > 0 && <>
+                    <line x1={sx(lo)} x2={sx(hi)} y1={cy} y2={cy} className="vru-bd-ci" />
+                    <circle cx={sx(r.ka / r.n)} cy={cy} r={5} className="vru-bd-dot" />
+                  </>}
+                </g>
+              );
+            })}
+          </svg>
+        )}
+        {loading && !rows.some((r) => r.n) && <div className="skeleton vru-bd-skel" />}
+      </div>
+      </div>
+      <p className="vru-bd-read" aria-live="polite">
+        {show ? (() => { const [lo, hi] = wilson(show.ka, show.n); return <><b>{show.label}{unit && show.key !== 'unk' ? ` ${unit}` : ''}</b> · <span className="num">{show.n}</span> crashes, <span className="num">{show.ka}</span> KA (<span className="num">{pct(show.ka, show.n)}%</span>, CI <span className="num">{nf(100 * lo, 0)}–{nf(100 * hi, 0)}%</span>){selected === show.key ? ' · filtering the page' : ''}</>; })()
+          : <>Vertical rule: overall KA share <span className="num">{nf(100 * overall, 1)}%</span>. Click a row to filter the page.</>}
+      </p>
+    </div>
+  );
+}
+
+function YieldSpot({ rows, peds, both, src, selected, onPick }: {
+  rows: { key: string; label: string; short: string; icon: IconName; n: number; ka: number; ctx: Record<'dark' | 'mid' | 'fast', number | null> }[]; peds: number; both: number; src: YieldSrc; selected: string | null; onPick: (k: string) => void;
+}) {
+  const tot = rows.reduce((a, r) => a + r.n, 0);
+  return (
+    <div className="vru-yield">
+      <div className="vru-ysplit" role="img" aria-label={rows.map((r) => `${r.label}: ${r.n}`).join(', ')}>
+        {rows.map((r) => <span key={r.key} data-k={r.key} style={{ flexGrow: Math.max(r.n, 0.0001) }} />)}
+      </div>
+      <div className="vru-ycards">
+        {rows.map((r) => {
+          const [lo, hi] = wilson(r.ka, r.n);
+          return (
+            <button key={r.key} type="button" className="vru-ycard" data-k={r.key} aria-pressed={selected === r.key} disabled={!r.n} onClick={() => onPick(r.key)}
+              aria-label={`${r.label}: ${r.n} crashes, ${r.ka} KA. Filter the page`}>
+              <span className="vru-yk"><Icon name={r.icon} size={18} weight="duotone" />{r.label}</span>
+              <span className="vru-yv"><span className="num">{r.n}</span><small>{tot ? `${pct(r.n, tot, 0)}% of yield-coded` : ''}</small></span>
+              <span className="vru-ys"><span className="num">{r.ka}</span> KA · <span className="num">{pct(r.ka, r.n)}%</span> <span className="muted">(CI <span className="num">{nf(100 * lo, 0)}–{nf(100 * hi, 0)}%</span>)</span></span>
+            </button>
+          );
+        })}
+      </div>
+      <table className="data vru-yctx">
+        <caption className="sr-only">Context of yield-coded pedestrian crashes</caption>
+        <thead><tr><th>Share of crashes that were…</th>{rows.map((r) => <th key={r.key} className="r">{r.short}</th>)}</tr></thead>
+        <tbody>
+          {([['dark', 'In darkness (lit or unlit)', 'moon'], ['mid', 'Not at an intersection', 'path'], ['fast', 'On roads posted ≥ 40 mph', 'gauge']] as const).map(([k, l, ic]) => (
+            <tr key={k}>
+              <td><Icon name={ic} size={15} />{l}</td>
+              {rows.map((r) => <td key={r.key} className="r num">{r.ctx[k] == null ? '—' : `${nf(100 * r.ctx[k]!, 0)}%`}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="vru-ynote muted">
+        Of <span className="num">{peds}</span> pedestrian crashes in view. {src === 'pbcat'
+          ? 'PBCAT types are assigned from the crash narrative and diagram.'
+          : <>Officer-coded contributing factors; up to three per crash{both ? <>, so <span className="num">{both}</span> count in both groups</> : ''}.</>}
+      </p>
+    </div>
+  );
+}
+
+function Heatmap({ ref, grid, max, cell, onCell, peak }: { ref: React.Ref<HTMLElement>; grid: number[][]; max: number; cell: [number, number] | null; onCell: (c: [number, number] | null) => void; peak: number | null }) {
+  const [hov, setHov] = useState<[number, number] | null>(null);
+  const cw = 24, ch = 24, L = 44, T = 22, W = L + 24 * cw, H = T + 7 * ch + 26;
+  const show = hov ?? cell;
+  const scroller = useRef<HTMLDivElement>(null);
+  // On narrow screens the week scrolls sideways: bring the peak window into view rather than midnight.
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || peak == null || el.scrollWidth <= el.clientWidth) return;
+    el.scrollLeft = Math.max(0, ((L + (peak + 1.5) * cw) / W) * el.scrollWidth - el.clientWidth / 2);
+  }, [peak]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Peak bracket: up to two segments when the window wraps midnight.
+  const segs = peak == null ? [] : peak + 3 <= 24 ? [[peak, peak + 3]] : [[peak, 24], [0, (peak + 3) % 24]];
+  return (
+    <figure className="vru-heat" ref={ref} data-ui data-cell={cell ? '' : undefined} onMouseLeave={() => setHov(null)}>
+      <div className="vru-heat-scroll" ref={scroller} tabIndex={0} aria-label="Hour-of-week heatmap, scrolls horizontally on small screens">
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Heatmap of crashes by hour of day and day of week${peak != null ? `; peak window ${hh(peak)}:00 to ${hh(peak + 3)}:00` : ''}; click a cell to filter the map`}>
+          {segs.map(([a, b], i) => (
+            <g key={i} className="vru-pk">
+              <rect x={L + a * cw - 2} y={T - 3} width={(b - a) * cw + 1} height={7 * ch + 2} rx={5} className="vru-pk-band" />
+              <path d={`M${L + a * cw} ${T - 6} V${T - 12} H${L + b * cw - 3} V${T - 6}`} />
+              {i === 0 && <text x={L + a * cw} y={T - 15} className="vru-pk-t">peak</text>}
+            </g>
+          ))}
           {grid.map((row, d) => (
             <g key={d}>
               <text x={L - 10} y={T + d * ch + ch / 2 + 4} textAnchor="end" className="vru-ax" data-on={show?.[0] === d || undefined}>{DOW[d]}</text>
@@ -306,9 +637,8 @@ function Heatmap({ grid, max, cell, onCell }: { grid: number[][]; max: number; c
         <span className="vru-steps" aria-hidden="true">{[0, 0.25, 0.5, 0.75, 1].map((t) => <i key={t} style={{ background: ramp(t) }} />)}</span>
         <span className="num">{max}</span>
         <span className="vru-cell">
-          {show ? <><span className="num">{DOW[show[0]]} {hh(show[1])}:00</span>, <span className="num">{grid[show[0]][show[1]]}</span> crashes</> : 'per hour of the week · click to filter'}
+          {show ? <><span className="measure">{DOW[show[0]]} {hh(show[1])}:00</span>, <span className="num">{grid[show[0]][show[1]]}</span> crashes</> : 'crashes per hour of the week · click to filter'}
         </span>
-        {cell && <button type="button" className="btn ghost vru-cell-x" onClick={() => onCell(null)}>Clear {DOW[cell[0]]} {hh(cell[1])}:00</button>}
       </figcaption>
     </figure>
   );

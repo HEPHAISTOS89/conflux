@@ -1,61 +1,115 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import MapView, { type MapLayer } from '../components/MapView';
-import { Icon } from '../components/Icon';
+import { Icon, type IconName } from '../components/Icon';
 import Term from '../components/Term';
+import PageHeader from '../components/PageHeader';
+import Select from '../components/Select';
+import MetricInfo, { ProvChip, type MetricSpec } from '../components/MetricInfo';
 import { useApi } from '../lib/api';
+import { copyLink, downloadCSV, downloadPNG } from '../lib/export';
 import { bboxOf, CHART, nf, SEV_HEX } from '../lib/format';
 import { reducedMotion, useReveal } from '../lib/motion';
 import type { FC, SegmentProps, Spf } from '../lib/types';
 import '../styles/screening.css';
 
-const METHODS = [
-  { id: 'eb_excess', label: 'EB excess', d: 'EB-expected minus SPF-predicted crashes per year: the HSM potential for safety improvement.' },
-  { id: 'critical_ratio', label: 'Critical rate ratio', d: 'Observed over critical rate at 95% confidence; above 1 is statistically high.' },
-  { id: 'rate', label: 'Crash rate', d: 'Crashes per 100 million vehicle-miles; favours low-volume segments.' },
-  { id: 'frequency', label: 'Crash frequency', d: 'Raw three-year count; ignores exposure and regression to the mean.' },
-] as const;
-type MethodId = (typeof METHODS)[number]['id'];
+const CRIS = <>TxDOT CRIS on-system ped/bike crashes 2021–2023; TxDOT Roadway Inventory 2024; TxDOT AADT (AADT_CUR)</>;
+const HSM = <>AASHTO <i>Highway Safety Manual</i> (2010), Part B ch. 4</>;
+
+/** Methodology of every screening measure, shown in MetricInfo popovers. */
+const SPECS: Record<'eb_excess' | 'critical_ratio' | 'rate' | 'frequency' | 'spf' | 'aadt' | 'k', MetricSpec> = {
+  eb_excess: {
+    name: 'Excess expected crashes (EB)', provenance: 'derived', unit: 'ped/bike crashes per year',
+    formula: <>E = w·μ + (1−w)·N, w = 1/(1 + k·μ); excess = E − μ</>,
+    threshold: <>&gt; 0 flags a site (potential for safety improvement)</>,
+    source: CRIS,
+    citation: <>{HSM}; Hauer (1997), <i>Observational Before–After Studies in Road Safety</i></>,
+    note: 'μ and N over the same three years; k is per mile, applied to a segment as k/L.',
+  },
+  critical_ratio: {
+    name: 'Critical rate ratio', provenance: 'derived', unit: 'ratio (R / Rc)',
+    formula: <>Rc = Ra + 1.645·√(Ra/M) + 1/(2M)</>,
+    threshold: <>&gt; 1 is high at 95% confidence (one-sided)</>,
+    source: CRIS, citation: HSM,
+    note: 'Ra is the crash rate of the site type; M is the segment’s exposure in 100 MVMT.',
+  },
+  rate: {
+    name: 'Crash rate', provenance: 'derived', unit: 'crashes per 100 MVMT',
+    formula: <>R = N·10⁸ / (365·Y·AADT·L)</>,
+    threshold: 'none; ranks only. Favours low-volume segments.',
+    source: CRIS, citation: HSM,
+  },
+  frequency: {
+    name: 'Crash frequency', provenance: 'observed', unit: 'crashes in 3 years',
+    formula: <>N = Σ crashes, 2021–2023</>,
+    threshold: 'none; ignores exposure and regression to the mean',
+    source: CRIS, citation: HSM,
+  },
+  spf: {
+    name: 'Safety performance function', provenance: 'derived', unit: 'predicted crashes per year',
+    formula: <>μ = L·Y·exp(β₀ + β₁·ln AADT + …), NB2</>,
+    threshold: 'fitted per site type when events per variable allow; pooled otherwise',
+    source: CRIS, citation: <>{HSM}; Hauer &amp; Bamfo (1997), CURE plots</>,
+  },
+  aadt: {
+    name: 'Annual average daily traffic', provenance: 'public', unit: 'vehicles per day',
+    formula: 'Count year as published in TxDOT_AADT.AADT_CUR, joined to the segment by route and DFO',
+    source: 'TxDOT AADT annuals (ArcGIS FeatureServer), © TxDOT, informational use',
+    citation: 'FHWA Traffic Monitoring Guide (2022)',
+  },
+  k: {
+    name: 'Overdispersion k', provenance: 'derived', unit: 'per mile',
+    formula: <>Var(N) = μ + k·μ²; segment k = k/L</>,
+    threshold: 'larger k gives the SPF less weight in EB',
+    source: CRIS, citation: HSM,
+  },
+};
+
+const METHODS: { id: MethodId; label: string; short: string; d: string; icon: IconName }[] = [
+  { id: 'eb_excess', label: 'EB excess', short: 'EB excess', d: 'Expected minus SPF-predicted crashes per year: the HSM potential for safety improvement.', icon: 'target' },
+  { id: 'critical_ratio', label: 'Critical rate ratio', short: 'R/Rc', d: 'Observed over critical rate at 95% confidence; above 1 is statistically high.', icon: 'warning' },
+  { id: 'rate', label: 'Crash rate', short: 'Rate', d: 'Crashes per 100 million vehicle-miles; favours low-volume segments.', icon: 'gauge' },
+  { id: 'frequency', label: 'Crash frequency', short: 'Count', d: 'Raw three-year count; ignores exposure and regression to the mean.', icon: 'rank' },
+];
+type MethodId = 'eb_excess' | 'critical_ratio' | 'rate' | 'frequency';
 const FIELD: Record<MethodId, keyof SegmentProps> = { eb_excess: 'eb_excess', critical_ratio: 'crit_ratio', rate: 'rate_100mvmt', frequency: 'crashes_total' };
-const GROUPS = ['All', 'Interstate/Freeway', 'Principal arterial', 'Minor arterial', 'Collector/Local'];
+const GROUPS = ['All', 'Interstate/Freeway', 'Principal arterial', 'Minor arterial', 'Collector/Local'] as const;
 const TOP = 25;
 
-type Row = SegmentProps & { fc_group?: string; site_type?: string; crashes_per_yr?: number; score?: number; screen_rank?: number; dfo_from?: number; dfo_to?: number };
+type Row = SegmentProps & { fc_group?: string; site_type?: string; crashes_per_yr?: number; crashes_ka?: number; dfo_from?: number; dfo_to?: number; speed_all?: number };
 interface Screening { method: string; total: number; items: Row[] }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-const csvCell = (v: unknown) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-function downloadCsv(name: string, cols: string[], rows: unknown[][]) {
-  const text = [cols, ...rows].map((r) => r.map(csvCell).join(',')).join('\n');
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
-  const a = Object.assign(document.createElement('a'), { href: url, download: name });
-  document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+const typing = (e: KeyboardEvent) => e.metaKey || e.ctrlKey || e.altKey || !!(e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable], [role="listbox"]') || !!document.querySelector('.cmdk-scrim');
+
+/** Network figures for the header: flagged sites, top excess, crashes, and the exposure-weighted rate. */
+function headline(rows: Row[]) {
+  let n = 0, vmt = 0, flagged = 0, top: number | null = null;
+  for (const r of rows) {
+    if ((r.eb_excess ?? 0) > 0) flagged++;
+    if (r.eb_excess != null) top = Math.max(top ?? -Infinity, r.eb_excess);
+    if (r.aadt) { n += r.crashes_total; vmt += 365 * r.crash_years * r.aadt * r.len_mi; }
+  }
+  return { flagged, top, crashes: rows.reduce((s, r) => s + r.crashes_total, 0), rate: vmt ? (n * 1e8) / vmt : null };
 }
-/** Copies the current URL; the returned label confirms for 1.6 s. */
-function useCopyLink() {
-  const [state, setState] = useState<'idle' | 'ok' | 'fail'>('idle');
-  useEffect(() => { if (state === 'idle') return; const t = setTimeout(() => setState('idle'), 1600); return () => clearTimeout(t); }, [state]);
-  const copy = () => {
-    const url = window.location.href;
-    // execCommand fallback covers browsers that deny the async clipboard to an unfocused document
-    const legacy = () => {
-      const t = Object.assign(document.createElement('textarea'), { value: url });
-      t.style.cssText = 'position:fixed;opacity:0';
-      document.body.append(t); t.select();
-      const ok = document.execCommand('copy'); t.remove();
-      setState(ok ? 'ok' : 'fail');
-    };
-    if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => setState('ok'), legacy); else legacy();
-  };
-  return [state === 'ok' ? 'Link copied' : state === 'fail' ? 'Copy blocked' : 'Copy link', copy] as const;
+
+/** Competition ranks (ties share the best rank) of every segment under each measure, nulls last. */
+function ranksBy(rows: Row[]) {
+  const out = {} as Record<MethodId, Map<string, number>>;
+  for (const m of METHODS) {
+    const f = FIELD[m.id];
+    const sorted = rows.filter((r) => r[f] != null).sort((a, b) => (b[f] as number) - (a[f] as number));
+    const map = new Map<string, number>();
+    sorted.forEach((r, i) => map.set(r.seg_id, i > 0 && sorted[i - 1][f] === r[f] ? map.get(sorted[i - 1].seg_id)! : i + 1));
+    out[m.id] = map;
+  }
+  return out;
 }
-const typing = (e: KeyboardEvent) => e.metaKey || e.ctrlKey || e.altKey || !!(e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable]') || !!document.querySelector('.cmdk-scrim');
 
 export default function ScreeningPage() {
   const [params, setParams] = useSearchParams();
-  const method = (params.get('method') as MethodId) || 'eb_excess';
-  const group = params.get('group') || 'All';
+  const method = (METHODS.find((m) => m.id === params.get('method'))?.id ?? 'eb_excess') as MethodId;
+  const group = (GROUPS as readonly string[]).includes(params.get('group') ?? '') ? params.get('group')! : 'All';
   const focus = params.get('seg');
   const set = useCallback((k: string, v: string | null) => setParams((prev) => { const p = new URLSearchParams(prev); v ? p.set(k, v) : p.delete(k); return p; }, { replace: true }), [setParams]);
 
@@ -63,17 +117,25 @@ export default function ScreeningPage() {
   const scr = useApi<Screening>(`/screening?method=${method}&limit=443`);
   const spf = useApi<SpfFull>('/spf');
   const meta = METHODS.find((m) => m.id === method)!;
-  const headRef = useReveal<HTMLElement>();
   const gridRef = useReveal<HTMLElement>();
+  const stabRef = useReveal<HTMLElement>();
   const spfRef = useReveal<HTMLElement>();
   const wrapRef = useRef<HTMLDivElement>(null);
+  const figRef = useRef<HTMLDivElement>(null);
   const rowEls = useRef(new Map<string, HTMLTableRowElement>());
-  const [linkLabel, copyLink] = useCopyLink();
+  const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle');
+  useEffect(() => { if (copied === 'idle') return; const t = setTimeout(() => setCopied('idle'), 1600); return () => clearTimeout(t); }, [copied]);
 
   const rows = useMemo(() => (scr.data?.items ?? []).filter((r) => group === 'All' || r.fc_group === group), [scr.data, group]);
   const rankOf = useMemo(() => new Map(rows.map((r, i) => [r.seg_id, i + 1])), [rows]);
+  const head = useMemo(() => headline(rows), [rows]);
   const focusFeature = net.data?.features.find((f) => f.properties.seg_id === focus);
   const focusRow = rows.find((r) => r.seg_id === focus);
+  const groupCount = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const r of scr.data?.items ?? []) c[r.fc_group ?? ''] = (c[r.fc_group ?? ''] ?? 0) + 1;
+    return c;
+  }, [scr.data]);
 
   // Fit only on request (double-click, F, deep link); n nudges the bounds so the same segment can be refitted.
   const [fit, setFit] = useState<{ id: string; n: number } | null>(() => (focus ? { id: focus, n: 0 } : null));
@@ -107,15 +169,29 @@ export default function ScreeningPage() {
         const n = i < 0 ? 0 : Math.max(0, Math.min(rows.length - 1, i + (k === 'j' ? 1 : -1)));
         select(rows[n].seg_id, true);
       } else if (k === 'f' && focus) { e.preventDefault(); fitTo(focus); }
-      else if (e.key === 'Escape' && focus && !document.querySelector('.term-tip')) set('seg', null);
+      else if (e.key === 'Escape' && focus && !document.querySelector('.term-tip, .mi-pop, .sel-list')) set('seg', null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const exportCsv = () => downloadCsv(`roadscope-screening-${method}-${slug(group)}.csv`,
-    ['rank', 'seg_id', 'name', 'route', 'dfo_from', 'dfo_to', 'facility', 'site_type', 'lanes', 'speed_limit_mph', 'aadt', 'truck_pct', 'crashes_3yr', 'crashes_per_yr', 'rate_100mvmt', 'crit_rate', 'crit_ratio', 'spf_pred_per_yr', 'eb_expected_per_yr', 'eb_excess_per_yr'],
-    rows.map((r, i) => [i + 1, r.seg_id, r.name, r.route, r.dfo_from, r.dfo_to, r.fc_group, r.site_type, r.lanes, r.speed_limit, r.aadt, r.truck_pct, r.crashes_total, r.crashes_per_yr, r.rate_100mvmt, r.crit_rate, r.crit_ratio, r.spf_pred, r.eb_expected, r.eb_excess]));
+  const exportCsv = () => downloadCSV(`roadscope-screening-${method}-${slug(group)}.csv`,
+    rows.map((r, i) => ({
+      rank: i + 1, seg_id: r.seg_id, name: r.name, route: r.route, dfo_from: r.dfo_from, dfo_to: r.dfo_to, facility: r.fc_group, site_type: r.site_type,
+      lanes: r.lanes, speed_limit_mph: r.speed_limit, operating_speed_mph: r.speed_all, aadt: r.aadt, truck_pct: r.truck_pct, crashes_3yr: r.crashes_total, crashes_ka_3yr: r.crashes_ka,
+      crashes_per_yr: r.crashes_per_yr, rate_100mvmt: r.rate_100mvmt, crit_rate: r.crit_rate, crit_ratio: r.crit_ratio, spf_pred_per_yr: r.spf_pred, eb_expected_per_yr: r.eb_expected, eb_excess_per_yr: r.eb_excess,
+    })));
+  // The WebGL map cannot be read back, so the PNG is drawn from the same geometry as a vector figure.
+  const [exporting, setExporting] = useState(false);
+  useEffect(() => {
+    if (!exporting) return;
+    const el = figRef.current;
+    if (!el) { setExporting(false); return; }
+    downloadPNG(`roadscope-screening-${method}-${slug(group)}.png`, el,
+      `RoadScope network screening · top ${TOP} by ${meta.label} · ${group} · TxDOT CRIS ped/bike 2021–2023 · HSM Part B`).finally(() => setExporting(false));
+  }, [exporting]); // eslint-disable-line react-hooks/exhaustive-deps
+  const exportFig = () => setExporting(true);
+  const share = async () => setCopied((await copyLink()) ? 'ok' : 'fail');
 
   const sources = useMemo<MapLayer[]>(() => {
     if (!net.data) return [];
@@ -139,39 +215,50 @@ export default function ScreeningPage() {
 
   const methodHead = method === 'eb_excess' ? <Term k="EB excess" /> : method === 'critical_ratio' ? <Term k="Critical ratio">R/Rc</Term> : method === 'rate' ? 'Per 100 MVMT' : 'Crashes, 3 yr';
   const dp = method === 'frequency' ? 0 : method === 'rate' ? 1 : 2;
+  const top1 = rows[0];
 
   return (
     <div className="page screening">
-      <header className="page-head scr-head" ref={headRef}>
-        <h1 data-r="1">Network screening</h1>
-        <p data-r="2">{nf(scr.data?.total)} one-mile state-system segments, ranked by CRIS ped/bike crashes, 2021–2023.</p>
-        <div className="scr-controls" role="toolbar" aria-label="Screening options" data-r="3">
-          <div className="seg" role="group" aria-label="Performance measure">
-            {METHODS.map((m) => <button key={m.id} aria-pressed={method === m.id} onClick={() => set('method', m.id)}>{m.label}</button>)}
-          </div>
-          <label className="select">
-            <span>Facility</span>
-            <select value={group} onChange={(e) => set('group', e.target.value === 'All' ? null : e.target.value)}>
-              {GROUPS.map((g) => <option key={g}>{g}</option>)}
-            </select>
-          </label>
-          <div className="scr-actions">
-            <button type="button" className="btn ghost" onClick={exportCsv} disabled={!rows.length}>Export CSV</button>
-            <button type="button" className="btn ghost" onClick={copyLink} aria-live="polite">{linkLabel}</button>
-            <Link to="/brief" className="btn ghost">District brief</Link>
-          </div>
-        </div>
-        <p className="scr-def" key={method}>{meta.d}</p>
-      </header>
+      <PageHeader
+        icon="rank"
+        title="Network screening"
+        lede={<>{nf(scr.data?.total)} one-mile state-system segments in Lubbock County, ranked by on-system pedestrian and bicyclist crashes.</>}
+        source={<>TxDOT CRIS 2021–2023 · Roadway Inventory 2024 · AADT · <ProvChip kind="derived" /></>}
+        readouts={[
+          { label: <span className="rd-l">Sites flagged <MetricInfo spec={SPECS.eb_excess} align="right" /></span>, value: scr.data ? head.flagged : null, unit: `of ${nf(rows.length)}`, tone: 'alert' },
+          { label: <span className="rd-l">Top EB excess</span>, value: head.top, unit: 'crashes/yr', digits: 2 },
+          { label: <span className="rd-l">Ped/bike crashes</span>, value: scr.data ? head.crashes : null, unit: '3 yr' },
+          { label: <span className="rd-l">Network rate <MetricInfo spec={SPECS.rate} align="right" /></span>, value: head.rate, unit: '/100 MVMT', digits: 2 },
+        ]}
+        actions={<>
+          <button type="button" className="btn ghost" onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={16} /><span>CSV</span></button>
+          <button type="button" className="btn ghost" onClick={exportFig} disabled={!rows.length}><Icon name="image" size={16} /><span>PNG</span></button>
+          <button type="button" className="btn ghost" onClick={share} aria-live="polite"><Icon name={copied === 'ok' ? 'check' : 'link'} size={16} /><span>{copied === 'ok' ? 'Copied' : copied === 'fail' ? 'Copy blocked' : 'Link'}</span></button>
+          <Link to="/brief" className="btn ghost"><Icon name="sheet" size={16} /><span>County brief</span></Link>
+        </>}
+      />
 
-      <section className="scr-grid" ref={gridRef}>
+      <div className="scr-controls" role="toolbar" aria-label="Screening options">
+        <div className="seg" role="group" aria-label="Performance measure">
+          {METHODS.map((m) => <button key={m.id} aria-pressed={method === m.id} onClick={() => set('method', m.id)}><Icon name={m.icon} size={16} />{m.label}</button>)}
+        </div>
+        <Select label="Facility" icon="corridor" value={group} onChange={(v) => set('group', v === 'All' ? null : v)}
+          options={GROUPS.map((g) => ({ value: g, label: g, hint: g === 'All' ? nf(scr.data?.items.length) : nf(groupCount[g] ?? 0) }))} />
+      </div>
+      <p className="scr-def" key={method}>
+        <Icon name={meta.icon} size={16} /><span>{meta.d}</span>
+        <MetricInfo spec={SPECS[method]} />
+        {top1 && <span className="scr-def-top">Leads: <b>{top1.name}</b> <span className="measure">DFO {nf(top1.dfo_from, 1)}–{nf(top1.dfo_to, 1)}</span></span>}
+      </p>
+
+      <section className="scr-grid" ref={gridRef} aria-label="Ranking and map">
         <div className="panel scr-table-wrap" data-ui data-r="1" ref={wrapRef} aria-busy={scr.loading || undefined}>
           {scr.error && <div className="error-box scr-state">Ranking unavailable: {scr.error} <button type="button" className="btn ghost" onClick={() => location.reload()}>Reload</button></div>}
           <table className="data">
             <caption className="sr-only">Segments ranked by {meta.label}{group !== 'All' ? `, ${group}` : ''}</caption>
             <thead>
               <tr>
-                <th className="r">#</th><th>Segment · DFO</th><th className="r opt"><Term k="AADT" /></th><th className="r">Ped/bike</th>
+                <th className="r">#</th><th>Segment · DFO, mi</th><th className="r opt"><Term k="AADT" /></th><th className="r">Ped/bike</th>
                 <th className="r">{methodHead}</th><th className="r opt"><Term k="SPF">SPF/yr</Term></th>
                 <th className="r opt">{method === 'eb_excess' ? <Term k="Critical ratio">R/Rc</Term> : <Term k="EB excess" />}</th>
               </tr>
@@ -185,16 +272,16 @@ export default function ScreeningPage() {
                   aria-selected={focus === r.seg_id} tabIndex={0}
                   onClick={() => select(r.seg_id)} onDoubleClick={() => fitTo(r.seg_id)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); select(r.seg_id); } }}>
-                  <td className="r num rank">{i + 1}</td>
+                  <td className="r measure rank">{i + 1}</td>
                   <td>
-                    <div className="seg-name">{r.name}</div>
-                    <div className="num seg-id">{nf(r.dfo_from, 2)}–{nf(r.dfo_to, 2)} · {r.fc_group}</div>
+                    <div className="seg-name">{r.name}{(r.crit_ratio ?? 0) > 1 && (r.eb_excess ?? 0) > 0 && <span className="scr-both" title="Flagged by both tests: EB excess > 0 and R/Rc > 1">confirmed</span>}</div>
+                    <div className="measure seg-id">{nf(r.dfo_from, 2)}–{nf(r.dfo_to, 2)} · {nf(r.lanes)} ln · {nf(r.speed_limit)} mph</div>
                   </td>
-                  <td className="r num opt">{nf(r.aadt)}</td>
-                  <td className="r num">{nf(r.crashes_total)}</td>
-                  <td className="r num strong" key={method}><span className="flip">{nf(r[FIELD[method]] as number, dp)}</span></td>
-                  <td className="r num opt">{nf(r.spf_pred, 2)}</td>
-                  <td className="r num opt">{nf(method === 'eb_excess' ? r.crit_ratio : r.eb_excess, 2)}</td>
+                  <td className="r measure opt">{nf(r.aadt)}</td>
+                  <td className="r measure">{nf(r.crashes_total)}</td>
+                  <td className="r measure strong" key={method}><span className="flip">{nf(r[FIELD[method]] as number, dp)}</span></td>
+                  <td className="r measure opt">{nf(r.spf_pred, 2)}</td>
+                  <td className="r measure opt">{nf(method === 'eb_excess' ? r.crit_ratio : r.eb_excess, 2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -209,14 +296,39 @@ export default function ScreeningPage() {
             onClick={(_, f) => select((f.properties as any).seg_id, true)}
           />
           {net.error && <div className="error-box scr-map-err">Network unavailable: {net.error}</div>}
+          <div className="scr-legend" aria-hidden="true">
+            <span>Rank by {meta.short}</span>
+            <i style={{ background: `linear-gradient(90deg, ${SEV_HEX.K}, ${SEV_HEX.A}, ${SEV_HEX.B})` }} />
+            <span className="measure">1 → {TOP}</span>
+          </div>
           <p className="scr-keys" aria-hidden="true"><kbd>J</kbd><kbd>K</kbd> step <kbd>F</kbd> fit <kbd>Esc</kbd> clear</p>
           {focusFeature && <SegmentCard key={focusFeature.properties.seg_id} s={{ ...focusFeature.properties, ...focusRow } as any} rank={rankOf.get(focusFeature.properties.seg_id)}
             onFit={() => fitTo(focusFeature.properties.seg_id)} onClose={() => set('seg', null)} />}
         </div>
       </section>
 
+      {exporting && net.data && (
+        <div className="scr-export" ref={figRef} aria-hidden="true">
+          <NetworkFigure fc={net.data} rankOf={rankOf} focus={focus} title={`Top ${TOP} segments by ${meta.label}${group !== 'All' ? ` · ${group}` : ''}`} />
+        </div>
+      )}
+
+      <section className="section scr-stab" aria-labelledby="stab-h" ref={stabRef}>
+        <div className="scr-sec-h" data-r="1">
+          <h2 id="stab-h"><Icon name="trend" size={22} />Rank stability: which sites survive every measure</h2>
+          <p>The top 12 by {meta.label}, re-ranked under the three other HSM Part B measures. Sites that stay in the top {TOP} under all four are robust; sites that drop out are artefacts of one measure.</p>
+        </div>
+        <div data-r="2">
+          {scr.data ? <RankStability rows={rows} method={method} focus={focus} onPick={(id) => select(id, true)} group={group} />
+            : scr.error ? null : <div className="skeleton" style={{ height: 420 }} aria-label="Loading rank stability" />}
+        </div>
+      </section>
+
       <section className="section scr-spf" aria-labelledby="spf-h" ref={spfRef}>
-        <h2 id="spf-h" data-r="1"><Term k="SPF">Safety performance functions</Term> by site type</h2>
+        <div className="scr-sec-h" data-r="1">
+          <h2 id="spf-h"><Icon name="methods" size={22} /><Term k="SPF">Safety performance functions</Term> by site type <MetricInfo spec={SPECS.spf} /></h2>
+          <p>Negative binomial fits behind the EB ranking, with a CURE plot to check the fit along AADT.</p>
+        </div>
         <div data-r="2">
           {spf.error ? <div className="error-box">Models unavailable: {spf.error}</div>
             : spf.data ? <SiteTypes spf={spf.data} /> : <div className="skeleton" style={{ height: 360 }} aria-label="Loading models" />}
@@ -226,74 +338,63 @@ export default function ScreeningPage() {
   );
 }
 
-function SegmentCard({ s, rank, onFit, onClose }: { s: Row & { speed_all?: number }; rank?: number; onFit: () => void; onClose: () => void }) {
+function SegmentCard({ s, rank, onFit, onClose }: { s: Row; rank?: number; onFit: () => void; onClose: () => void }) {
   const corridor = { US0084: 'us-84', US0062: 'us-62-82', US0082: 'us-62-82', SL0289: 'loop-289', IH0027: 'i-27', SH0114: 'sh-114', FM2255: 'fm-2255', FM0835: 'fm-835' }[s.route?.slice(0, 6) ?? ''];
   return (
     <div className="seg-card" role="region" aria-label={`Selected segment ${s.name}`}>
       <div className="seg-card-h">
-        <strong>{s.name}</strong><span className="num">{rank ? `#${rank}` : 'unranked'}</span>
+        <strong>{s.name}</strong><span className="measure">{rank ? `#${rank}` : 'unranked'}</span>
         <button type="button" className="seg-card-x" onClick={onClose} aria-label="Clear selection"><Icon name="close" size={16} /></button>
       </div>
-      <dl className="num">
-        <dt>Facility</dt><dd>{s.fc_group ?? '—'} · {nf(s.lanes)} lanes</dd>
+      <dl className="measure">
+        <dt>Facility</dt><dd>{s.fc_group ?? '—'} · {nf(s.lanes)} ln</dd>
         <dt>Posted / operating</dt><dd>{nf(s.speed_limit)} / {nf(s.speed_all, 1)} mph</dd>
-        <dt><Term k="AADT" /> · trucks</dt><dd>{nf(s.aadt)} · {nf(s.truck_pct, 1)}%</dd>
-        <dt>Observed</dt><dd>{nf(s.crashes_per_yr, 2)} / yr</dd>
-        <dt><Term k="SPF">SPF</Term> predicted</dt><dd>{nf(s.spf_pred, 2)} / yr</dd>
-        <dt><Term k="EB">EB</Term> expected</dt><dd>{nf(s.eb_expected, 2)} / yr</dd>
-        <dt><Term k="Critical ratio" /></dt><dd>{nf(s.crit_ratio, 2)}</dd>
+        <dt><Term k="AADT" /> · trucks</dt><dd>{nf(s.aadt)} veh/d · {nf(s.truck_pct, 1)}%</dd>
+        <dt>Observed</dt><dd>{nf(s.crashes_per_yr, 2)} /yr</dd>
+        <dt><Term k="SPF">SPF</Term> predicted</dt><dd>{nf(s.spf_pred, 2)} /yr</dd>
+        <dt><Term k="EB">EB</Term> expected</dt><dd>{nf(s.eb_expected, 2)} /yr</dd>
+        <dt><Term k="Critical ratio" /></dt><dd data-hi={(s.crit_ratio ?? 0) > 1 || undefined}>{nf(s.crit_ratio, 2)}</dd>
       </dl>
       <div className="seg-card-a">
-        <button type="button" className="btn ghost" onClick={onFit}>Fit map</button>
-        {corridor && <Link className="btn ghost" to={`/corridors/${corridor}`}>Corridor diagram</Link>}
+        <button type="button" className="btn ghost" onClick={onFit}><Icon name="fit" size={16} /><span>Fit map</span></button>
+        {corridor && <Link className="btn ghost" to={`/corridors/${corridor}`}><Icon name="corridor" size={16} /><span>Corridor diagram</span></Link>}
       </div>
     </div>
   );
 }
 
-interface SiteModel { spec: string[]; coef: Record<string, number>; se: Record<string, number>; k: number; k_convention?: string; n: number; crashes: number; aic: number }
-interface SiteType { segments: number; crashes: number; fitted: boolean; model_used: string; model?: SiteModel; gof?: { mad: number; chi2_df: number }; cure?: { columns: string[]; points: [number, number, number][]; pct_outside: number }; eb_weight_median?: number; reason?: string }
-interface SpfFull extends Spf { outcome?: string; crash_period?: string; crash_years?: number; site_types?: Record<string, SiteType>; fallback?: { model?: SiteModel; gof?: { mad: number; chi2_df: number } } }
-
-const TERM: Record<string, string> = { const: 'β₀', ln_aadt: 'ln AADT', speed: 'posted speed (mph)', lanes: 'lanes', urban: 'urban' };
-
-function SiteTypes({ spf }: { spf: SpfFull }) {
-  const fitted = Object.entries(spf.site_types ?? {}).filter(([, v]) => v.fitted && v.model && v.cure);
-  const [sel, setSel] = useState(fitted[0]?.[0] ?? '');
-  const cur = fitted.find(([k]) => k === sel)?.[1];
-  const rest = Object.entries(spf.site_types ?? {}).filter(([, v]) => !v.fitted);
-  if (!cur) return <p className="muted">No site-type model available.</p>;
-  const m = cur.model!;
+/** Vector rendering of the screened network for PNG export (equirectangular, cos φ corrected). */
+function NetworkFigure({ fc, rankOf, focus, title }: { fc: FC<SegmentProps>; rankOf: Map<string, number>; focus: string | null; title: string }) {
+  const W = 1200, H = 900, pad = 40, head = 56;
+  const all = fc.features.flatMap((f) => f.geometry.coordinates as number[][]);
+  const [[a, b], [c, d]] = bboxOf(all);
+  const k = Math.cos(((b + d) / 2) * Math.PI / 180);
+  const s = Math.min((W - 2 * pad) / ((c - a) * k), (H - head - 2 * pad) / (d - b));
+  const ox = (W - (c - a) * k * s) / 2, oy = head + pad;
+  const path = (co: number[][]) => co.map(([x, y], i) => `${i ? 'L' : 'M'}${(ox + (x - a) * k * s).toFixed(1)},${(oy + (d - y) * s).toFixed(1)}`).join('');
+  const col = (r: number) => (r <= 1 ? SEV_HEX.K : r <= 8 ? SEV_HEX.A : SEV_HEX.B);
+  const ranked = fc.features.map((f) => ({ f, r: rankOf.get(f.properties.seg_id) ?? 9999 })).sort((x, y) => y.r - x.r);
   return (
-    <div className="spf panel">
-      <div className="seg" role="group" aria-label="Site type">
-        {fitted.map(([k]) => <button key={k} aria-pressed={k === sel} onClick={() => setSel(k)}>{k}</button>)}
-      </div>
-      <div className="spf-grid">
-        <div>
-          <table className="data">
-            <caption className="sr-only">Coefficients for {sel}</caption>
-            <thead><tr><th>Term</th><th className="r">Estimate</th><th className="r">SE</th></tr></thead>
-            <tbody>
-              {Object.keys(m.coef).map((t) => <tr key={t}><td>{TERM[t] ?? t}</td><td className="r num">{m.coef[t].toFixed(3)}</td><td className="r num">{m.se?.[t]?.toFixed(3) ?? '—'}</td></tr>)}
-              <tr><td>Overdispersion k (per mile)</td><td className="r num">{m.k.toFixed(2)}</td><td /></tr>
-            </tbody>
-          </table>
-          <dl className="spf-gof num">
-            <dt>Segments · crashes</dt><dd>{cur.segments} · {cur.crashes}</dd>
-            <dt>MAD</dt><dd>{cur.gof?.mad.toFixed(2)}</dd>
-            <dt>Pearson χ²/df</dt><dd>{cur.gof?.chi2_df.toFixed(2)}</dd>
-            <dt>AIC</dt><dd>{m.aic.toFixed(1)}</dd>
-            <dt>Median EB weight w</dt><dd>{cur.eb_weight_median?.toFixed(2) ?? '—'}</dd>
-            <dt>CURE outside ±2σ*</dt><dd>{cur.cure!.pct_outside.toFixed(1)}%</dd>
-          </dl>
-        </div>
-        <Cure pts={cur.cure!.points} label={sel} />
-      </div>
-      <p className="spf-legend">
-        NB2, offset ln L + ln Y (Y = {spf.crash_years ?? 3} yr), k per mile applied as k/L. Pooled fallback: {rest.map(([k, v]) => `${k} (${v.crashes})`).join(', ')}.
-      </p>
-    </div>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      <rect width={W} height={H} fill={CHART.ground} />
+      <text x={pad} y={36} fill={CHART.ink} fontSize={22} fontWeight={600}>{title}</text>
+      <text x={W - pad} y={36} fill={CHART.axis} fontSize={14} textAnchor="end">Lubbock County state system · 1-mi segments</text>
+      {ranked.map(({ f, r }) => (
+        <path key={f.properties.seg_id} d={path(f.geometry.coordinates as number[][])} fill="none" strokeLinecap="round"
+          stroke={r <= TOP ? col(r) : CHART.areaFill} strokeWidth={r <= TOP ? 5 : 1.6} />
+      ))}
+      {ranked.filter(({ r }) => r <= 5).map(({ f, r }) => {
+        const co = f.geometry.coordinates as number[][], m = co[Math.floor(co.length / 2)];
+        const x = ox + (m[0] - a) * k * s, y = oy + (d - m[1]) * s;
+        return <g key={`l${r}`}><circle cx={x + 16} cy={y - 16} r={12} fill={CHART.ink} /><text x={x + 16} y={y - 11.5} fill={CHART.ground} fontSize={13} fontWeight={700} textAnchor="middle">{r}</text></g>;
+      })}
+      {fc.features.filter((f) => f.properties.seg_id === focus).map((f) => <path key="sel" d={path(f.geometry.coordinates as number[][])} fill="none" stroke={CHART.ink} strokeWidth={2} strokeDasharray="6 4" />)}
+      <g transform={`translate(${pad} ${H - pad})`}>
+        {[['#1', SEV_HEX.K], ['#2–8', SEV_HEX.A], [`#9–${TOP}`, SEV_HEX.B], ['other', CHART.areaFill]].map(([l, cl], i) => (
+          <g key={l} transform={`translate(${i * 110} 0)`}><rect y={-8} width={22} height={6} rx={3} fill={cl} /><text x={30} y={0} fill={CHART.axis} fontSize={14}>{l}</text></g>
+        ))}
+      </g>
+    </svg>
   );
 }
 
@@ -304,37 +405,203 @@ function useWidth<T extends HTMLElement>(fallback: number) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const ro = new ResizeObserver(([e]) => setW(Math.max(280, Math.round(e.contentRect.width))));
+    const ro = new ResizeObserver(([e]) => setW(Math.max(300, Math.round(e.contentRect.width))));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
   return [ref, w] as const;
 }
 
-/** Cumulative residual (CURE) plot ordered by AADT with ±2σ* bounds (Hauer & Bamfo). */
-function Cure({ pts, label }: { pts: [number, number, number][]; label: string }) {
+const N_STAB = 12, CAP = 40;
+
+/** Bump chart: the top sites under the active measure, re-ranked under the other three (ties share rank). */
+function RankStability({ rows, method, focus, onPick, group }: { rows: Row[]; method: MethodId; focus: string | null; onPick: (id: string) => void; group: string }) {
+  const [ref, W] = useWidth<HTMLDivElement>(900);
+  const box = useRef<HTMLDivElement>(null);
+  const [hov, setHov] = useState<string | null>(null);
+  const ranks = useMemo(() => ranksBy(rows), [rows]);
+  const order = [method, ...METHODS.map((m) => m.id).filter((m) => m !== method)];
+  const top = rows.slice(0, N_STAB);
+  const robust = (id: string) => order.every((m) => (ranks[m].get(id) ?? Infinity) <= TOP);
+  const nRobust = top.filter((r) => robust(r.seg_id)).length;
+  const narrow = W < 640;
+  const P = { l: narrow ? 112 : 200, r: narrow ? 26 : 40, t: 46, b: 34 };
+  const H = 470;
+  const X = (k: number) => P.l + (k / (order.length - 1)) * (W - P.l - P.r);
+  // log rank scale: the top of the list, where decisions are made, gets the room
+  const Y = (rank: number | undefined) => P.t + (Math.log(Math.min(rank ?? CAP + 1, CAP + 1)) / Math.log(CAP + 1)) * (H - P.t - P.b);
+  const active = hov ?? (focus && top.some((r) => r.seg_id === focus) ? focus : null);
+
+  // labels at the first column, nudged apart so none overlap
+  const labels = top.map((r) => ({ r, y: Y(ranks[order[0]].get(r.seg_id)) })).sort((a, b) => a.y - b.y);
+  for (let i = 1; i < labels.length; i++) labels[i].y = Math.max(labels[i].y, labels[i - 1].y + 17);
+  const yTicks = [1, 2, 5, 10, 25, 40];
+  const cur = top.find((r) => r.seg_id === active);
+  const save = () => box.current && downloadPNG(`roadscope-rank-stability-${method}-${slug(group)}.png`, box.current,
+    `RoadScope rank stability · top ${N_STAB} by ${METHODS.find((m) => m.id === method)!.label} · ${group} · TxDOT CRIS ped/bike 2021–2023`);
+
+  if (!top.length) return <p className="muted">No segments in this facility group.</p>;
+  return (
+    <div className="panel stab">
+      <div className="stab-bar">
+        <span className="stab-verdict"><b className="measure">{nRobust}</b> of {top.length} robust <span className="muted">· top {TOP} under all four measures</span></span>
+        <span className="stab-key" aria-hidden="true"><i className="k-robust" />robust <i className="k-frag" />measure-dependent</span>
+        <button type="button" className="btn ghost" onClick={save}><Icon name="image" size={16} /><span>PNG</span></button>
+      </div>
+      <div ref={box} className="stab-fig">
+        <div ref={ref}>
+          <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={`Bump chart of rank under four measures for the top ${top.length} sites; ${nRobust} stay in the top ${TOP} under all four`}
+            onPointerLeave={() => setHov(null)}>
+            {order.map((m, k) => {
+              const M = METHODS.find((x) => x.id === m)!;
+              return (
+                <g key={m}>
+                  <line x1={X(k)} x2={X(k)} y1={P.t - 6} y2={H - P.b + 4} className="stab-col" />
+                  <text x={X(k)} y={18} textAnchor={k === order.length - 1 ? 'end' : 'middle'} className={k === 0 ? 'stab-head on' : 'stab-head'}>{narrow ? M.short : M.label}</text>
+                </g>
+              );
+            })}
+            {yTicks.map((t) => <g key={t}><line x1={P.l - 6} x2={W - P.r} y1={Y(t)} y2={Y(t)} className="stab-grid" /><text x={W - P.r + 6} y={Y(t) + 4} className="stab-tick">{t}</text></g>)}
+            <rect x={P.l - 4} y={Y(TOP) } width={W - P.l - P.r + 8} height={Y(CAP + 1) - Y(TOP)} className="stab-out" />
+            <text x={W - P.r - 6} y={Y(TOP) + 15} textAnchor="end" className="stab-tick">below top {TOP}</text>
+            <text x={W - P.r} y={H - 8} textAnchor="end" className="stab-tick">{narrow ? 'rank, log scale · ties share' : <>rank (log scale), 1 = worst · ties share rank · &gt;{CAP} on the floor</>}</text>
+            {top.map((r) => {
+              const pts = order.map((m, k) => [X(k), Y(ranks[m].get(r.seg_id))] as const);
+              const rb = robust(r.seg_id);
+              const on = active === r.seg_id;
+              return (
+                <g key={r.seg_id} className="stab-line" data-robust={rb || undefined} data-on={on || undefined} data-dim={(active && !on) || undefined}
+                  onPointerEnter={() => setHov(r.seg_id)} onClick={() => onPick(r.seg_id)}>
+                  <path d={pts.map((p, i) => `${i ? 'L' : 'M'}${p[0]},${p[1]}`).join('')} className="stab-path" />
+                  <path d={pts.map((p, i) => `${i ? 'L' : 'M'}${p[0]},${p[1]}`).join('')} className="stab-hit" />
+                  {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r={on ? 4.5 : 3} className="stab-dot" />)}
+                  {on && pts.map((p, i) => { const rk = ranks[order[i]].get(r.seg_id); return <text key={`t${i}`} x={p[0] + 8} y={p[1] - 7} className="stab-rk">{rk == null ? 'n/a' : rk > CAP ? `#${rk}` : `#${rk}`}</text>; })}
+                </g>
+              );
+            })}
+            {labels.map(({ r, y }) => (
+              <text key={r.seg_id} x={P.l - 14} y={y + 4} textAnchor="end" className="stab-lab" data-on={active === r.seg_id || undefined} data-robust={robust(r.seg_id) || undefined}
+                onPointerEnter={() => setHov(r.seg_id)} onClick={() => onPick(r.seg_id)}>
+                {r.name}{narrow ? '' : ` · ${nf(r.dfo_from, 1)}`}
+              </text>
+            ))}
+          </svg>
+        </div>
+      </div>
+      <p className="stab-read" aria-live="polite">
+        {cur ? (
+          <><b>{cur.name}</b> <span className="measure">DFO {nf(cur.dfo_from, 2)}–{nf(cur.dfo_to, 2)}</span>
+            {order.map((m) => { const M = METHODS.find((x) => x.id === m)!; const v = cur[FIELD[m]] as number | null; return <span key={m} className="stab-chip"><span>{M.short}</span><b className="measure">#{ranks[m].get(cur.seg_id) ?? '—'}</b><span className="measure muted">{nf(v, m === 'frequency' ? 0 : m === 'rate' ? 1 : 2)}</span></span>; })}
+            {robust(cur.seg_id) ? <span className="status" data-s="ok"><Icon name="ok" size={14} />robust</span> : <span className="status" data-s="warn"><Icon name="warning" size={14} />measure-dependent</span>}
+          </>
+        ) : <span className="muted">Hover or tap a line to read its four ranks; click to select the segment on the map.</span>}
+      </p>
+    </div>
+  );
+}
+
+interface SiteModel { spec: string[]; coef: Record<string, number>; se: Record<string, number>; k: number; k_convention?: string; n: number; crashes: number; aic: number }
+interface SiteType { segments: number; crashes: number; fitted: boolean; model_used: string; model?: SiteModel; gof?: { mad: number; chi2_df: number }; cure?: { columns: string[]; points: [number, number, number][]; pct_outside: number; max_abs_cum?: number }; eb_weight_median?: number; reason?: string }
+interface SpfFull extends Spf { outcome?: string; crash_period?: string; crash_years?: number; site_types?: Record<string, SiteType>; fallback?: { model?: SiteModel; gof?: { mad: number; chi2_df: number } } }
+
+const TERM: Record<string, string> = { const: 'β₀', ln_aadt: 'ln AADT', speed: 'posted speed (mph)', lanes: 'lanes', urban: 'urban' };
+
+function SiteTypes({ spf }: { spf: SpfFull }) {
+  const fitted = Object.entries(spf.site_types ?? {}).filter(([, v]) => v.fitted && v.model && v.cure);
+  const [sel, setSel] = useState(fitted[0]?.[0] ?? '');
+  const figRef = useRef<HTMLDivElement>(null);
+  const cur = fitted.find(([k]) => k === sel)?.[1];
+  const rest = Object.entries(spf.site_types ?? {}).filter(([, v]) => !v.fitted);
+  if (!cur) return <p className="muted">No site-type model available.</p>;
+  const m = cur.model!;
+  const save = () => figRef.current && downloadPNG(`roadscope-cure-${slug(sel)}.png`, figRef.current, `CURE plot · ${sel} · NB2 SPF, k = ${m.k.toFixed(2)}/mi · TxDOT CRIS ped/bike 2021–2023`);
+  return (
+    <div className="spf panel">
+      <div className="spf-bar">
+        <div className="seg" role="group" aria-label="Site type">
+          {fitted.map(([k, v]) => <button key={k} aria-pressed={k === sel} onClick={() => setSel(k)}>{k} <small className="measure">{v.segments}</small></button>)}
+        </div>
+        <button type="button" className="btn ghost" onClick={save}><Icon name="image" size={16} /><span>PNG</span></button>
+      </div>
+      <div className="spf-grid">
+        <div>
+          <table className="data">
+            <caption className="sr-only">Coefficients for {sel}</caption>
+            <thead><tr><th>Term</th><th className="r">Estimate</th><th className="r">SE</th></tr></thead>
+            <tbody>
+              {Object.keys(m.coef).map((t) => <tr key={t}><td>{TERM[t] ?? t}</td><td className="r measure">{m.coef[t].toFixed(3)}</td><td className="r measure">{m.se?.[t]?.toFixed(3) ?? '—'}</td></tr>)}
+              <tr><td>Overdispersion k <MetricInfo spec={SPECS.k} /></td><td className="r measure">{m.k < 0.005 ? '< 0.01' : m.k.toFixed(2)}</td><td className="r muted">/mi</td></tr>
+            </tbody>
+          </table>
+          <dl className="spf-gof">
+            <dt>Segments · crashes</dt><dd className="measure">{cur.segments} · {cur.crashes}</dd>
+            <dt>MAD</dt><dd className="measure">{cur.gof?.mad.toFixed(2)}</dd>
+            <dt>Pearson χ²/df</dt><dd className="measure">{cur.gof?.chi2_df.toFixed(2)}</dd>
+            <dt>AIC</dt><dd className="measure">{m.aic.toFixed(1)}</dd>
+            <dt>Median EB weight w</dt><dd className="measure">{cur.eb_weight_median?.toFixed(2) ?? '—'}</dd>
+            <dt>CURE outside ±2σ*</dt><dd className="measure" data-hi={cur.cure!.pct_outside > 5 || undefined}>{cur.cure!.pct_outside.toFixed(1)}%</dd>
+          </dl>
+        </div>
+        <div ref={figRef}><Cure pts={cur.cure!.points} label={sel} k={m.k} outside={cur.cure!.pct_outside} /></div>
+      </div>
+      <p className="spf-legend">
+        NB2, offset ln L + ln Y (Y = {spf.crash_years ?? 3} yr), k per mile applied as k/L. Pooled fallback: {rest.map(([k, v]) => `${k} (${v.crashes})`).join(', ') || 'none'}.
+      </p>
+    </div>
+  );
+}
+
+/** Cumulative residual (CURE) plot ordered by AADT with ±2σ* bounds (Hauer & Bamfo 1997); hover reads a point. */
+function Cure({ pts, label, k, outside }: { pts: [number, number, number][]; label: string; k: number; outside: number }) {
   const [ref, W] = useWidth<HTMLElement>(620);
-  const H = Math.round(Math.min(340, Math.max(240, W * 0.52))), P = { l: 52, r: 12, t: 30, b: 42 };
+  const [hi, setHi] = useState<number | null>(null);
+  const H = Math.round(Math.min(360, Math.max(260, W * 0.55))), P = { l: 52, r: 14, t: 34, b: 44 };
   const xs = pts.map((p) => p[0]);
   const x0 = Math.log10(Math.max(100, Math.min(...xs))), x1 = Math.log10(Math.max(...xs));
-  const ym = Math.max(0.5, ...pts.map((p) => Math.max(Math.abs(p[1]), p[2]))) * 1.1;
+  const ym = Math.max(0.5, ...pts.map((p) => Math.max(Math.abs(p[1]), p[2]))) * 1.12;
   const X = (a: number) => P.l + ((Math.log10(Math.max(100, a)) - x0) / (x1 - x0 || 1)) * (W - P.l - P.r);
   const Y = (v: number) => P.t + (1 - (v + ym) / (2 * ym)) * (H - P.t - P.b);
   const line = (f: (p: [number, number, number]) => number) => pts.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)},${Y(f(p)).toFixed(1)}`).join('');
-  const ticks = [1000, 3000, 10000, 30000, 100000].filter((a) => Math.log10(a) >= x0 && Math.log10(a) <= x1);
+  const ticks = [300, 1000, 3000, 10000, 30000, 100000].filter((a) => Math.log10(a) >= x0 && Math.log10(a) <= x1);
+  let mi = 0;
+  pts.forEach((p, i) => { if (Math.abs(p[1]) > Math.abs(pts[mi][1])) mi = i; });
+  const pk = pts[mi];
+  const h = hi != null ? pts[hi] : null;
+  const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * W;
+    let best = 0, d = Infinity;
+    pts.forEach((p, i) => { const dd = Math.abs(X(p[0]) - x); if (dd < d) { d = dd; best = i; } });
+    setHi(best);
+  };
+  const fmtK = (a: number) => (a >= 1000 ? `${(a / 1000).toLocaleString('en-US', { maximumFractionDigits: 1 })}k` : String(a));
   return (
     <figure className="cure" ref={ref}>
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={`CURE plot for ${label}`}>
-        <text x={0} y={14} className="axis">Cumulative residual</text>
-        {ticks.map((a) => <g key={a}><line x1={X(a)} x2={X(a)} y1={P.t} y2={H - P.b} className="gl" /><text x={X(a)} y={H - P.b + 20} className="tick" textAnchor="middle">{a.toLocaleString()}</text></g>)}
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={`CURE plot for ${label}: ${outside.toFixed(1)}% of points outside the two-sigma band`}
+        onPointerMove={onMove} onPointerLeave={() => setHi(null)}>
+        <text x={0} y={14} className="axis">Cumulative residual, obs − pred (crashes, 3 yr)</text>
+        <text x={W - P.r} y={14} className="axis ann" textAnchor="end">k = {k < 0.005 ? '< 0.01' : k.toFixed(2)}/mi · {outside.toFixed(1)}% outside</text>
+        {ticks.map((a) => <g key={a}><line x1={X(a)} x2={X(a)} y1={P.t} y2={H - P.b} className="gl" /><text x={X(a)} y={H - P.b + 20} className="tick" textAnchor="middle">{fmtK(a)}</text></g>)}
         <line x1={P.l} x2={W - P.r} y1={Y(0)} y2={Y(0)} className="zero" />
-        <path d={line((p) => p[2]) + line((p) => -p[2]).replace(/^M/, 'M')} className="band" />
+        <path d={line((p) => p[2])} className="band" />
+        <path d={line((p) => -p[2])} className="band" />
+        <text x={X(pts[0][0]) + 4} y={Y(pts[0][2]) - 6} className="tick band-l">+2σ*</text>
         <path key={label} d={line((p) => p[1])} className="cum" />
-        <text x={P.l - 8} y={Y(ym * 0.9) + 5} className="tick" textAnchor="end">+{(ym * 0.9).toFixed(1)}</text>
-        <text x={P.l - 8} y={Y(0) + 5} className="tick" textAnchor="end">0</text>
-        <text x={P.l - 8} y={Y(-ym * 0.9) + 5} className="tick" textAnchor="end">−{(ym * 0.9).toFixed(1)}</text>
-        <text x={W - P.r} y={H - 4} className="axis" textAnchor="end">AADT, veh/day (log)</text>
+        <circle cx={X(pk[0])} cy={Y(pk[1])} r={3.5} className="pk" />
+        <text x={Math.min(W - P.r - 4, X(pk[0]) + 8)} y={Y(pk[1]) + (pk[1] > 0 ? -8 : 16)} className="tick ann" textAnchor={X(pk[0]) > W * 0.7 ? 'end' : 'start'}>max |Σ| {Math.abs(pk[1]).toFixed(1)} at {fmtK(pk[0])} veh/d</text>
+        {[ym * 0.9, 0, -ym * 0.9].map((v) => <text key={v} x={P.l - 8} y={Y(v) + 5} className="tick" textAnchor="end">{v > 0 ? '+' : v < 0 ? '−' : ''}{Math.abs(v).toFixed(1)}</text>)}
+        <text x={W - P.r} y={H - 4} className="axis" textAnchor="end">AADT, veh/day (log scale)</text>
+        {h && (
+          <g className="cure-hi">
+            <line x1={X(h[0])} x2={X(h[0])} y1={P.t} y2={H - P.b} />
+            <circle cx={X(h[0])} cy={Y(h[1])} r={4} />
+          </g>
+        )}
       </svg>
+      <figcaption className="cure-read" aria-live="polite">
+        {h ? <span className="measure">AADT {h[0].toLocaleString()} veh/d · Σ residual {h[1] >= 0 ? '+' : '−'}{Math.abs(h[1]).toFixed(2)} · ±2σ* {h[2].toFixed(2)} {Math.abs(h[1]) > h[2] ? '· outside band' : ''}</span>
+          : <span className="muted">Hover to read a point. Inside the dashed ±2σ* band ≈ unbiased along AADT.</span>}
+      </figcaption>
     </figure>
   );
 }

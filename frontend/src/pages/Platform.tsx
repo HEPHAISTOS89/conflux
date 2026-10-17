@@ -1,213 +1,245 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApi } from '../lib/api';
 import { nf } from '../lib/format';
 import { reducedMotion, useReveal } from '../lib/motion';
-import type { PlatformRun, PlatformStatus } from '../lib/types';
+import type { PlatformStatus } from '../lib/types';
+import PageHeader from '../components/PageHeader';
+import Select from '../components/Select';
+import MetricInfo from '../components/MetricInfo';
+import { Icon, type IconName } from '../components/Icon';
+import FlowDiagram from '../components/arch/FlowDiagram';
+import NodePanel from '../components/arch/NodePanel';
+import { NODES, ago, deriveLive, finished, job, runSeconds, type Flow } from '../components/arch/model';
 import '../styles/platform.css';
 
-type Lane = 'Ingest' | 'Batch' | 'Serve';
-type N = { id: string; x: number; y: number; t: string; s: string; lane: Lane };
-const W = 212, H = 104;
-const NODES: N[] = [
-  { id: 'sched', x: 0, y: 34, t: 'EventBridge rule', s: 'Weekly ingest schedule', lane: 'Ingest' },
-  { id: 'ingest', x: 262, y: 34, t: 'Lambda · ingest', s: 'ArcGIS + FARS pull, curate', lane: 'Ingest' },
-  { id: 'cw', x: 786, y: 34, t: 'CloudWatch', s: 'Dashboard, alarms, logs', lane: 'Ingest' },
-  { id: 'scheduler', x: 0, y: 204, t: 'EventBridge Scheduler', s: 'Monthly trajectory job', lane: 'Batch' },
-  { id: 'ec2', x: 262, y: 204, t: 'EC2 batch worker', s: 'SSM-run, stops itself', lane: 'Batch' },
-  { id: 's3', x: 524, y: 204, t: 'S3', s: 'raw/ and curated/ prefixes', lane: 'Batch' },
-  { id: 'iam', x: 786, y: 204, t: 'IAM', s: 'Least-privilege role per job', lane: 'Batch' },
-  { id: 'vercel', x: 0, y: 374, t: 'Vercel', s: 'Static frontend, /api proxy', lane: 'Serve' },
-  { id: 'cf', x: 262, y: 374, t: 'API Gateway', s: 'HTTP API, 20 req/s throttle', lane: 'Serve' },
-  { id: 'api', x: 524, y: 374, t: 'Lambda · API', s: 'FastAPI on Mangum', lane: 'Serve' },
-  { id: 'bedrock', x: 786, y: 374, t: 'Bedrock', s: 'Ask: tool-using model', lane: 'Serve' },
+const FLOWS: { f: Flow; label: string }[] = [
+  { f: 'ingest', label: 'Public data in' }, { f: 'curated', label: 'Curated data' }, { f: 'api', label: 'API requests' },
+  { f: 'metrics', label: 'Metrics & logs' }, { f: 'ai', label: 'Analyst' }, { f: 'plan', label: 'Planned' },
 ];
-const EDGES: { d: string; a: string; b: string; k?: 'mon' }[] = [
-  { d: 'M212 86 H262', a: 'sched', b: 'ingest' },
-  { d: 'M474 112 H630 V204', a: 'ingest', b: 's3' },
-  { d: 'M474 58 H786', a: 'ingest', b: 'cw', k: 'mon' },
-  { d: 'M212 256 H262', a: 'scheduler', b: 'ec2' },
-  { d: 'M474 256 H524', a: 'ec2', b: 's3' },
-  { d: 'M212 426 H262', a: 'vercel', b: 'cf' },
-  { d: 'M474 426 H524', a: 'cf', b: 'api' },
-  { d: 'M630 374 V308', a: 'api', b: 's3' },
-  { d: 'M736 426 H786', a: 'api', b: 'bedrock' },
-  { d: 'M736 398 H761 V112 H786', a: 'api', b: 'cw', k: 'mon' },
-];
-const LANES: [Lane, number][] = [['Ingest', 22], ['Batch', 192], ['Serve', 362]];
+const TARGETS = [
+  { value: 'ingest', label: 'Lambda · ingest' }, { value: 'api', label: 'Lambda · API' }, { value: 's3', label: 'S3 data lake' }, { value: 'ec2', label: 'EC2 batch worker' },
+] as const;
+type Target = (typeof TARGETS)[number]['value'];
+type Mode = { kind: 'sim' | 'replay'; phase: 'down' | 'draining' } | null;
 
-const ago = (iso?: string) => {
-  if (!iso) return '—';
-  const s = (Date.now() - Date.parse(iso)) / 1000;
-  if (!Number.isFinite(s)) return iso;
-  if (s < 3600) return `${Math.max(1, Math.round(s / 60))} min ago`;
-  if (s < 86400 * 2) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} d ago`;
-};
-const job = (r: PlatformRun) => (r.detail?.job as string | undefined) ?? (r.key.split('/').pop() ?? '');
-const fin = (r: PlatformRun) => (r.detail?.finished_at as string | undefined) ?? r.last_modified;
+const GUARDS: { icon: IconName; t: string; d: string }[] = [
+  { icon: 'warning', t: 'Alarms', d: 'API errors, ingest errors, DLQ depth, idle worker' },
+  { icon: 'gauge', t: 'Throttle', d: '20 req/s, burst 40; ETag + 300 s cache' },
+  { icon: 'ask', t: 'Ask limits', d: '10/min per client + daily cap → 429' },
+  { icon: 'ec2', t: 'Self-stopping EC2', d: 'one job, then shutdown; idle alarm backstop' },
+  { icon: 'lambda', t: 'Concurrency', d: 'account cap of 10 Lambda executions' },
+  { icon: 'iam', t: 'Budget', d: 'US$40/month AWS Budget outside the stack' },
+];
 
 export default function Platform() {
   const st = useApi<PlatformStatus>('/platform/status');
   const d = st.data;
-  const local = d ? !d.on_aws : false;
-  const fx = d?.metrics?.functions ?? {};
-  const lastRun = (j: string) => d?.runs.find((r) => job(r) === j);
-
-  const fnLine = (k: string): string | null => {
-    const f = fx[k];
-    if (!f) return null;
-    const inv = f.invocations?.total, err = f.errors?.total, p95 = f.duration_p95_ms?.max_daily;
-    return `${nf(inv)} inv · ${nf(err)} err · p95 ${nf(p95)} ms`;
-  };
-  const status: Record<string, string | null> = d ? {
-    ingest: fnLine('ingest') ?? (lastRun('ingest') ? `Last run ${ago(fin(lastRun('ingest')!))}` : null),
-    ec2: lastRun('trajectories') ? `Last run ${ago(fin(lastRun('trajectories')!))} · ${lastRun('trajectories')!.detail?.status ?? ''}` : null,
-    s3: d.manifest?.generated_at ? `Manifest ${ago(d.manifest.generated_at)}` : null,
-    api: fnLine('api') ?? (local ? 'Serving locally' : null),
-    cw: d.metrics ? `${d.metrics.window_days}-day window` : null,
-  } : {};
-  const idle = st.loading ? 'Checking…' : local ? 'No local signal' : 'No data';
-
-  // The data-flow pass runs once, when the diagram first comes into view.
-  const figRef = useRef<HTMLDivElement>(null);
-  const [flow, setFlow] = useState(false);
+  const live = useMemo(() => deriveLive(d), [d]);
+  const [motion, setMotion] = useState(() => !reducedMotion());
   useEffect(() => {
-    const el = figRef.current;
-    if (!el || reducedMotion()) { setFlow(true); return; }
-    el.dataset.armed = '';
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setFlow(true); io.disconnect(); } }, { threshold: 0.35 });
-    io.observe(el);
-    return () => io.disconnect();
+    const mq = matchMedia('(prefers-reduced-motion: reduce)');
+    const on = () => setMotion(!mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
   }, []);
-  const [hot, setHot] = useState<string | null>(null);
-  const linked = (id: string) => !hot || hot === id || EDGES.some((e) => (e.a === hot && e.b === id) || (e.b === hot && e.a === id));
 
-  const headRef = useReveal<HTMLElement>(), tablesRef = useReveal<HTMLDivElement>(), guardRef = useReveal<HTMLElement>();
+  // The open component is part of the URL (?node=api), so a link can point a colleague at one stage.
+  const [params, setParams] = useSearchParams();
+  const nodeParam = params.get('node');
+  const selected = nodeParam && NODES.some((n) => n.id === nodeParam) ? nodeParam : null;
+  const setSelected = useCallback((u: string | null | ((s: string | null) => string | null)) => {
+    setParams((p) => {
+      const cur = p.get('node');
+      const next = typeof u === 'function' ? u(cur) : u;
+      const q = new URLSearchParams(p);
+      if (next) q.set('node', next); else q.delete('node');
+      return q;
+    }, { replace: true });
+  }, [setParams]);
+  const [selFrom, setSelFrom] = useState<'diagram' | 'list'>('diagram');
+  const lastNode = useRef<string | null>(null);
+  const select = useCallback((id: string) => { lastNode.current = id; setSelFrom('diagram'); setSelected((s) => (s === id ? null : id)); }, [setSelected]);
+  const selectFromList = (id: string) => { lastNode.current = null; setSelFrom('list'); setSelected((s) => (s === id ? null : id)); };
+  const close = useCallback(() => {
+    setSelected(null);
+    const id = lastNode.current;
+    if (id) requestAnimationFrame(() => document.querySelector<SVGGElement>(`.ar-svg [data-node="${id}"]`)?.focus());
+  }, [setSelected]);
+
+  // Outage replay (real event from the run records) and the labelled local simulation share one mechanism.
+  const [target, setTarget] = useState<Target>('ingest');
+  const [down, setDown] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>(null);
+  const [backlog, setBacklog] = useState(0);
+  const timers = useRef<number[]>([]);
+  const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+  useEffect(() => clearTimers, []);
+  useEffect(() => {
+    if (mode?.phase === 'draining' && (backlog === 0 || !motion)) {
+      const t = window.setTimeout(() => setMode(null), motion ? 1200 : 2500);
+      return () => clearTimeout(t);
+    }
+  }, [mode, backlog, motion]);
+  const simOn = mode?.kind === 'sim' && mode.phase === 'down';
+  const toggleSim = () => {
+    clearTimers();
+    if (simOn) { setDown(null); setMode({ kind: 'sim', phase: 'draining' }); }
+    else { setDown(target); setMode({ kind: 'sim', phase: 'down' }); }
+  };
+  const rec = live.recovery;
+  const replay = () => {
+    if (!rec) return;
+    clearTimers();
+    setDown(rec.node); setMode({ kind: 'replay', phase: 'down' });
+    timers.current.push(window.setTimeout(() => { setDown(null); setMode({ kind: 'replay', phase: 'draining' }); }, 6000));
+  };
+  const loadedAt = useMemo(() => (d ? new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''), [d]);
+  const hhmm = (iso: string) => iso.replace(/.*T(\d{2}:\d{2}).*/, '$1');
+
+  const headRef = useReveal<HTMLDivElement>(), lowerRef = useReveal<HTMLDivElement>();
+  const runs = d?.runs ?? [];
   const sources = d?.manifest?.sources ?? [];
-  const showRuns = st.loading || (d?.runs.length ?? 0) > 0;
+  const r = live.readouts;
 
   return (
     <div className="page platform">
-      <header className="page-head pf-head" ref={headRef}>
-        <h1 data-r="1">The AWS system behind the data</h1>
-        <p data-r="2">Scheduled ingest into S3, a self-stopping EC2 trajectory worker, and a FastAPI Lambda behind API Gateway, each on its own IAM role.</p>
-        {local && (
-          <p className="pf-local" role="status" data-r="3">
-            Local mode, reading <span className="num">{d!.data_source.replace(/^local:.*\/(data\/curated)$/, 'local:$1')}</span>. CloudWatch metrics and S3 run history exist only on AWS.
-          </p>
-        )}
-      </header>
+      <div ref={headRef}>
+        <PageHeader
+          icon="platform"
+          title="Platform"
+          lede="The AWS pipeline that keeps every crash, AADT and trajectory figure on this portal current, and the roadside-LiDAR pilot it is designed to take in."
+          source={d ? <>Live from <span className="measure">/api/v1/platform/status</span>{d.on_aws ? ' · CloudWatch + S3 run records' : ' · local mode'}</> : 'Reading platform status…'}
+          readouts={[
+            { label: 'Stages up', value: d ? r.up : null, unit: `/ ${r.of}`, tone: live.verdict.s === 'down' ? 'alert' : 'accent' },
+            { label: 'Last ingest', value: r.lastIngestH, unit: 'h ago', digits: r.lastIngestH != null && r.lastIngestH < 10 ? 1 : 0 },
+            { label: 'API p95', value: r.p95, unit: 'ms' },
+            { label: <>Monthly est.</>, value: d ? live.cost.total : null, unit: 'US$', digits: 2 },
+          ]}
+          actions={<span className="status" data-s={live.verdict.s}><Icon name={live.verdict.s === 'down' ? 'fail' : live.verdict.s === 'ok' ? 'ok' : 'info'} size={15} weight="fill" />{live.verdict.text}</span>}
+        />
+      </div>
 
+      {live.local && (
+        <p className="pf-local" role="status"><Icon name="info" size={16} />Local mode: CloudWatch metrics and S3 run history exist only on AWS, so Lambda rates, the run table and the recovery replay appear on the deployed portal.</p>
+      )}
       {st.error && <div className="error-box">Platform status unavailable: {st.error}</div>}
       {d?.errors.length ? <div className="error-box">{d.errors.join('; ')}</div> : null}
 
-      <section className="section pf-arch" aria-labelledby="pf-arch">
-        <h2 id="pf-arch" className="sr-only">Architecture</h2>
-        <div className="pf-fig" ref={figRef} data-flow={flow || undefined}>
-          <div className="pf-svg" data-ui>
-          <svg viewBox="-60 0 1060 500" role="img" aria-labelledby="pf-svg-t pf-svg-d" onMouseLeave={() => setHot(null)}>
-            <title id="pf-svg-t">RoadScope AWS architecture</title>
-            <desc id="pf-svg-d">
-              An EventBridge rule triggers the ingest Lambda, which writes raw and curated objects to S3 and reports to CloudWatch.
-              EventBridge Scheduler starts an EC2 batch worker that builds trajectories into S3. Vercel proxies API requests to
-              an API Gateway HTTP API, which invokes the API Lambda; the API reads S3 and calls Bedrock for questions. IAM roles scope each component.
-            </desc>
-            <defs>
-              <marker id="pf-ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M0 0.5 L8 4 L0 7.5 z" fill="var(--ink-3)" />
-              </marker>
-            </defs>
-            {LANES.map(([l, y]) => <text key={l} x={-60} y={y} className="pf-lane">{l}</text>)}
-            {EDGES.map((e, i) => {
-              const on = !!hot && (e.a === hot || e.b === hot);
-              return (
-                <g key={i} className="pf-e" data-dim={(hot && !on) || undefined} data-on={on || undefined}>
-                  <path d={e.d} className={`pf-edge${e.k === 'mon' ? ' mon' : ''}`} markerEnd="url(#pf-ah)" />
-                  {e.k !== 'mon' && <path d={e.d} pathLength={1} className="pf-pulse" style={{ animationDelay: `${300 + i * 110}ms` }} />}
-                </g>
-              );
-            })}
-            {NODES.map((n, i) => {
-              const s = status[n.id];
-              return (
-                <g key={n.id} transform={`translate(${n.x} ${n.y})`}>
-                  <g className="pf-node" style={{ '--i': i } as CSSProperties} data-live={s ? '' : undefined} data-dim={!linked(n.id) || undefined}
-                    data-hot={hot === n.id || undefined} onMouseEnter={() => setHot(n.id)}>
-                    <rect width={W} height={H} rx={10} />
-                    <text x={16} y={30} className="pf-t">{n.t}</text>
-                    <text x={16} y={53} className="pf-s">{n.s}</text>
-                    <circle cx={21} cy={82} r={4} className="pf-dot" />
-                    {s && <circle cx={21} cy={82} r={4} className="pf-ring" />}
-                    <text x={34} y={87} className="pf-st num">{s ?? idle}</text>
-                  </g>
-                </g>
-              );
-            })}
-          </svg>
+      <section className="section ar" aria-labelledby="ar-h">
+        <div className="ar-head">
+          <div>
+            <h2 id="ar-h">Living architecture</h2>
+            <p className="ar-why">Comets carry the real volume on each link (runs, records, requests; log-scaled). Select any component for its metrics.</p>
           </div>
-          <ol className="pf-list">
-            {LANES.map(([l]) => (
-              <li key={l}>
-                <p className="pf-lane-h">{l}</p>
-                <ul>
-                  {NODES.filter((n) => n.lane === l).map((n) => (
-                    <li key={n.id} data-live={status[n.id] ? '' : undefined}>
-                      <b>{n.t}</b>
-                      <span>{n.s}</span>
-                      <em className="num">{status[n.id] ?? idle}</em>
+          <div className="ar-ctl">
+            {rec && (
+              <button type="button" className="btn ghost" onClick={replay} disabled={mode?.kind === 'replay'}>
+                <Icon name="reset" size={16} />Replay real recovery
+              </button>
+            )}
+            <Select<Target> compact label="Outage at" icon="offline" value={target} options={[...TARGETS]} onChange={(v) => { setTarget(v); if (simOn) setDown(v); }} />
+            <button type="button" className={`btn ${simOn ? '' : 'ghost'} ar-simbtn`} aria-pressed={simOn} onClick={toggleSim}>
+              <Icon name={simOn ? 'play' : 'warning'} size={16} />{simOn ? 'Restore service' : 'Simulate an outage'}
+            </button>
+          </div>
+        </div>
+
+        <ul className="ar-legend" aria-label="Flow colours">
+          {FLOWS.map((x) => <li key={x.f} data-flow={x.f}><i />{x.label}</li>)}
+          <li className="ar-lg-state"><span className="ar-sw" data-s="down" />Down</li>
+          <li className="ar-lg-state"><span className="ar-sw" data-s="idle" />Idle</li>
+        </ul>
+
+        <div className="ar-banner" role="status" aria-live="polite" data-kind={mode?.kind ?? 'live'}>
+          {!mode && (
+            <><b>Live</b><span>{d ? <>State read {d.on_aws ? 'from CloudWatch and S3 run records' : 'from the local manifest'} at <span className="measure">{loadedAt}</span> local time. Bedrock and CloudFront are defined but await AWS account verification; the pilot lane is a design.</> : 'Reading platform status…'}</span></>
+          )}
+          {mode?.kind === 'sim' && (
+            <><b>Simulation</b><span>{mode.phase === 'down'
+              ? `${NODES.find((n) => n.id === down)?.title} taken down in your browser only; upstream items queue in front of it.${motion ? '' : ' Queues are not animated with reduced motion.'}`
+              : `Service restored; the queued backlog drains downstream at an accelerated rate${motion && backlog ? ` (${backlog} left)` : ''}.`} Live AWS state is unchanged.</span></>
+          )}
+          {mode?.kind === 'replay' && rec && (
+            <><b>Replay</b><span>Real event: the {rec.job} job failed at {hhmm(finished(rec.failed))} UTC (run <span className="measure">{rec.failed.detail?.run_id}</span>) and succeeded {rec.minutes} min later (run <span className="measure">{rec.recovered.detail?.run_id}</span>). Compressed to 6 s.{mode.phase === 'draining' ? ' Backlog draining.' : ''}</span></>
+          )}
+        </div>
+
+        <div className="ar-fig" data-panel={selected ? '' : undefined}>
+          <div className="ar-scroll" tabIndex={-1}>
+            <FlowDiagram live={live} down={down} downLabel={mode?.kind === 'replay' ? 'Failed · queueing' : 'Down (sim) · queueing'} selected={selected} onSelect={select} motion={motion} onBacklog={setBacklog} />
+          </div>
+          <p className="ar-pan"><Icon name="arrow" size={14} />Scroll sideways to see the whole system<span className="ar-pan-m">, or use the list below</span>.</p>
+          {selected && selFrom === 'diagram' && <NodePanel key={selected} id={selected} live={live} data={d} simulated={down === selected} onClose={close} />}
+        </div>
+
+        <div className="ar-list">
+          {(['live', 'pilot'] as const).map((lane) => (
+            <div key={lane} className="ar-lgroup">
+              <p className="ar-lh">{lane === 'live' ? 'Running now' : 'Pilot design · planned'}</p>
+              <ul>
+                {NODES.filter((n) => n.lane === lane).map((n) => {
+                  const s = live.nodes[n.id];
+                  const state = down === n.id ? 'down' : s?.state;
+                  return (
+                    <li key={n.id}>
+                      <button type="button" data-state={state} data-flow={n.flow} aria-pressed={selected === n.id} onClick={() => selectFromList(n.id)}>
+                        <span className="ar-li-ico"><Icon name={n.icon} size={18} weight="duotone" /></span>
+                        <span className="ar-li-t"><b>{n.title}</b><small>{s?.sub ?? n.service}</small></span>
+                        <span className="ar-li-c measure">{s?.chip}</span>
+                      </button>
+                      {selected === n.id && selFrom === 'list' && <NodePanel id={n.id} live={live} data={d} simulated={down === n.id} onClose={() => setSelected(null)} />}
                     </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ol>
-          <div className="pf-key" aria-hidden="true">
-            <span><svg width="28" height="8"><path d="M1 4 H27" className="pf-edge" /></svg>Data</span>
-            <span><svg width="28" height="8"><path d="M2 4 H27" className="pf-edge mon" /></svg>Metrics and logs</span>
-            <span><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="var(--accent)" /></svg>Live signal</span>
-          </div>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </div>
       </section>
 
-      <div className={`pf-cols${showRuns ? '' : ' one'}`} ref={tablesRef}>
-        {showRuns && (
-          <section className="section" aria-labelledby="pf-runs" data-r="1">
-            <h2 id="pf-runs">Pipeline runs</h2>
-            {st.loading && <div className="skeleton pf-skel" />}
-            {d && d.runs.length > 0 && (
-              <div className="pf-scroll" data-ui>
-                <table className="data">
-                  <thead><tr><th>Run</th><th>Job</th><th>Status</th><th>Finished</th><th className="r">Seconds</th></tr></thead>
-                  <tbody>
-                    {d.runs.map((r) => (
-                      <tr key={r.key}>
-                        <td className="num">{r.detail?.run_id ?? r.key.split('/').pop()}</td>
-                        <td>{job(r)}</td>
-                        <td className={r.detail?.status === 'failed' ? 'pf-bad' : ''}>{r.detail?.status ?? '—'}</td>
-                        <td className="num">{fin(r).replace('T', ' ').slice(0, 16)}</td>
-                        <td className="r num">{nf(r.detail?.seconds as number | undefined, 1)}</td>
+      <div className="pf-lower" ref={lowerRef}>
+        <section className="section pf-wide" aria-labelledby="pf-runs" data-r="1">
+          <h2 id="pf-runs">Pipeline runs</h2>
+          <p className="pf-why">Every job writes a run record to S3; failures stay visible.</p>
+          {st.loading && <div className="skeleton pf-skel" />}
+          {d && runs.length === 0 && <p className="pf-empty"><Icon name="info" size={16} />No run records in local mode; the deployed portal lists every ingest and worker job here.</p>}
+          {runs.length > 0 && (
+            <div className="pf-scroll" data-ui>
+              <table className="data">
+                <thead><tr><th>Run</th><th>Job</th><th>Status</th><th>Finished (UTC)</th><th className="r">Wall time</th></tr></thead>
+                <tbody>
+                  {runs.map((x) => {
+                    const s = x.detail?.status as string | undefined, secs = runSeconds(x);
+                    return (
+                      <tr key={x.key}>
+                        <td className="measure">{x.detail?.run_id ?? x.key.split('/').pop()}</td>
+                        <td><span className="pf-job"><Icon name={job(x) === 'trajectories' ? 'ec2' : 'lambda'} size={15} />{job(x) === 'trajectories' ? 'EC2 trajectories' : 'Lambda ingest'}</span></td>
+                        <td><span className="status" data-s={s === 'failed' ? 'down' : s === 'succeeded' ? 'ok' : 'idle'}><Icon name="dot" size={8} weight="fill" />{s ?? '—'}</span></td>
+                        <td className="measure">{finished(x).replace('T', ' ').slice(0, 16)}</td>
+                        <td className="r measure">{secs != null ? `${nf(secs, secs < 60 ? 1 : 0)} s` : '—'}</td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        )}
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         <section className="section" aria-labelledby="pf-fresh" data-r="2">
           <h2 id="pf-fresh">Data freshness</h2>
+          <p className="pf-why">Records per source in the curated manifest, with the licence each carries.</p>
           {sources.length > 0 && (
             <div className="pf-scroll" data-ui>
               <table className="data">
-                <thead><tr><th>Source</th><th className="r">Records</th><th>Fetched</th><th className="r">Age</th></tr></thead>
+                <thead><tr><th>Source</th><th className="r">Records</th><th className="r">Fetched</th></tr></thead>
                 <tbody>
                   {sources.map((s) => (
                     <tr key={s.id}>
-                      <td>{s.id}</td>
-                      <td className="r num">{nf(s.records)}</td>
-                      <td className="num">{s.fetched_at.replace('T', ' ').slice(0, 16)}</td>
-                      <td className="r num">{ago(s.fetched_at)}</td>
+                      <td><span className="pf-srcid" title={s.licence}>{s.id}</span></td>
+                      <td className="r measure">{nf(s.records)}</td>
+                      <td className="r measure">{ago(s.fetched_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -215,19 +247,33 @@ export default function Platform() {
             </div>
           )}
         </section>
-      </div>
 
-      <section className="section pf-cost" aria-labelledby="pf-cost" ref={guardRef}>
-        <h2 id="pf-cost" data-r="1">Cost guardrails</h2>
-        <dl className="pf-guard" data-r="2">
-          <div><dt>Error alarms</dt><dd>CloudWatch alarms on API errors, ingest errors and dead-letter queue depth.</dd></div>
-          <div><dt>Throttling and caching</dt><dd>HTTP API throttled at 20 requests/s (burst 40); GET responses carry ETags and a 300 s Cache-Control. A CloudFront edge (<code>-c edge=cloudfront</code>) replaces it once AWS verifies the account.</dd></div>
-          <div><dt>Ask limits</dt><dd>10 per minute per client plus a daily budget; beyond either, 429.</dd></div>
-          <div><dt>Batch compute</dt><dd>The EC2 worker runs one job, then stops itself.</dd></div>
-          <div><dt>Budget</dt><dd>Account-level AWS Budget (<code>roadscope-transtech-cap</code>, US$40 per month), kept outside the stack.</dd></div>
-          <div><dt>Concurrency</dt><dd>Account Lambda concurrency limit of 10 caps simultaneous executions.</dd></div>
-        </dl>
-      </section>
+        <section className="section pf-costsec" aria-labelledby="pf-cost" data-r="3">
+          <div className="pf-costhead">
+            <h2 id="pf-cost">Monthly cost estimate</h2>
+            <MetricInfo align="right" spec={{
+              name: 'Monthly cost estimate', provenance: 'derived', unit: 'US$ / 30 days',
+              formula: <>Σ (metered usage × list price), scaled from the {d?.metrics?.window_days ?? 7}-day CloudWatch window to 30 days</>,
+              source: 'CloudWatch Lambda invocations and p95 duration; S3 run records for EC2 job time; AWS list prices, us-east-2',
+              note: 'Upper bound for Lambda (p95 duration for every call). Excludes S3 storage (< 1 GB), data transfer, and free-tier and credit offsets.',
+            }} />
+          </div>
+          <p className="pf-total"><span className="measure">US$ {live.cost.total.toFixed(2)}</span><small>per month at current traffic · budget alarm at US$40</small></p>
+          <ul className="pf-costs">
+            {live.cost.lines.map((l) => (
+              <li key={l.item}><span>{l.item}</span><small>{l.basis}</small><span className="measure">{l.usd < 0.01 && l.usd > 0 ? '< 0.01' : l.usd.toFixed(2)}</span></li>
+            ))}
+          </ul>
+          {!live.cost.metered && <p className="pf-empty"><Icon name="info" size={16} />Lambda and API lines need CloudWatch; locally only the fixed parts are shown.</p>}
+        </section>
+
+        <section className="section" aria-labelledby="pf-guard" data-r="4">
+          <h2 id="pf-guard">Guardrails</h2>
+          <ul className="pf-guards">
+            {GUARDS.map((g) => <li key={g.t}><Icon name={g.icon} size={20} weight="duotone" /><b>{g.t}</b><span>{g.d}</span></li>)}
+          </ul>
+        </section>
+      </div>
     </div>
   );
 }

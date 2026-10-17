@@ -1,13 +1,12 @@
-.ask { gap: clamp(40px, 5vw, 72px); max-width: 1040px; }
-.ask-head { gap: var(--s4); }
-.ask-head h1 { font-size: clamp(2.75rem, 1rem + 5.4vw, 6.5rem); letter-spacing: -0.045em; line-height: 0.95; }
-.ask-head p { font-size: 18px; color: var(--ink-2); max-width: 52ch; }
+.ask { gap: clamp(32px, 4vw, 56px); max-width: 1120px; }
+/* Status chip sits inline in the header source line. */
+.ask .ph-actions .status { font-size: 13px; padding: 5px 11px; }
 
 /* The input is the page: a large field on one tone step, the action inside it. */
 .ask-form { display: grid; gap: var(--s3); background: var(--sheet); border-radius: 16px; padding: clamp(20px, 2.6vw, 32px); transition: background-color 200ms var(--ease-out); }
 .ask-form:focus-within { background: color-mix(in srgb, var(--ink) 4%, var(--sheet)); }
 .ask-form textarea {
-  width: 100%; resize: none; min-height: 3.6em; padding: 0; border: 0; background: transparent; color: var(--ink);
+  width: 100%; resize: none; min-height: 2.6em; padding: 0; border: 0; background: transparent; color: var(--ink);
   font: 500 clamp(22px, 1rem + 1.2vw, 32px)/1.3 var(--f-ui); letter-spacing: -0.02em; caret-color: var(--accent); field-sizing: content; max-height: 12em;
 }
 .ask-form textarea::placeholder { color: var(--ink-3); }
@@ -53,8 +52,6 @@
 
 @media (max-width: 600px) {
   .ask-sq { font-size: 17px; }
-  .ask-hint { display: none; }
-  .ask-actions { justify-content: flex-end; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ask-turn, .ask-form[data-busy] .ask-go { animation: none; }
@@ -70,3 +67,61 @@
 .ask[data-in] .ask-sugg li:nth-child(5) { transition-delay: 600ms; }
 .ask[data-in] .ask-sugg li:nth-child(6) { transition-delay: 660ms; }
 @media (prefers-reduced-motion: reduce) { .ask[data-armed] .ask-sugg li { opacity: 1; transform: none; } }
+
+.ask-label { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-3); }
+.ask-label .icon { color: var(--accent); }
+.ask-form textarea:disabled { opacity: 0.55; cursor: progress; }
+.ask-hint { display: inline-flex; align-items: center; gap: 14px; }
+.ask-count { font-size: 13px; color: var(--ink-3); transition: color 160ms; }
+.ask-count[data-warn] { color: var(--caution); }
+.ask-btns { display: inline-flex; gap: 8px; align-items: center; }
+.ask-go .icon { flex: none; }
+.ask-form[data-busy] .ask-go .icon { animation: ask-spin 900ms linear infinite; }
+@keyframes ask-spin { to { transform: rotate(360deg); } }
+
+/* Suggestions: icon, question, the tool it exercises. */
+.ask-sugg { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ask-sq { margin: 0; width: 100%; height: 100%; display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr auto; align-items: start; gap: 6px 12px; padding: 14px 16px; background: var(--sheet); font-size: 16px; justify-content: stretch; }
+.ask-sq .icon { opacity: 1; transform: none; color: var(--accent); grid-row: 1 / 3; margin-top: 2px; }
+.ask-sq:hover:not(:disabled) .icon, .ask-sq:focus-visible .icon { transform: none; }
+.ask-sq:hover:not(:disabled), .ask-sq:focus-visible { background: var(--raise); }
+.ask-sq:active:not(:disabled) { transform: scale(0.99); }
+.ask-sq-t { font: 500 12px var(--f-measure); color: var(--ink-3); justify-self: start; }
+
+.ask-hist-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ask-hist-h h2 { font-size: 18px; font-weight: 500; color: var(--ink-3); }
+.ask-q { display: flex; align-items: flex-start; gap: 10px; }
+.ask-q .icon { color: var(--accent); margin-top: 0.25em; flex: none; }
+.ask-card { display: grid; gap: var(--s4); padding: clamp(16px, 2vw, 24px); border-radius: 14px; background: var(--sheet); }
+.ask-err { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ask-err span { flex: 1; min-width: 200px; }
+.ask-cites { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ask-cite { display: inline-flex; align-items: center; gap: 8px; padding: 5px 6px 5px 10px; border-radius: 999px; background: var(--raise); font-size: 13.5px; color: var(--ink-2); max-width: 100%; }
+.ask-cite > span:not(.prov) { overflow-wrap: anywhere; }
+.ask-cite > .icon { color: var(--ink-3); flex: none; }
+.ask-caveat { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--ink-3); max-width: 76ch; line-height: 1.45; margin: 0; }
+.ask-caveat .icon { flex: none; margin-top: 2px; }
+.ask-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--rule); }
+.ask-model { font-size: 12.5px; color: var(--ink-3); }
+.ask-copy { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border: 0; border-radius: 8px; background: var(--raise); color: var(--ink-2); font-size: 13.5px; cursor: pointer; transition: background-color 140ms, color 140ms; }
+@media (hover: hover) { .ask-copy:hover { background: var(--rule); color: var(--ink); } }
+.ask-copy:active { transform: scale(0.97); }
+.ask-tools summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; }
+.ask-tools summary::-webkit-details-marker { display: none; }
+.ask-tools summary .icon { transform: rotate(-90deg); transition: transform 180ms var(--ease-out); }
+.ask-tools[open] summary .icon { transform: none; }
+.ask-tools li code { font: 500 13px var(--f-measure); color: var(--ink); }
+.ask-tools pre { background: var(--raise); }
+
+@media (max-width: 760px) {
+  .ask-sugg { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .ask-hint #ask-keys { display: none; }
+  .ask-hint { display: inline-flex; }
+  .ask-actions { justify-content: space-between; }
+}
+@media (prefers-reduced-motion: reduce) { .ask-form[data-busy] .ask-go .icon { animation: none; } }
+.ask-list { margin: 0; padding-left: 1.6em; display: grid; gap: 8px; max-width: 76ch; }
+.ask-list li { font-size: 16px; line-height: 1.5; color: var(--ink); padding-left: 4px; }
+.ask-list li::marker { color: var(--ink-3); font-variant-numeric: tabular-nums; }

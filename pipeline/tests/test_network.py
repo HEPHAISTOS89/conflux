@@ -118,6 +118,7 @@ def test_helpers():
     assert route_key("US0084-KG_01") == "US0084-KG" and route_key("SL0289-KG") == "SL0289-KG"
     assert severity("K - FATAL INJURY") == "K" and severity("N - NOT INJURED") == "O" and severity(None) is None
     assert hour("12:05 AM") == 0 and hour("4:15 PM") == 16
+    assert hour("12:05 AM", "1 - DAYLIGHT") == 12 and hour("12:05 AM", "2 - DARK, NOT LIGHTED") == 0
     line = [[-101.8, 33.5], [-101.79999, 33.50001], [-101.7, 33.5]]  # ~1.4 m kink removed at 5 m
     assert douglas_peucker(line, 5.0) == [line[0], line[-1]]
 

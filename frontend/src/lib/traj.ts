@@ -32,28 +32,43 @@ export const MPS_TO_MPH = 2.236936;
 export const DIR_COLOR: Record<string, string> = { NB: '#14171a', SB: '#46617a', EB: '#7a5a2e', WB: '#5b6b4d' };
 
 /** Shared playback clock for a page. `t` is not React state: read it with useClockFrame or now() so playback does not re-render the page. */
-export interface Clock { playing: boolean; rate: number; duration: number; setT: (t: number) => void; toggle: () => void; play: () => void; pause: () => void; setRate: (r: number) => void; subscribe: (fn: (t: number) => void) => () => void; now: () => number }
+export interface Clock {
+  playing: boolean; rate: number; duration: number; setT: (t: number) => void; toggle: () => void; play: () => void; pause: () => void; setRate: (r: number) => void;
+  subscribe: (fn: (t: number) => void) => () => void; now: () => number;
+  /** Time-dependent rate multiplier (near-miss slow-down); null restores real time. */
+  setWarp: (fn: ((t: number) => number) | null) => void;
+  /** Multiplier applied on the last tick (1 when not warping or paused). */
+  warpNow: () => number;
+}
 
 export function useClockState(duration: number): Clock {
   const [playing, setPlaying] = useState(false);
   const [rate, setRate] = useState(1);
   const tRef = useRef(0);
   const subs = useRef(new Set<(t: number) => void>());
+  const warp = useRef<((t: number) => number) | null>(null);
+  const lastWarp = useRef(1);
   const emit = (v: number) => { tRef.current = v; subs.current.forEach((f) => f(v)); };
   const setT = useCallback((v: number) => { const c = Math.max(0, Math.min(duration, v)); emit(c); }, [duration]);
 
   useEffect(() => {
-    if (!playing) return;
+    if (!playing) { lastWarp.current = 1; return; }
     let raf = 0, last = performance.now();
     const loop = (now: number) => {
-      const dt = (now - last) / 1000; last = now;
-      let v = tRef.current + dt * rate;
+      // clamp so a frame after a stall (or a hidden tab) never jumps the replay
+      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      const w = warp.current ? warp.current(tRef.current) : 1;
+      lastWarp.current = w;
+      let v = tRef.current + dt * rate * w;
       if (v >= duration) v = 0;
       emit(v);
       raf = requestAnimationFrame(loop);
     };
+    // no ticks while the tab is hidden; resume from the same time when it returns
+    const vis = () => { cancelAnimationFrame(raf); if (!document.hidden) { last = performance.now(); raf = requestAnimationFrame(loop); } };
+    document.addEventListener('visibilitychange', vis);
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => { cancelAnimationFrame(raf); document.removeEventListener('visibilitychange', vis); };
   }, [playing, rate, duration]);
 
   return {
@@ -63,6 +78,8 @@ export function useClockState(duration: number): Clock {
     pause: () => setPlaying(false),
     subscribe: (fn) => { subs.current.add(fn); return () => { subs.current.delete(fn); }; },
     now: () => tRef.current,
+    setWarp: (fn) => { warp.current = fn; if (!fn) lastWarp.current = 1; },
+    warpNow: () => lastWarp.current,
   };
 }
 

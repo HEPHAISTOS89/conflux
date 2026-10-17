@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import PageHeader from '../components/PageHeader';
+import { ProvChip, type Provenance } from '../components/MetricInfo';
+import { Icon, type IconName } from '../components/Icon';
+import { downloadCSV } from '../lib/export';
 import { useApi } from '../lib/api';
 import { useReveal } from '../lib/motion';
 import { nf } from '../lib/format';
@@ -18,8 +22,9 @@ declare module 'react' {
 }
 
 const TOC: [string, string][] = [
+  ['m-catalogue', 'Metric catalogue'],
   ['m-data', 'Data sources'],
-  ['m-screen', 'Network screening'],
+  ['m-screening', 'Network screening'],
   ['m-spf', 'Safety performance functions'],
   ['m-ssm', 'Surrogate safety measures'],
   ['m-repair', 'Trajectory repair'],
@@ -52,6 +57,55 @@ interface RepairSum {
   }>;
 }
 
+
+/* ---------- Metric catalogue: one card per number the portal shows ---------- */
+
+type Family = 'screening' | 'spf' | 'ssm' | 'trajectory' | 'vru';
+const FAMILIES: [Family | 'all', string, IconName][] = [
+  ['all', 'All', 'methods'], ['screening', 'Network screening', 'rank'], ['spf', 'SPF', 'trend'],
+  ['ssm', 'Surrogate safety', 'crosshair'], ['trajectory', 'Trajectory', 'path'], ['vru', 'VRU crashes', 'ped'],
+];
+interface Metric {
+  key: string; family: Family; icon: IconName; name: string; abbr?: string; formula: string; where?: string;
+  threshold: ReactNode; unit: string; data: string; provenance: Provenance; cite: string; section: string; page: [string, string];
+}
+const METRICS: Metric[] = [
+  { key: 'crash-rate', family: 'screening', icon: 'rank', name: 'Crash rate', abbr: 'R', formula: 'R = N · 10⁸ / (365 · Y · AADT · L)',
+    where: 'N crashes over Y years; L segment length (mi)', threshold: 'None; ranking measure', unit: 'crashes / 100 MVMT',
+    data: 'CRIS ped/bike crashes snapped ≤ 5 m; TxDOT AADT', provenance: 'derived', cite: 'HSM (2010) Part B, Ch. 4', section: 'm-screening', page: ['/screening', 'Network screening'] },
+  { key: 'critical-rate', family: 'screening', icon: 'warning', name: 'Critical rate ratio', abbr: 'R / Rc', formula: 'Rc = Ra + k·√(Ra / M) + 1 / (2M)',
+    where: 'Ra site-type average; M exposure (100 MVMT); k = 1.645', threshold: 'R / Rc > 1 flags the segment (95 %)', unit: 'ratio',
+    data: 'Crash rate and exposure by Roadway Inventory site type', provenance: 'derived', cite: 'HSM (2010) Part B, Ch. 4', section: 'm-screening', page: ['/screening', 'Network screening'] },
+  { key: 'eb-excess', family: 'screening', icon: 'target', name: 'EB excess expected crashes', abbr: 'EB', formula: 'w = 1 / (1 + (k / L) · μY)\nE = w · μY + (1 − w) · N\nexcess = (E − μY) / Y',
+    where: 'μY site-type SPF prediction over Y years', threshold: 'excess > 0 ranks above SPF expectation', unit: 'crashes / yr',
+    data: 'Observed crashes N and site-type SPF', provenance: 'derived', cite: 'Hauer (1997); Hauer et al. (2002), TRR 1784', section: 'm-screening', page: ['/screening', 'Network screening'] },
+  { key: 'spf', family: 'spf', icon: 'trend', name: 'Safety performance function', abbr: 'SPF', formula: 'ln μY = β0 + β1·ln AADT + Σ βj·xj + ln L + ln Y',
+    where: 'NB2 ML; covariates by AIC, ≤ 1 per 10 crashes', threshold: 'Own model if ≥ 30 segments and ≥ 20 crashes; else pooled', unit: 'crashes per Y years',
+    data: 'Segments with AADT and site type', provenance: 'derived', cite: 'HSM (2010) Part C; Hauer & Bamfo (1997) CURE', section: 'm-spf', page: ['/screening', 'Network screening'] },
+  { key: 'ttc', family: 'ssm', icon: 'clock', name: 'Time to collision', abbr: 'TTC', formula: 'TTC = Δx / (vf − vl),  vf > vl',
+    where: 'Δx front-to-rear gap; f follower, l leader', threshold: '≤ 1.5 s for ≥ 0.3 s; ≤ 0.5 s critical', unit: 's',
+    data: 'NGSIM 10 Hz trajectories', provenance: 'derived', cite: 'Hayward (1972); Gettman et al. (2008) SSAM', section: 'm-ssm', page: ['/intersections', 'Intersection lab'] },
+  { key: 'pet', family: 'ssm', icon: 'intersection', name: 'Post-encroachment time', abbr: 'PET', formula: 'PET = t_enter(2) − t_exit(1)',
+    where: 'Footprints swept on a 0.5 m raster at 50 Hz; paths ≥ 30° apart', threshold: '≤ 5.0 s; ≤ 1 s critical', unit: 's',
+    data: 'NGSIM 10 Hz trajectories', provenance: 'derived', cite: 'Allen, Shin & Cooper (1978), TRR 667', section: 'm-ssm', page: ['/intersections', 'Intersection lab'] },
+  { key: 'drac', family: 'ssm', icon: 'gauge', name: 'Deceleration rate to avoid crash', abbr: 'DRAC', formula: 'DRAC = (vf − vl)² / (2 · Δx)',
+    where: 'Flag on TTC events, not a detection rule', threshold: '≥ 11.2 ft/s² (3.4 m/s²); > 26 ft/s² = position error', unit: 'ft/s²',
+    data: 'NGSIM 10 Hz trajectories', provenance: 'derived', cite: 'AASHTO (2018) Green Book', section: 'm-ssm', page: ['/intersections', 'Intersection lab'] },
+  { key: 'repair-rmse', family: 'trajectory', icon: 'path', name: 'Trajectory repair error', abbr: 'RMSE', formula: 'RMSE = √( Σ ‖p̂ − p‖² / n )',
+    where: 'Over held-out gap frames; gaps 0.5–5.0 s', threshold: 'Method chosen on a separate validation set', unit: 'm (1 m = 3.28 ft)',
+    data: 'NGSIM tracks with uniform and occluder gaps', provenance: 'derived', cite: 'Punzo et al. (2011); Montanino & Punzo (2015)', section: 'm-repair', page: ['/intersections', 'Intersection lab'] },
+  { key: 'ka-share', family: 'vru', icon: 'ped', name: 'KA share', abbr: 'KA', formula: 'KA share = (K + A) / N\n95 % CI: Wilson score',
+    where: 'K fatal, A suspected serious injury', threshold: 'None; compare intervals, not points', unit: '% of crashes',
+    data: 'TxDOT CRIS crash severity (KABCO)', provenance: 'derived', cite: 'MMUCC 5th ed. KABCO; Wilson (1927)', section: 'm-limits', page: ['/vru', 'Pedestrians & cyclists'] },
+  { key: 'peak-window', family: 'vru', icon: 'clock', name: 'Peak-risk window', formula: 'peak = argmax_s Σ_{h=s}^{s+2} N_h',
+    where: 'N_h crashes in clock hour h, all days pooled, wraps midnight', threshold: 'Compared with the uniform 12.5 % share', unit: '3-hour window',
+    data: 'CRIS crash time', provenance: 'derived', cite: 'Descriptive; this portal', section: 'm-limits', page: ['/vru', 'Pedestrians & cyclists'] },
+];
+
+/** Provenance of each manifest source: observed field records vs agency-published inventories and public data. */
+const SRC_PROV: Record<string, Provenance> = { active_transportation_crashes: 'observed', segment_crash: 'observed' };
+const srcProv = (id: string): Provenance => SRC_PROV[id] ?? 'public';
+
 const date = (s?: string) => (s ? s.slice(0, 10) : '—');
 
 export default function Methods() {
@@ -63,15 +117,29 @@ export default function Methods() {
   const sl = useApi<SsmData>('/intersections/lankershim-main/ssm');
   const repairs = [rp, rl];
   const ssm = [{ name: SITES[0][1], d: sp.data, err: sp.error }, { name: SITES[1][1], d: sl.data, err: sl.error }];
-  const headRef = useReveal<HTMLElement>();
   const active = useSpy();
+  const { hash } = useLocation();
+  // Deep links (#m-ssm, #metric-ttc) land after the async sections have laid out.
+  useEffect(() => {
+    if (!hash) return;
+    const t = setTimeout(() => document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' }), 350);
+    return () => clearTimeout(t);
+  }, [hash, meta.loading, spf.loading]);
 
   return (
     <div className="page methods">
-      <header className="page-head m-head" ref={headRef}>
-        <h1 data-r="1">Methods</h1>
-        <p data-r="2">How every number is produced, and where each method stops.</p>
-      </header>
+      <PageHeader
+        icon="methods"
+        title="Methods and data"
+        lede="What each number measures, its formula and threshold, where the inputs come from, and where each method stops."
+        source={meta.data ? `Manifest built ${date(meta.data.generated_at)} · Lubbock County roadway and crashes; NGSIM Los Angeles and Atlanta trajectories` : 'Loading manifest…'}
+        readouts={[
+          { label: 'Metrics', value: METRICS.length },
+          { label: 'Sources', value: meta.data?.sources.length ?? null },
+          { label: 'Segments, ≈ 1 mi', value: (meta.data?.metrics?.segments as number | undefined) ?? null },
+          { label: 'Conflict sites', value: SITES.length },
+        ]}
+      />
 
       <div className="methods-layout">
         <nav className="methods-toc" aria-label="On this page">
@@ -79,6 +147,11 @@ export default function Methods() {
         </nav>
 
         <article className="methods-body">
+          <Sec id="m-catalogue">
+            <h2 id="m-catalogue-h">Metric catalogue</h2>
+            <Catalogue />
+          </Sec>
+
           <Sec id="m-data">
             <h2 id="m-data-h">Data sources</h2>
             {meta.error && <div className="error-box">{meta.error}</div>}
@@ -86,11 +159,12 @@ export default function Methods() {
             {meta.data && (
               <div className="m-scroll" data-ui>
                 <table className="data">
-                  <thead><tr><th>Source</th><th>Licence</th><th className="r">Records</th><th>Fetched</th><th>SHA-256</th></tr></thead>
+                  <thead><tr><th>Source</th><th>Provenance</th><th>Licence</th><th className="r">Records</th><th>Fetched</th><th>SHA-256</th></tr></thead>
                   <tbody>
                     {meta.data.sources.map((s) => (
                       <tr key={s.id}>
-                        <td><a href={s.url} rel="noopener noreferrer" target="_blank">{s.id}</a></td>
+                        <td><a href={s.url} rel="noopener noreferrer" target="_blank">{s.id}<Icon name="external" size={12} /></a></td>
+                        <td><ProvChip kind={srcProv(s.id)} /></td>
                         <td className="m-lic">{s.licence}</td>
                         <td className="r num">{nf(s.records)}</td>
                         <td className="num">{date(s.fetched_at)}</td>
@@ -101,11 +175,18 @@ export default function Methods() {
                 </table>
               </div>
             )}
+            {meta.data && (
+              <div className="m-row-actions">
+                <button type="button" className="btn ghost" onClick={() => downloadCSV('roadscope-data-manifest.csv', meta.data!.sources.map((x) => ({ source: x.id, provenance: srcProv(x.id), licence: x.licence, records: x.records, fetched_at: x.fetched_at, sha256: x.sha256 ?? '', url: x.url })))}>
+                  <Icon name="download" size={16} />Manifest CSV
+                </button>
+              </div>
+            )}
             {meta.data && <p className="m-small">Manifest generated <span className="num">{date(meta.data.generated_at)}</span>; SHA-256 truncated, full hash on hover.</p>}
           </Sec>
 
-          <Sec id="m-screen">
-            <h2 id="m-screen-h">Network screening</h2>
+          <Sec id="m-screening">
+            <h2 id="m-screening-h">Network screening</h2>
             <p>Lubbock County state-system roadway, split by DFO into <span className="num">443</span> segments of about one mile.
               Outcome: <strong>{spf.data?.outcome ?? 'on-system pedestrian, cyclist and e-scooter crashes (TxDOT CRIS via the Active Transportation Crashes layer), all KABCO severities'}</strong>,
               <span className="num"> {spf.data?.crash_period ?? '2021–2023'}</span> (<i>Y</i> = <span className="num">{spf.data?.crash_years ?? 3}</span> years).
@@ -243,6 +324,59 @@ export default function Methods() {
         </article>
       </div>
     </div>
+  );
+}
+
+
+function Catalogue() {
+  const [fam, setFam] = useState<Family | 'all'>('all');
+  const [copied, setCopied] = useState<string | null>(null);
+  const shown = useMemo(() => METRICS.filter((m) => fam === 'all' || m.family === fam), [fam]);
+  const copy = async (key: string) => {
+    const url = `${location.origin}/methods#metric-${key}`;
+    try { await navigator.clipboard.writeText(url); setCopied(key); setTimeout(() => setCopied((c) => (c === key ? null : c)), 1600); } catch { /* clipboard blocked */ }
+  };
+  return (
+    <>
+      <div className="m-cat-bar">
+        <div className="seg m-fams" role="group" aria-label="Metric family">
+          {FAMILIES.map(([k, l, ic]) => (
+            <button key={k} type="button" aria-pressed={fam === k} onClick={() => setFam(k)}>
+              <Icon name={ic} size={15} />{l}<span className="num">{k === 'all' ? METRICS.length : METRICS.filter((m) => m.family === k).length}</span>
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn ghost" onClick={() => downloadCSV('roadscope-metric-catalogue.csv', METRICS.map((m) => ({ metric: m.name, abbr: m.abbr ?? '', family: m.family, formula: m.formula.replace(/\n/g, '; '), threshold: typeof m.threshold === 'string' ? m.threshold : '', unit: m.unit, data: m.data, provenance: m.provenance, reference: m.cite })))}>
+          <Icon name="download" size={16} />Catalogue CSV
+        </button>
+      </div>
+      <ul className="m-cat" aria-live="polite">
+        {shown.map((m) => (
+          <li key={m.key} id={`metric-${m.key}`} className="m-card">
+            <div className="m-card-h">
+              <span className="m-card-i"><Icon name={m.icon} size={18} weight="duotone" /></span>
+              <h3>{m.name}{m.abbr && <span className="m-abbr">{m.abbr}</span>}</h3>
+              <ProvChip kind={m.provenance} />
+            </div>
+            <pre className="m-formula measure" aria-label={`Formula: ${m.formula}`}>{m.formula}</pre>
+            {m.where && <p className="m-where">{m.where}</p>}
+            <dl className="m-card-dl">
+              <dt>Threshold</dt><dd>{m.threshold}</dd>
+              <dt>Unit</dt><dd className="measure">{m.unit}</dd>
+              <dt>Data</dt><dd>{m.data}</dd>
+              <dt>Reference</dt><dd>{m.cite}</dd>
+            </dl>
+            <div className="m-card-f">
+              <a href={`#${m.section}`}><Icon name="methods" size={14} />Derivation</a>
+              <Link to={m.page[0]}><Icon name="arrow" size={14} />{m.page[1]}</Link>
+              <button type="button" onClick={() => void copy(m.key)} aria-label={`Copy link to ${m.name}`}>
+                <Icon name={copied === m.key ? 'check' : 'link'} size={14} />{copied === m.key ? 'Copied' : 'Link'}
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

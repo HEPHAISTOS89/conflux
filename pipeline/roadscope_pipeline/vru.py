@@ -13,11 +13,16 @@ def severity(code: str | None) -> str | None:
     return {"K": "K", "A": "A", "B": "B", "C": "C", "N": "O", "O": "O"}.get(c)
 
 
-def hour(t: str | None) -> int | None:
+def hour(t: str | None, light: str | None = None) -> int | None:
+    """Clock hour 0–23. The layer has no 12 PM records but codes daylight crashes as "12:xx AM",
+    so a 12 AM time reported in daylight is read as noon; dark 12 AM times stay at midnight."""
     try:
-        return dt.datetime.strptime(t.strip(), "%I:%M %p").hour
+        h = dt.datetime.strptime(t.strip(), "%I:%M %p").hour
     except (AttributeError, ValueError):
         return None
+    if h == 0 and (light or "").upper().startswith("1 - DAYLIGHT"):
+        return 12
+    return h
 
 
 def _clean(v):
@@ -37,7 +42,7 @@ def to_geojson(feats):
         out.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(lon, 5), round(lat, 5)]},
                     "properties": {
                         "id": str(a["Crash_ID"]), "date": date.isoformat() if date else None,
-                        "hour": hour(a.get("Crash_Time")), "dow": DOW.index(dow) if dow in DOW else None,
+                        "hour": hour(a.get("Crash_Time"), a.get("Light_Cond")), "dow": DOW.index(dow) if dow in DOW else None,
                         "year": a.get("Crash_Year"), "severity": severity(a.get("Crash_Seve")), "mode": mode,
                         "pbcat": _clean(a.get("PBCAT_Bike") if mode == "bike" else a.get("PBCAT_Ped")),
                         "light": _clean(a.get("Light_Cond")), "speed_limit": a.get("Speed_Limi") if (a.get("Speed_Limi") or 0) > 0 else None,

@@ -18,7 +18,9 @@ export function downloadCSV(filename: string, rows: Record<string, unknown>[], c
 export async function downloadPNG(filename: string, root: HTMLElement, caption?: string) {
   const r = root.getBoundingClientRect();
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const foot = caption ? 28 : 0;
+  const font = '12px Switzer, system-ui, sans-serif';
+  const lines = caption ? wrap(caption, r.width - 24, font) : [];
+  const foot = lines.length ? 12 + lines.length * 16 : 0;
   const out = document.createElement('canvas');
   out.width = Math.round(r.width * dpr); out.height = Math.round((r.height + foot) * dpr);
   const ctx = out.getContext('2d')!;
@@ -36,12 +38,26 @@ export async function downloadPNG(filename: string, root: HTMLElement, caption?:
       if (img) ctx.drawImage(img, x, y, b.width, b.height);
     }
   }
-  if (caption) {
+  if (lines.length) {
     ctx.fillStyle = css.getPropertyValue('--ink-3').trim() || '#9a9b96';
-    ctx.font = '12px Switzer, system-ui, sans-serif';
-    ctx.fillText(caption, 12, r.height + 18);
+    ctx.font = font;
+    lines.forEach((l, i) => ctx.fillText(l, 12, r.height + 18 + i * 16));
   }
   out.toBlob((b) => b && save(filename, b), 'image/png');
+}
+
+/** Greedy word wrap of the caption to the figure width. */
+function wrap(text: string, width: number, font: string): string[] {
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.font = font;
+  const out: string[] = [];
+  let line = '';
+  for (const w of text.split(/\s+/)) {
+    const next = line ? `${line} ${w}` : w;
+    if (line && ctx.measureText(next).width > width) { out.push(line); line = w; } else line = next;
+  }
+  if (line) out.push(line);
+  return out;
 }
 
 async function svgToImage(svg: SVGSVGElement, w: number, h: number): Promise<HTMLImageElement | null> {

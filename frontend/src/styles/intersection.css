@@ -6,15 +6,9 @@
 .plan-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
 .plan-canvas[data-hit] { cursor: pointer; }
 .lidar { position: absolute; inset: 0; }
-.lidar canvas { display: block; width: 100% !important; height: 100% !important; }
-.lidar-legend { position: absolute; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; max-width: calc(100% - 24px); font-size: 13px; color: var(--ink-2); pointer-events: none; }
-.lidar-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-.lidar-legend .muted { color: var(--ink-3); flex-basis: 100%; }
 .lidar-labels { position: absolute; inset: 0; pointer-events: none; }
 .lidar-tag { font: 500 13px var(--f-num); color: var(--ink); background: color-mix(in srgb, var(--sheet) 88%, transparent); border: 1px solid var(--rule); padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
 .lidar-tag[data-sel='1'] { border-color: var(--accent); }
-.lidar-cams { position: absolute; top: 10px; right: 10px; z-index: 2; background: color-mix(in srgb, var(--sheet) 90%, transparent); border-radius: 6px; }
-.lidar-cams button:disabled { opacity: 0.45; cursor: not-allowed; }
 .plan-canvas { touch-action: none; }
 .plan-canvas[data-pan] { cursor: grabbing; }
 .plan-tools { position: absolute; top: 10px; right: 10px; display: flex; align-items: center; gap: 10px; font-size: 13px; pointer-events: none; }
@@ -59,7 +53,7 @@
 .ix-vc button:hover, .ix-vc button[aria-pressed='true'] { background: var(--raise); }
 .ix-keys { font-size: 13px; }
 .ix-keys kbd { font: 12px var(--f-num); padding: 1px 5px; border: 1px solid var(--rule); border-radius: 3px; margin: 0 1px; }
-.ix-conf { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 180px; flex: 1 1 0; }
+.ix-conf { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; min-height: 180px; flex: 1 1 0; }
 .ix-conf-h { display: flex; justify-content: space-between; align-items: center; padding: 12px 12px 8px; }
 .ix-conf-h select { border: 0; border-radius: 6px; background: var(--raise); padding: 5px 8px; font-size: 14px; cursor: pointer; }
 .ix-conf-list { overflow: auto; min-height: 0; }
@@ -142,3 +136,207 @@
 .repair, .ssm { margin-top: var(--s6); }
 @media (prefers-reduced-motion: reduce) { .player-ic, .ix-veh { animation: none; } }
 .ix-more { padding: 2px 6px; }
+
+
+/* ---------- Intersection lab: 3D overlays, fullscreen, data health, spot speeds ---------- */
+.ix-view-tools { display: flex; gap: 4px; margin-left: auto; }
+.btn.ic { padding: 7px; justify-content: center; min-width: 34px; min-height: 34px; }
+.player-btns { display: flex; align-items: center; gap: 4px; }
+.player-rate button { min-width: 38px; padding: 7px 8px; }
+.player-warp { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--caution); min-width: 0; opacity: 0; transform: translateY(2px); transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out); }
+.player-warp[data-on] { opacity: 1; transform: none; }
+
+.lidar { position: absolute; inset: 0; overflow: hidden; }
+.lidar-gl { display: block; position: absolute; inset: 0; width: 100% !important; height: 100% !important; touch-action: none; cursor: grab; }
+.lidar-gl:active { cursor: grabbing; }
+.lidar-gl[data-mode='fly'], .lidar-gl[data-mode='sensor'] { cursor: crosshair; }
+.lidar-labels { z-index: 1; }
+.lidar-tag-proj { font-size: 12px; color: var(--accent); border-style: dashed; border-color: var(--accent); }
+.lidar-tag-focus { color: var(--sev-a); border-color: var(--sev-a); }
+.lidar > :not(canvas):not(.lidar-labels) { z-index: 2; }
+
+.lidar-glass, .hud, .lidar-cams .seg, .lidar-presets, .lidar-layers, .lidar-mini, .lidar-moment { background: color-mix(in srgb, var(--sheet) 90%, transparent); backdrop-filter: blur(6px); border-radius: 8px; box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 6%, transparent) inset, 0 8px 24px rgba(0, 0, 0, 0.18); }
+
+.hud { position: absolute; top: 10px; left: 10px; display: grid; gap: 8px; padding: 10px 12px; width: min(300px, calc(100% - 20px)); font-size: 13px; }
+.hud-empty { display: flex; align-items: flex-start; gap: 8px; color: var(--ink-2); line-height: 1.4; }
+.hud-empty .icon { flex: none; margin-top: 1px; color: var(--accent); }
+.hud-veh { display: grid; gap: 6px; }
+.hud-veh + .hud-veh { padding-top: 8px; border-top: 1px solid var(--rule); }
+.hud-id { display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; }
+.hud-id .muted { overflow: hidden; text-overflow: ellipsis; }
+.hud-veh[data-primary] .hud-id b { color: var(--accent); }
+.hud-kin, .hud-pair { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0; }
+.hud-pair { grid-template-columns: 1fr 1fr; padding-top: 8px; border-top: 1px solid var(--rule); }
+.hud dt { font-size: 11.5px; color: var(--ink-3); display: flex; align-items: center; gap: 2px; white-space: nowrap; height: 22px; }
+.hud dt .mi-btn { width: 20px; height: 20px; }
+.hud dd { margin: 0; font-size: 15px; font-weight: 500; white-space: nowrap; }
+.hud dd small { font-size: 11px; color: var(--ink-3); margin-left: 3px; font-family: var(--f-ui); font-weight: 400; }
+.hud dd[data-level='high'] { color: var(--go); }
+.hud dd[data-level='medium'] { color: var(--caution); }
+.hud dd[data-level='low'] { color: var(--sev-a); }
+.hud dd[data-crit] { color: var(--sev-a); }
+.hud-pair dd { font-size: 14px; }
+.hud-out { margin: 0; font-size: 13px; }
+
+.lidar-cams { position: absolute; top: 10px; right: 10px; display: grid; justify-items: end; gap: 6px; max-width: calc(100% - 330px); }
+.lidar-cams .seg { padding: 3px; }
+.lidar-cams .seg button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 14px; }
+.lidar-cams .seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+.lidar-presets { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; padding: 3px; }
+.lidar-presets button { border: 0; background: transparent; color: var(--ink-2); font-size: 13px; padding: 5px 9px; border-radius: 5px; cursor: pointer; transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out); }
+.lidar-presets button:hover { background: var(--rule); color: var(--ink); }
+.lidar-presets button:active { transform: scale(0.97); }
+
+.lidar-moment { position: absolute; right: 10px; top: 92px; display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 12px; font-size: 14px; white-space: nowrap; animation: moment-in 220ms var(--ease-out) both; }
+.lidar-moment-k { display: inline-flex; align-items: center; gap: 6px; color: var(--sev-a); font-weight: 500; }
+.lidar-moment .btn { padding: 6px 10px; font-size: 13px; }
+@keyframes moment-in { from { opacity: 0; transform: translateY(6px); } }
+
+.lidar-layers { position: absolute; left: 10px; bottom: 10px; display: grid; gap: 8px; padding: 6px; max-width: min(440px, calc(100% - 210px)); }
+.lidar-layers[data-open] { padding: 8px 10px 10px; }
+.lidar-layers-t { justify-self: start; display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; color: var(--ink); font-size: 13px; font-weight: 500; padding: 3px 4px; cursor: pointer; border-radius: 4px; }
+.lidar-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.lidar-chips button { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--rule); background: transparent; color: var(--ink-3); font-size: 12.5px; padding: 4px 8px; border-radius: 999px; cursor: pointer; transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out), border-color 140ms; }
+.lidar-chips button[aria-pressed='true'] { color: var(--ink); background: var(--raise); border-color: transparent; }
+.lidar-chips button[aria-pressed='true'] .icon { color: var(--accent); }
+.lidar-chips button:active { transform: scale(0.96); }
+.lidar-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--ink-2); }
+.lidar-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.lidar-legend i.bar { width: 12px; height: 2px; border-radius: 0; background: var(--ink-2); vertical-align: middle; }
+.lidar-note { margin: 0; font-size: 12px; color: var(--ink-3); line-height: 1.35; }
+
+.lidar-mini { position: absolute; right: 10px; bottom: 10px; width: 168px; height: 168px; padding: 0; overflow: hidden; }
+.lidar-mini canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+.lidar-compass { position: absolute; top: 4px; right: 4px; width: 38px; height: 38px; pointer-events: none; }
+.lidar-compass .needle { position: absolute; inset: 0; display: block; transition: transform 90ms linear; }
+.lidar-compass svg { display: block; }
+.lidar-compass .c-ring { fill: var(--raise); stroke: var(--rule); stroke-width: 1; }
+.lidar-compass .c-tick { stroke: var(--ink-3); stroke-width: 1.2; }
+.lidar-compass .c-n { fill: var(--sev-a); }
+.lidar-compass .c-s { fill: var(--ink-3); }
+.lidar-compass .c-l { font: 600 8px var(--f-ui); fill: var(--ink); }
+.lidar-heading { position: absolute; left: 6px; bottom: 5px; font-size: 11px; color: var(--ink-3); pointer-events: none; }
+
+.lidar-fallback .lidar-nogl { position: absolute; left: 12px; right: 12px; bottom: 12px; margin: 0; display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 8px; background: var(--sheet); font-size: 14px; color: var(--ink-2); }
+
+/* fullscreen: the view panel fills the screen, HUD and controls stay */
+.ix-view:fullscreen, .ix-view.pseudo-fs { width: 100vw; height: 100vh; border-radius: 0; background: var(--paper); display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) auto; }
+.ix-view.pseudo-fs { position: fixed; inset: 0; z-index: 90; height: 100dvh; }
+.ix-view:fullscreen .ix-view-bar, .ix-view.pseudo-fs .ix-view-bar { grid-column: 1 / -1; }
+.ix-view:fullscreen .ix-canvas, .ix-view.pseudo-fs .ix-canvas { min-height: 0; }
+.ix-view::backdrop { background: var(--paper); }
+.ix-fs-side { width: 360px; overflow: auto; padding: 10px; border-left: 1px solid var(--rule); }
+.ix-fs-side .ix-veh { max-height: none; }
+
+/* shortcut sheet */
+.kbd-scrim { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--paper) 55%, transparent); animation: kbd-fade 140ms var(--ease-out) both; }
+.kbd-sheet { width: min(720px, 100%); max-height: 100%; overflow: auto; padding: 18px 20px 20px; border-radius: 12px; background: var(--sheet); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35); animation: kbd-in 180ms var(--ease-out) both; }
+.kbd-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.kbd-head h3 { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; }
+.kbd-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px 24px; }
+.kbd-groups h4 { font-size: 13px; color: var(--ink-3); font-weight: 500; letter-spacing: 0; margin-bottom: 8px; }
+.kbd-groups dl { display: grid; gap: 7px; margin: 0; }
+.kbd-groups dl div { display: grid; grid-template-columns: 92px 1fr; gap: 10px; align-items: baseline; font-size: 14px; }
+.kbd-groups dd { margin: 0; color: var(--ink-2); }
+.kbd-groups kbd { display: inline-block; min-width: 22px; text-align: center; font: 12px var(--f-measure); padding: 2px 5px; margin: 0 3px 3px 0; border-radius: 4px; background: var(--raise); box-shadow: 0 1px 0 var(--rule); }
+@keyframes kbd-fade { from { opacity: 0; } }
+@keyframes kbd-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+
+/* conflict table header tools */
+.ix-conf-tools { display: flex; align-items: center; gap: 4px; }
+.th-mi { display: inline-flex; align-items: center; gap: 2px; justify-content: flex-end; }
+.th-mi .mi-btn { width: 20px; height: 20px; }
+.ix-keys { display: inline-flex; align-items: center; gap: 8px; }
+
+/* data health strip */
+.dh { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding: 12px 16px; margin-top: calc(-1 * var(--s4)); }
+.dh-k { display: flex; align-items: center; gap: 8px; }
+.dh-items { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
+.dh-items dt { font-size: 12.5px; color: var(--ink-3); display: flex; align-items: center; gap: 2px; height: 22px; }
+.dh-items dt .mi-btn { width: 20px; height: 20px; }
+.dh-items dd { margin: 0; font-size: 18px; font-weight: 500; }
+.dh-items dd small { font-family: var(--f-ui); font-size: 12px; font-weight: 400; color: var(--ink-3); margin-left: 4px; }
+
+/* spot-speed histogram */
+.spd { padding: var(--s4); display: grid; gap: var(--s3); }
+.spd-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; }
+.spd-stats { display: flex; gap: 28px; margin: 0; }
+.spd-stats dt { font-size: 12.5px; color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+.spd-stats dt i, .spd-tip i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.spd-stats dd { margin: 0; font-size: 20px; font-weight: 500; }
+.spd-stats dd small { font-family: var(--f-ui); font-size: 12px; color: var(--ink-3); margin-left: 4px; font-weight: 400; }
+.spd-stats dd.muted { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+.spd-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.spd-fig { position: relative; }
+.spd-fig svg { width: 100%; height: auto; display: block; max-height: 340px; }
+.spd-grid { stroke: var(--graticule, var(--rule)); stroke-width: 1; opacity: 0.6; }
+.spd-axis { stroke: var(--ink-3); stroke-width: 1; }
+.spd-tick { font: 12px var(--f-measure); fill: var(--ink-3); }
+.spd-axis-t { font: 12.5px var(--f-ui); fill: var(--ink-2); }
+.spd-lab { font: 500 12px var(--f-measure); fill: var(--ink); }
+.spd-hl { fill: var(--raise); opacity: 0.6; }
+.spd-tip { position: absolute; top: 0; transform: translateX(-50%); display: grid; gap: 3px; padding: 6px 10px; font-size: 13px; border-radius: 8px; background: var(--sheet); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); pointer-events: none; white-space: nowrap; }
+.spd-tip span { display: flex; align-items: center; gap: 6px; }
+
+@media (max-width: 900px) {
+  .lidar-cams { max-width: calc(100% - 20px); top: auto; bottom: auto; }
+  .hud { top: auto; bottom: 186px; }
+}
+@media (max-width: 720px) {
+  .ix-view-tools { margin-left: 0; }
+  .lidar-cams { top: 10px; left: 10px; right: 10px; max-width: none; justify-items: stretch; }
+  .lidar-cams .seg { overflow-x: auto; scrollbar-width: none; }
+  .lidar-cams .seg button span { display: none; }
+  .lidar-cams .seg button { flex: 1; justify-content: center; }
+  .lidar-presets { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .lidar-presets button { white-space: nowrap; }
+  .hud { top: auto; bottom: 56px; left: 10px; width: calc(100% - 20px); padding: 8px 10px; }
+  .lidar-mini { width: 108px; height: 108px; top: 96px; bottom: auto; }
+  .lidar-layers { max-width: calc(100% - 20px); z-index: 3 !important; }
+  .lidar-moment { bottom: auto; top: 96px; left: 10px; right: auto; transform: none; animation: none; flex-wrap: wrap; white-space: normal; max-width: calc(100% - 140px); }
+  .ix-fs-side { display: none; }
+  .spd-actions { margin-left: 0; }
+  .dh-items { gap: 8px 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .lidar-moment, .kbd-scrim, .kbd-sheet, .player-warp { animation: none; transition: none; } }
+.ix-view[data-mode='lidar'] .ix-canvas { min-height: 600px; }
+@media (max-width: 720px) { .ix-view[data-mode='lidar'] .ix-canvas { min-height: 600px; } }
+/* view bar: view switch and tools on top, the transport on one full-width row */
+.ix-view-bar { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; }
+.ix-view-bar > .player { grid-column: 1 / -1; grid-row: 2; flex-wrap: nowrap; gap: 10px; }
+.ix-view-bar .player-track { flex: 1 1 auto; min-width: 80px; }
+.ix-view-bar .player input[type='range'] { width: 100%; }
+.ix-view-bar .player-t { min-width: 84px; }
+.ix-view-bar .player-warp { position: absolute; right: 136px; top: 18px; }
+.ix-view-bar { position: relative; }
+.ix-view-bar .ix-view-tools { justify-self: end; }
+@media (max-width: 720px) {
+  .ix-view-bar > .player { flex-wrap: wrap; }
+  .ix-view-bar .player-track { order: 5; flex-basis: 100%; }
+  .ix-view-bar .player-warp { position: static; }
+}
+.ix-conf-list th .mi { margin-left: -2px; }
+.ix-conf-list th { font-size: 13px; }
+.hud-txt { font-family: var(--f-ui); font-size: 13px; font-weight: 400; color: var(--ink-2); letter-spacing: 0; }
+.ixlab > * { min-width: 0; }
+@media (max-width: 1180px) { .ix-stage { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1100px) { .ssm-grid, .rep-grid { grid-template-columns: minmax(0, 1fr); } }
+.ssm > *, .repair > *, .ssm-grid > *, .rep-grid > * { min-width: 0; }
+
+.ix-conf-head, .ix-conf-list table.data { table-layout: fixed; width: 100%; }
+.ix-conf-head { font-size: 13px; border-bottom: 1px solid var(--rule); }
+.ix-conf-head th { padding: 6px 6px; white-space: nowrap; vertical-align: bottom; }
+.ix-conf-head th:first-child { padding-left: 12px; }
+.ix-conf-head th:last-child { padding-right: 12px; }
+.ix-conf-head .mi-pop { z-index: 60; }
+.ix-conf-list td { overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 1181px) { .ix-conf { min-height: 300px; } .ix-veh { max-height: 52%; } }
+.ix-ts-sub { flex: 1 1 280px; }
+.hud-trace { margin: 0; display: grid; gap: 2px; }
+.hud-trace svg { width: 100%; height: 54px; display: block; overflow: visible; }
+.hud-trace .tr-zone { fill: color-mix(in srgb, var(--sev-a) 10%, transparent); }
+.hud-trace .tr-thr { stroke: var(--sev-a); stroke-dasharray: 3 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.hud-trace .tr-line { fill: none; stroke: var(--ink); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.hud-trace .tr-cur { stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.hud-trace figcaption { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-3); }
+@media (max-width: 720px) { .hud-trace { display: none; } }
