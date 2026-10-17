@@ -98,6 +98,7 @@ def build_tracks(df: pd.DataFrame, t0: int, centre: tuple[float, float], min_fra
             continue
         full = np.arange(run[0], run[-1] + 1)
         g = g.loc[run].reindex(full)
+        raw_ok = g.local_x.notna().values & g.local_y.notna().values
         x = g.local_x.interpolate().values * FT - cx * FT
         y = g.local_y.interpolate().values * FT - cy * FT
         lane = g.lane_id.ffill().astype(int).values
@@ -121,6 +122,8 @@ def build_tracks(df: pd.DataFrame, t0: int, centre: tuple[float, float], min_fra
             "move": MOVES.get(_mode(ref.movement.dropna()), "?"),
             "t": full * DT, "x": xs, "y": ys, "v": v, "a": a, "lane": lane,
             "inside": inside, "vx": vx, "vy": vy,
+            # unsmoothed NGSIM positions (ft->m, same origin); raw_ok False where interpolated
+            "x_raw": x, "y_raw": y, "raw_ok": raw_ok,
         })
     return tracks
 

@@ -27,6 +27,12 @@ WINDOW_S = 90
 HALF_X_FT, HALF_Y_FT = 200.0, 300.0   # ~61 m x 91 m around the intersection centre
 
 
+def _np(o):
+    if isinstance(o, np.generic):
+        return o.item()
+    raise TypeError(f"not JSON serializable: {type(o).__name__}")
+
+
 def r2(a):
     return [round(float(v), 2) for v in a]
 
@@ -36,7 +42,8 @@ def build_site(site, out: Path, cache: Path):
     df = ngsim.fetch_zone(site["location"], t0, t1, centre, HALF_X_FT, HALF_Y_FT, cache)
     df = df.assign(int_id=(df.int_id == site["int_id"]).astype(int) * site["int_id"])
     tracks = ngsim.build_tracks(df, t0, centre)
-    conflicts = ssm.all_conflicts(tracks)
+    conflicts, ssm_doc = ssm.analyse(tracks)
+    ssm_doc = {"id": site["id"], **ssm_doc}
     rep = repair.occlude_and_repair(tracks)
     xs = np.concatenate([t["x"] for t in tracks]); ys = np.concatenate([t["y"] for t in tracks])
     doc = {
@@ -58,8 +65,9 @@ def build_site(site, out: Path, cache: Path):
     }
     out.mkdir(parents=True, exist_ok=True)
     for name, obj in ((f"{site['id']}.json", doc), (f"{site['id']}_conflicts.json", conflicts),
+                      (f"{site['id']}_ssm.json", ssm_doc),
                       (f"{site['id']}_repair.json", rep)):
-        (out / name).write_text(json.dumps(obj, separators=(",", ":")))
+        (out / name).write_text(json.dumps(obj, separators=(",", ":"), default=_np))
     by = Counter((c["type"], c["severity"]) for c in conflicts)
     return {"id": site["id"], "name": site["name"], "site": site["location"], "city": site["city"],
             "approach": "all approaches within 61 m x 91 m box", "window": [t0, t1],
@@ -67,6 +75,9 @@ def build_site(site, out: Path, cache: Path):
             "conflicts": len(conflicts),
             "summary": {"conflicts_by_type": dict(Counter(c["type"] for c in conflicts)),
                         "conflicts_by_type_severity": {f"{k[0]}:{k[1]}": v for k, v in sorted(by.items())},
+                        "conflicts_drac_flag": sum(c["drac_flag"] for c in conflicts),
+                        "conflicts_overlap": sum(c["overlap"] for c in conflicts),
+                        "ssm_rules": {k: ssm_doc["rules"][k] for k in ("detection", "drac")},
                         "repair": rep["summary"]}}
 
 
@@ -77,7 +88,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     out = Path(a.out) / "intersections"
     index = [build_site(s, out, Path(a.cache)) for s in SITES]
-    (out / "index.json").write_text(json.dumps(index, indent=1))
+    (out / "index.json").write_text(json.dumps(index, indent=1, default=_np))
     man_p = Path(a.out) / "manifest.json"
     man = json.loads(man_p.read_text()) if man_p.exists() else {}
     sources = man.setdefault("sources", [])
@@ -89,11 +100,11 @@ def main(argv=None):
                  "records": len(json.loads(raw.read_text())), "fetched_at": now,
                  "sha256": hashlib.sha256(raw.read_bytes()).hexdigest(),
                  "filter": f"location='{s['location']}', int_id={s['int_id']} zone, global_time {row['window']}",
-                 "outputs": [f"intersections/{s['id']}{x}.json" for x in ("", "_conflicts", "_repair")]}
+                 "outputs": [f"intersections/{s['id']}{x}.json" for x in ("", "_conflicts", "_ssm", "_repair")]}
         sources[:] = [e for e in sources if e.get("id") != entry["id"]] + [entry]
         sources.sort(key=lambda e: e.get("id", ""))
     man_p.write_text(json.dumps(man, indent=1))
-    print(json.dumps(index, indent=1))
+    print(json.dumps(index, indent=1, default=_np))
 
 
 if __name__ == "__main__":

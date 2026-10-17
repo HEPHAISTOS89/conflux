@@ -65,6 +65,14 @@ curl -s "$API/api/v1/docs" -o /dev/null -w '%{http_code}\n'
 curl -s https://roadscope-ai-demo.vercel.app/api/v1/health    # through the Vercel rewrite
 ```
 
+Check that the deployed data match the current screening definition (ped/bike crashes 2021-2023, Y = 3, 114 on-system crashes, site-type SPFs):
+
+```bash
+curl -s $API/api/v1/meta | jq '.metrics | {segment_crash_outcome, segment_crash_period, segment_crash_years, segment_crashes_total, spf_site_types_fitted}'
+curl -s $API/api/v1/spf  | jq '{outcome, crash_period, crash_years, fitted: [.site_types | to_entries[] | select(.value.fitted) | .key]}'
+curl -s $API/api/v1/intersections/peachtree-10th/ssm | jq '.rules.detection, .counts'   # TTC <= 1.5 s, PET <= 5.0 s; 119 conflicts, 17 overlap
+```
+
 Then open the CloudWatch dashboard `RoadScope` and confirm that the `roadscope-api-errors` alarm is in the OK state.
 
 ## 8. Vercel project

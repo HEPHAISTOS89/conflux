@@ -30,7 +30,7 @@ All requests paginate (`resultOffset`, 2,000 max) and use `outSR=4326`.
 - `corridors.json` — `[{id, name, routes[], len_mi, stations:[{dfo, lanes, speed_limit, aadt, truck_pct, speed_all, speed_am, speed_md, speed_pm, crashes_per_mi}], summary:{…}}]`.
 - `vru_crashes.geojson` — Point: `{id, date, hour, dow, year, severity(K/A/B/C/O), mode(ped|bike), pbcat, light, speed_limit, street, on_system}`.
 - `fatal_crashes.geojson` — Point: `{id, year, month, hour, fatals, route, light, weather}`.
-- `spf.json` — `{form:"N=exp(b0)·AADT^b1·L", b0, b1, k(overdispersion), n, aic, by_class:{…}}`.
+- `spf.json` — `{form:"N=exp(b0)·AADT^b1·L", b0, b1, k(overdispersion), n, aic, by_class:{…}` (pooled ln-AADT model, kept for compatibility) `, outcome, crash_period, crash_years, site_types:{<Urban|Rural> <facility>:{segments, crashes, mean_rate, fitted, model_used, model:{spec, coef, se, k, k_convention, n, aic, …}|null, candidates, gof:{mad, pearson_chi2, df, chi2_df}, cure:{columns, points, pct_outside}, eb_weight_median}}, fallback, pooled_gof, system_gof, points, diagnostics:{overdispersion, crash_field, aadt, join}}`.
 - `intersections/<id>.json` — `{id, name, source, hz, bbox, lanes_geom, tracks:[{id, cls, len_m, w_m, pts:[[t,x,y,v,a,lane]]}]}` (local metres).
 - `intersections/<id>_conflicts.json` — `[{id, t, a, b, type(rear_end|crossing|lane_change), ttc_min, pet, drac_max, severity}]`.
 - `intersections/<id>_repair.json` — `{tracks:[{id, gaps:[[t0,t1]], raw:[[t,x,y]], repaired:[[t,x,y]], rmse_m, speed_rmse}] , summary:{…}}`.
@@ -39,9 +39,10 @@ All requests paginate (`resultOffset`, 2,000 max) and use `outSR=4326`.
 ## Methods (exact)
 - Crash rate R = N·10⁸ / (365·Y·AADT·L) (per 100 MVMT).
 - Critical rate Rc = Ra + k·√(Ra/M) + 1/(2M), k=1.645 (95%), M = exposure in 100 MVMT, Ra = class mean rate; ratio = R/Rc.
-- EPDO weights (FHWA 2005 comprehensive-cost ratio): K=A 542, B 11, C 6, O 1 (document; VRU layer only has full KABCO).
-- SPF: Negative Binomial GLM, ln μ = b0 + b1·ln AADT + ln L, by functional class group; EB: w = 1/(1+k·μ), E = w·μ + (1−w)·N; excess = E − μ.
-- SSM: TTC = Δx/Δv when follower faster (rear-end), threshold 1.5 s; PET for crossing paths over conflict zones (grid 2 m), threshold 2 s; DRAC = Δv²/(2·gap), threshold 3.4 m/s².
+- EPDO: not computed (no sourced severity weights; `epdo` is null).
+- Segment crash outcome: on-system ped/bike/e-scooter CRIS crashes (Active Transportation Crashes, 2021–2023, Y = 3) snapped ≤ 5 m to segments. `SUM_CRASH_` is an undocumented SATP injury-weighted ped/bike score (r ≈ 0.94 with those crashes), kept as `satp_crash_score` only (evidence in `spf.json → diagnostics.crash_field`).
+- SPF: NB2 ML, ln μ = b0 + b1·ln AADT + Σ b_j x_j + ln L (x ∈ lanes, divided, posted speed; AIC-selected, ≤ 1 covariate per 10 crashes) per HSM-style site type (Roadway Inventory RU rural/urban × F_SYSTEM group); site types with < 30 segments or < 20 crashes use a pooled site-type model (ln AADT, urban, lanes, speed). k per mile, k_seg = k/L. EB: w = 1/(1+k_seg·μ_Y), E = w·μ_Y + (1−w)·N; excess = E − μ. Diagnostics: MAD, Pearson χ²/df, CURE (Hauer & Bamfo 1997, ±2σ*). Critical rate reference population = site type.
+- SSM (FHWA SSAM defaults): TTC = gap/Δv when follower faster, detection TTC ≤ 1.5 s; PET over the shared swept-footprint zone (0.5 m raster), detection PET ≤ 5.0 s, simultaneous occupancy flagged; DRAC = Δv²/(2·gap) reported as a flag at ≥ 3.4 m/s² (11.2 ft/s², AASHTO 2018), not a detection criterion.
 - Occlusion repair: remove 0.8–3 s windows on random tracks; constant-acceleration Kalman filter + RTS smoother over gaps; report position RMSE and speed RMSE vs held-out truth, plus linear-interp baseline.
 
 ## API (FastAPI, `/api/v1`)

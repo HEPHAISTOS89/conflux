@@ -13,114 +13,128 @@
   "s": 90,
   "hz": 10,
   "tracks": 190,
-  "conflicts": 10,
+  "conflicts": 23,
   "summary": {
    "conflicts_by_type": {
-    "rear_end": 7,
-    "crossing": 2,
-    "lane_change": 1
+    "rear_end": 6,
+    "crossing": 17
    },
    "conflicts_by_type_severity": {
-    "crossing:moderate": 1,
-    "crossing:serious": 1,
-    "lane_change:serious": 1,
-    "rear_end:critical": 4,
-    "rear_end:serious": 3
+    "crossing:critical": 1,
+    "crossing:moderate": 13,
+    "crossing:serious": 3,
+    "rear_end:moderate": 2,
+    "rear_end:serious": 4
+   },
+   "conflicts_drac_flag": 1,
+   "conflicts_overlap": 0,
+   "ssm_rules": {
+    "detection": {
+     "ttc_max_s": 1.5,
+     "pet_max_s": 5.0,
+     "rule": "rear_end / lane_change: event while TTC <= 1.5 s for >= 0.3 s; crossing: PET <= 5.0 s over the shared swept-footprint zone",
+     "citation": "FHWA SSAM default (Gettman et al. 2008, FHWA-HRT-08-051; SSAM User Manual FHWA-HRT-08-050)"
+    },
+    "drac": {
+     "threshold_mps2": 3.4,
+     "rule": "drac_flag = DRAC_max >= 3.4 m/s^2 (11.2 ft/s^2); reported alongside TTC events, not a detection criterion",
+     "citation": "AASHTO (2018) A Policy on Geometric Design of Highways and Streets, 7th ed."
+    }
    },
    "repair": {
     "tracks_occluded": 36,
     "tracks_eligible": 181,
     "seed": 20251,
     "gap_s": [
-     0.8,
-     3.0
+     0.5,
+     5.0
     ],
     "gaps": 54,
-    "gap_frames": 1028,
+    "gap_frames": 1492,
     "context_s": 3.0,
     "selected_method": "kf_ca_path",
     "params": {
      "kf_ca": {
-      "q": 100000.0,
-      "r": 0.02
+      "q": 0.351,
+      "r": 0.2
      },
      "kf_ca_path": {
-      "qa": 100000.0,
-      "qc": 2310.0,
-      "r": 0.02
+      "qa": 0.351,
+      "qc": 100000.0,
+      "r": 0.2
      },
      "q_status": {
-      "interior": false,
-      "flat_within_1pct_from": 28500.0,
-      "flat_within_1pct_to": 100000.0,
+      "interior": true,
+      "flat_within_1pct_from": 0.351,
+      "flat_within_1pct_to": 0.351,
       "note": "validation RMSE within 1% of optimum over this q range"
      }
     },
     "validation": {
      "tracks": 60,
-     "gap_frames": 1548,
+     "gap_frames": 2109,
      "rmse_m": {
-      "linear": 0.6037213597336172,
-      "kf_ca": 0.19216660597320276,
-      "kf_ca_path": 0.1890158872594065
+      "linear": 1.38,
+      "kf_ca": 0.441,
+      "kf_ca_path": 0.385
      },
      "speed_rmse": {
-      "linear": 0.5176640753866733,
-      "kf_ca": 0.23149747061533713,
-      "kf_ca_path": 0.2313772969704416
+      "linear": 0.779,
+      "kf_ca": 0.344,
+      "kf_ca_path": 0.332
      },
      "selected": "kf_ca_path",
      "q_curve": [
       [
        0.1,
-       0.289
+       0.4529
       ],
       [
        0.351,
-       0.2853
+       0.4412
       ],
       [
        1.23,
-       0.2759
+       0.4681
       ],
       [
        4.33,
-       0.2571
+       0.4809
       ],
       [
        15.2,
-       0.2424
+       0.4803
       ],
       [
        53.4,
-       0.2322
+       0.5007
       ],
       [
        187.0,
-       0.2231
+       0.5291
       ],
       [
        658.0,
-       0.2141
+       0.5426
       ],
       [
        2310.0,
-       0.205
+       0.5473
       ],
       [
        8110.0,
-       0.1978
+       0.5416
       ],
       [
        28500.0,
-       0.1937
+       0.5273
       ],
       [
        100000.0,
-       0.1922
+       0.5181
       ]
      ],
-     "q_curve_r": 0.02,
+     "q_curve_r": 0.2,
      "grid": {
       "q": [
        0.1,
@@ -147,109 +161,1048 @@
     "methods": {
      "linear": {
       "gaps": 54,
-      "gap_frames": 1028,
-      "rmse_m": 0.408,
-      "speed_rmse": 0.443
+      "gap_frames": 1492,
+      "rmse_m": 1.028,
+      "speed_rmse": 0.72
      },
      "kf_ca": {
       "gaps": 54,
-      "gap_frames": 1028,
-      "rmse_m": 0.079,
-      "speed_rmse": 0.11
+      "gap_frames": 1492,
+      "rmse_m": 0.38,
+      "speed_rmse": 0.279
      },
      "kf_ca_path": {
       "gaps": 54,
-      "gap_frames": 1028,
-      "rmse_m": 0.078,
-      "speed_rmse": 0.111
+      "gap_frames": 1492,
+      "rmse_m": 0.361,
+      "speed_rmse": 0.273
      }
     },
     "by_gap": [
      {
       "gap_s": [
-       0.8,
-       1.5
+       0.5,
+       1.0
       ],
       "linear": {
-       "gaps": 19,
-       "gap_frames": 218,
-       "rmse_m": 0.19,
-       "speed_rmse": 0.209
+       "gaps": 4,
+       "gap_frames": 33,
+       "rmse_m": 0.051,
+       "speed_rmse": 0.121
       },
       "kf_ca": {
-       "gaps": 19,
-       "gap_frames": 218,
-       "rmse_m": 0.029,
+       "gaps": 4,
+       "gap_frames": 33,
+       "rmse_m": 0.068,
        "speed_rmse": 0.11
       },
       "kf_ca_path": {
-       "gaps": 19,
-       "gap_frames": 218,
-       "rmse_m": 0.029,
-       "speed_rmse": 0.11
+       "gaps": 4,
+       "gap_frames": 33,
+       "rmse_m": 0.063,
+       "speed_rmse": 0.109
       }
      },
      {
       "gap_s": [
-       1.5,
-       2.2
+       1.0,
+       2.0
       ],
       "linear": {
-       "gaps": 15,
-       "gap_frames": 277,
-       "rmse_m": 0.286,
-       "speed_rmse": 0.424
+       "gaps": 16,
+       "gap_frames": 217,
+       "rmse_m": 0.311,
+       "speed_rmse": 0.247
       },
       "kf_ca": {
-       "gaps": 15,
-       "gap_frames": 277,
-       "rmse_m": 0.077,
-       "speed_rmse": 0.125
+       "gaps": 16,
+       "gap_frames": 217,
+       "rmse_m": 0.245,
+       "speed_rmse": 0.201
       },
       "kf_ca_path": {
-       "gaps": 15,
-       "gap_frames": 277,
-       "rmse_m": 0.076,
-       "speed_rmse": 0.125
+       "gaps": 16,
+       "gap_frames": 217,
+       "rmse_m": 0.219,
+       "speed_rmse": 0.195
       }
      },
      {
       "gap_s": [
-       2.2,
+       2.0,
        3.0
       ],
       "linear": {
-       "gaps": 20,
-       "gap_frames": 533,
-       "rmse_m": 0.514,
-       "speed_rmse": 0.516
+       "gaps": 9,
+       "gap_frames": 221,
+       "rmse_m": 0.459,
+       "speed_rmse": 0.545
       },
       "kf_ca": {
-       "gaps": 20,
-       "gap_frames": 533,
-       "rmse_m": 0.093,
-       "speed_rmse": 0.103
+       "gaps": 9,
+       "gap_frames": 221,
+       "rmse_m": 0.271,
+       "speed_rmse": 0.256
       },
       "kf_ca_path": {
-       "gaps": 20,
-       "gap_frames": 533,
-       "rmse_m": 0.092,
-       "speed_rmse": 0.103
+       "gaps": 9,
+       "gap_frames": 221,
+       "rmse_m": 0.27,
+       "speed_rmse": 0.251
+      }
+     },
+     {
+      "gap_s": [
+       3.0,
+       5.0
+      ],
+      "linear": {
+       "gaps": 25,
+       "gap_frames": 1021,
+       "rmse_m": 1.215,
+       "speed_rmse": 0.825
+      },
+      "kf_ca": {
+       "gaps": 25,
+       "gap_frames": 1021,
+       "rmse_m": 0.426,
+       "speed_rmse": 0.3
+      },
+      "kf_ca_path": {
+       "gaps": 25,
+       "gap_frames": 1021,
+       "rmse_m": 0.406,
+       "speed_rmse": 0.294
       }
      }
     ],
     "better_than_linear_share": {
-     "kf_ca": 0.639,
-     "kf_ca_path": 0.611
+     "kf_ca": 0.472,
+     "kf_ca_path": 0.5
     },
-    "truth": "Savitzky-Golay-smoothed NGSIM track (held out inside gaps)",
+    "truth": "Savitzky-Golay-smoothed NGSIM track (held out inside gaps); uniform protocol. See summary.protocols for the occluder protocol and raw-truth variant.",
+    "protocols": {
+     "uniform": {
+      "description": "seeded random gaps 0.5-5.0 s, 1-2 per track, >= 1.0 s from track ends",
+      "gap_s": [
+       0.5,
+       5.0
+      ],
+      "seed": 20251,
+      "truth_variants": {
+       "smoothed": {
+        "tracks_test": 36,
+        "tracks_val": 60,
+        "selected_method": "kf_ca_path",
+        "params": {
+         "kf_ca": {
+          "q": 0.351,
+          "r": 0.2
+         },
+         "kf_ca_path": {
+          "qa": 0.351,
+          "qc": 100000.0,
+          "r": 0.2
+         },
+         "q_status": {
+          "interior": true,
+          "flat_within_1pct_from": 0.351,
+          "flat_within_1pct_to": 0.351,
+          "note": "validation RMSE within 1% of optimum over this q range"
+         }
+        },
+        "methods": {
+         "linear": {
+          "gaps": 54,
+          "gap_frames": 1492,
+          "rmse_m": 1.028,
+          "speed_rmse": 0.72
+         },
+         "kf_ca": {
+          "gaps": 54,
+          "gap_frames": 1492,
+          "rmse_m": 0.38,
+          "speed_rmse": 0.279
+         },
+         "kf_ca_path": {
+          "gaps": 54,
+          "gap_frames": 1492,
+          "rmse_m": 0.361,
+          "speed_rmse": 0.273
+         }
+        },
+        "by_gap": [
+         {
+          "gap_s": [
+           0.5,
+           1.0
+          ],
+          "linear": {
+           "gaps": 4,
+           "gap_frames": 33,
+           "rmse_m": 0.051,
+           "speed_rmse": 0.121
+          },
+          "kf_ca": {
+           "gaps": 4,
+           "gap_frames": 33,
+           "rmse_m": 0.068,
+           "speed_rmse": 0.11
+          },
+          "kf_ca_path": {
+           "gaps": 4,
+           "gap_frames": 33,
+           "rmse_m": 0.063,
+           "speed_rmse": 0.109
+          }
+         },
+         {
+          "gap_s": [
+           1.0,
+           2.0
+          ],
+          "linear": {
+           "gaps": 16,
+           "gap_frames": 217,
+           "rmse_m": 0.311,
+           "speed_rmse": 0.247
+          },
+          "kf_ca": {
+           "gaps": 16,
+           "gap_frames": 217,
+           "rmse_m": 0.245,
+           "speed_rmse": 0.201
+          },
+          "kf_ca_path": {
+           "gaps": 16,
+           "gap_frames": 217,
+           "rmse_m": 0.219,
+           "speed_rmse": 0.195
+          }
+         },
+         {
+          "gap_s": [
+           2.0,
+           3.0
+          ],
+          "linear": {
+           "gaps": 9,
+           "gap_frames": 221,
+           "rmse_m": 0.459,
+           "speed_rmse": 0.545
+          },
+          "kf_ca": {
+           "gaps": 9,
+           "gap_frames": 221,
+           "rmse_m": 0.271,
+           "speed_rmse": 0.256
+          },
+          "kf_ca_path": {
+           "gaps": 9,
+           "gap_frames": 221,
+           "rmse_m": 0.27,
+           "speed_rmse": 0.251
+          }
+         },
+         {
+          "gap_s": [
+           3.0,
+           5.0
+          ],
+          "linear": {
+           "gaps": 25,
+           "gap_frames": 1021,
+           "rmse_m": 1.215,
+           "speed_rmse": 0.825
+          },
+          "kf_ca": {
+           "gaps": 25,
+           "gap_frames": 1021,
+           "rmse_m": 0.426,
+           "speed_rmse": 0.3
+          },
+          "kf_ca_path": {
+           "gaps": 25,
+           "gap_frames": 1021,
+           "rmse_m": 0.406,
+           "speed_rmse": 0.294
+          }
+         }
+        ],
+        "better_than_linear_share": {
+         "kf_ca": 0.472,
+         "kf_ca_path": 0.5
+        },
+        "validation": {
+         "tracks": 60,
+         "gap_frames": 2109,
+         "rmse_m": {
+          "linear": 1.38,
+          "kf_ca": 0.441,
+          "kf_ca_path": 0.385
+         },
+         "speed_rmse": {
+          "linear": 0.779,
+          "kf_ca": 0.344,
+          "kf_ca_path": 0.332
+         },
+         "selected": "kf_ca_path",
+         "q_curve": [
+          [
+           0.1,
+           0.4529
+          ],
+          [
+           0.351,
+           0.4412
+          ],
+          [
+           1.23,
+           0.4681
+          ],
+          [
+           4.33,
+           0.4809
+          ],
+          [
+           15.2,
+           0.4803
+          ],
+          [
+           53.4,
+           0.5007
+          ],
+          [
+           187.0,
+           0.5291
+          ],
+          [
+           658.0,
+           0.5426
+          ],
+          [
+           2310.0,
+           0.5473
+          ],
+          [
+           8110.0,
+           0.5416
+          ],
+          [
+           28500.0,
+           0.5273
+          ],
+          [
+           100000.0,
+           0.5181
+          ]
+         ],
+         "q_curve_r": 0.2
+        }
+       },
+       "raw": {
+        "tracks_test": 36,
+        "tracks_val": 60,
+        "selected_method": "kf_ca",
+        "params": {
+         "kf_ca": {
+          "q": 0.351,
+          "r": 0.2
+         },
+         "kf_ca_path": {
+          "qa": 0.351,
+          "qc": 0.351,
+          "r": 0.2
+         },
+         "q_status": {
+          "interior": true,
+          "flat_within_1pct_from": 0.351,
+          "flat_within_1pct_to": 0.351,
+          "note": "validation RMSE within 1% of optimum over this q range"
+         }
+        },
+        "methods": {
+         "linear": {
+          "gaps": 54,
+          "gap_frames": 1492,
+          "rmse_m": 1.029,
+          "speed_rmse": null
+         },
+         "kf_ca": {
+          "gaps": 54,
+          "gap_frames": 1492,
+          "rmse_m": 0.388,
+          "speed_rmse": null
+         },
+         "kf_ca_path": {
+          "gaps": 54,
+          "gap_frames": 1492,
+          "rmse_m": 0.388,
+          "speed_rmse": null
+         }
+        },
+        "by_gap": [
+         {
+          "gap_s": [
+           0.5,
+           1.0
+          ],
+          "linear": {
+           "gaps": 4,
+           "gap_frames": 33,
+           "rmse_m": 0.087,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 4,
+           "gap_frames": 33,
+           "rmse_m": 0.098,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 4,
+           "gap_frames": 33,
+           "rmse_m": 0.098,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           1.0,
+           2.0
+          ],
+          "linear": {
+           "gaps": 16,
+           "gap_frames": 217,
+           "rmse_m": 0.329,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 16,
+           "gap_frames": 217,
+           "rmse_m": 0.24,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 16,
+           "gap_frames": 217,
+           "rmse_m": 0.24,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           2.0,
+           3.0
+          ],
+          "linear": {
+           "gaps": 9,
+           "gap_frames": 221,
+           "rmse_m": 0.446,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 9,
+           "gap_frames": 221,
+           "rmse_m": 0.311,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 9,
+           "gap_frames": 221,
+           "rmse_m": 0.311,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           3.0,
+           5.0
+          ],
+          "linear": {
+           "gaps": 25,
+           "gap_frames": 1021,
+           "rmse_m": 1.217,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 25,
+           "gap_frames": 1021,
+           "rmse_m": 0.432,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 25,
+           "gap_frames": 1021,
+           "rmse_m": 0.432,
+           "speed_rmse": null
+          }
+         }
+        ],
+        "better_than_linear_share": {
+         "kf_ca": 0.444,
+         "kf_ca_path": 0.444
+        },
+        "validation": {
+         "tracks": 60,
+         "gap_frames": 2109,
+         "rmse_m": {
+          "linear": 1.381,
+          "kf_ca": 0.458,
+          "kf_ca_path": 0.458
+         },
+         "speed_rmse": {
+          "linear": null,
+          "kf_ca": null,
+          "kf_ca_path": null
+         },
+         "selected": "kf_ca",
+         "q_curve": [
+          [
+           0.1,
+           0.4643
+          ],
+          [
+           0.351,
+           0.4578
+          ],
+          [
+           1.23,
+           0.4903
+          ],
+          [
+           4.33,
+           0.5072
+          ],
+          [
+           15.2,
+           0.5168
+          ],
+          [
+           53.4,
+           0.5501
+          ],
+          [
+           187.0,
+           0.5646
+          ],
+          [
+           658.0,
+           0.5706
+          ],
+          [
+           2310.0,
+           0.6119
+          ],
+          [
+           8110.0,
+           0.6577
+          ],
+          [
+           28500.0,
+           0.6992
+          ],
+          [
+           100000.0,
+           0.7376
+          ]
+         ],
+         "q_curve_r": 0.2
+        }
+       }
+      }
+     },
+     "occluder": {
+      "description": "real 2D line-of-sight occlusion intervals from a virtual roadside sensor; intervals 0.5-5.0 s kept, >= 1.0 s from track ends; visible flickers <= 2 frames merged",
+      "sensor": {
+       "x_m": -12.0,
+       "y_m": 12.0,
+       "height_m": 4.5,
+       "model": "2D"
+      },
+      "gap_s": [
+       0.5,
+       5.0
+      ],
+      "seed": 20253,
+      "occlusion": {
+       "frames": 55527,
+       "occluded_frames": 40175,
+       "occluded_share": 0.724,
+       "tracks_with_gaps": 103,
+       "gaps": 358,
+       "gap_len_mean_s": 1.14,
+       "gaps_by_bin": [
+        [
+         0.5,
+         1.0,
+         207
+        ],
+        [
+         1.0,
+         2.0,
+         115
+        ],
+        [
+         2.0,
+         3.0,
+         19
+        ],
+        [
+         3.0,
+         5.0,
+         17
+        ]
+       ]
+      },
+      "truth_variants": {
+       "smoothed": {
+        "tracks_test": 51,
+        "tracks_val": 52,
+        "selected_method": "kf_ca_path",
+        "params": {
+         "kf_ca": {
+          "q": 1.23,
+          "r": 0.05
+         },
+         "kf_ca_path": {
+          "qa": 1.23,
+          "qc": 100000.0,
+          "r": 0.05
+         },
+         "q_status": {
+          "interior": true,
+          "flat_within_1pct_from": 1.23,
+          "flat_within_1pct_to": 1.23,
+          "note": "validation RMSE within 1% of optimum over this q range"
+         }
+        },
+        "methods": {
+         "linear": {
+          "gaps": 171,
+          "gap_frames": 1976,
+          "rmse_m": 0.527,
+          "speed_rmse": 0.427
+         },
+         "kf_ca": {
+          "gaps": 171,
+          "gap_frames": 1976,
+          "rmse_m": 0.276,
+          "speed_rmse": 0.254
+         },
+         "kf_ca_path": {
+          "gaps": 171,
+          "gap_frames": 1976,
+          "rmse_m": 0.259,
+          "speed_rmse": 0.251
+         }
+        },
+        "by_gap": [
+         {
+          "gap_s": [
+           0.5,
+           1.0
+          ],
+          "linear": {
+           "gaps": 94,
+           "gap_frames": 640,
+           "rmse_m": 0.105,
+           "speed_rmse": 0.196
+          },
+          "kf_ca": {
+           "gaps": 94,
+           "gap_frames": 640,
+           "rmse_m": 0.081,
+           "speed_rmse": 0.077
+          },
+          "kf_ca_path": {
+           "gaps": 94,
+           "gap_frames": 640,
+           "rmse_m": 0.075,
+           "speed_rmse": 0.082
+          }
+         },
+         {
+          "gap_s": [
+           1.0,
+           2.0
+          ],
+          "linear": {
+           "gaps": 60,
+           "gap_frames": 804,
+           "rmse_m": 0.285,
+           "speed_rmse": 0.296
+          },
+          "kf_ca": {
+           "gaps": 60,
+           "gap_frames": 804,
+           "rmse_m": 0.165,
+           "speed_rmse": 0.167
+          },
+          "kf_ca_path": {
+           "gaps": 60,
+           "gap_frames": 804,
+           "rmse_m": 0.138,
+           "speed_rmse": 0.169
+          }
+         },
+         {
+          "gap_s": [
+           2.0,
+           3.0
+          ],
+          "linear": {
+           "gaps": 9,
+           "gap_frames": 229,
+           "rmse_m": 0.864,
+           "speed_rmse": 0.691
+          },
+          "kf_ca": {
+           "gaps": 9,
+           "gap_frames": 229,
+           "rmse_m": 0.229,
+           "speed_rmse": 0.218
+          },
+          "kf_ca_path": {
+           "gaps": 9,
+           "gap_frames": 229,
+           "rmse_m": 0.204,
+           "speed_rmse": 0.224
+          }
+         },
+         {
+          "gap_s": [
+           3.0,
+           5.0
+          ],
+          "linear": {
+           "gaps": 8,
+           "gap_frames": 303,
+           "rmse_m": 1.004,
+           "speed_rmse": 0.717
+          },
+          "kf_ca": {
+           "gaps": 8,
+           "gap_frames": 303,
+           "rmse_m": 0.609,
+           "speed_rmse": 0.545
+          },
+          "kf_ca_path": {
+           "gaps": 8,
+           "gap_frames": 303,
+           "rmse_m": 0.587,
+           "speed_rmse": 0.532
+          }
+         }
+        ],
+        "better_than_linear_share": {
+         "kf_ca": 0.667,
+         "kf_ca_path": 0.686
+        },
+        "validation": {
+         "tracks": 52,
+         "gap_frames": 2112,
+         "rmse_m": {
+          "linear": 0.771,
+          "kf_ca": 0.209,
+          "kf_ca_path": 0.193
+         },
+         "speed_rmse": {
+          "linear": 0.562,
+          "kf_ca": 0.215,
+          "kf_ca_path": 0.215
+         },
+         "selected": "kf_ca_path",
+         "q_curve": [
+          [
+           0.1,
+           0.2891
+          ],
+          [
+           0.351,
+           0.233
+          ],
+          [
+           1.23,
+           0.2085
+          ],
+          [
+           4.33,
+           0.225
+          ],
+          [
+           15.2,
+           0.2353
+          ],
+          [
+           53.4,
+           0.2308
+          ],
+          [
+           187.0,
+           0.2239
+          ],
+          [
+           658.0,
+           0.2214
+          ],
+          [
+           2310.0,
+           0.2219
+          ],
+          [
+           8110.0,
+           0.2221
+          ],
+          [
+           28500.0,
+           0.2212
+          ],
+          [
+           100000.0,
+           0.2197
+          ]
+         ],
+         "q_curve_r": 0.05
+        }
+       },
+       "raw": {
+        "tracks_test": 51,
+        "tracks_val": 52,
+        "selected_method": "kf_ca_path",
+        "params": {
+         "kf_ca": {
+          "q": 0.1,
+          "r": 0.02
+         },
+         "kf_ca_path": {
+          "qa": 0.1,
+          "qc": 15.2,
+          "r": 0.02
+         },
+         "q_status": {
+          "interior": false,
+          "flat_within_1pct_from": 0.1,
+          "flat_within_1pct_to": 0.1,
+          "note": "validation RMSE within 1% of optimum over this q range"
+         }
+        },
+        "methods": {
+         "linear": {
+          "gaps": 171,
+          "gap_frames": 1976,
+          "rmse_m": 0.534,
+          "speed_rmse": null
+         },
+         "kf_ca": {
+          "gaps": 171,
+          "gap_frames": 1976,
+          "rmse_m": 0.317,
+          "speed_rmse": null
+         },
+         "kf_ca_path": {
+          "gaps": 171,
+          "gap_frames": 1976,
+          "rmse_m": 0.315,
+          "speed_rmse": null
+         }
+        },
+        "by_gap": [
+         {
+          "gap_s": [
+           0.5,
+           1.0
+          ],
+          "linear": {
+           "gaps": 94,
+           "gap_frames": 640,
+           "rmse_m": 0.14,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 94,
+           "gap_frames": 640,
+           "rmse_m": 0.145,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 94,
+           "gap_frames": 640,
+           "rmse_m": 0.141,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           1.0,
+           2.0
+          ],
+          "linear": {
+           "gaps": 60,
+           "gap_frames": 804,
+           "rmse_m": 0.302,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 60,
+           "gap_frames": 804,
+           "rmse_m": 0.229,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 60,
+           "gap_frames": 804,
+           "rmse_m": 0.212,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           2.0,
+           3.0
+          ],
+          "linear": {
+           "gaps": 9,
+           "gap_frames": 229,
+           "rmse_m": 0.869,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 9,
+           "gap_frames": 229,
+           "rmse_m": 0.252,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 9,
+           "gap_frames": 229,
+           "rmse_m": 0.234,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           3.0,
+           5.0
+          ],
+          "linear": {
+           "gaps": 8,
+           "gap_frames": 303,
+           "rmse_m": 1.003,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 8,
+           "gap_frames": 303,
+           "rmse_m": 0.653,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 8,
+           "gap_frames": 303,
+           "rmse_m": 0.667,
+           "speed_rmse": null
+          }
+         }
+        ],
+        "better_than_linear_share": {
+         "kf_ca": 0.588,
+         "kf_ca_path": 0.608
+        },
+        "validation": {
+         "tracks": 52,
+         "gap_frames": 2112,
+         "rmse_m": {
+          "linear": 0.774,
+          "kf_ca": 0.245,
+          "kf_ca_path": 0.236
+         },
+         "speed_rmse": {
+          "linear": null,
+          "kf_ca": null,
+          "kf_ca_path": null
+         },
+         "selected": "kf_ca_path",
+         "q_curve": [
+          [
+           0.1,
+           0.2448
+          ],
+          [
+           0.351,
+           0.2688
+          ],
+          [
+           1.23,
+           0.3098
+          ],
+          [
+           4.33,
+           0.3291
+          ],
+          [
+           15.2,
+           0.3251
+          ],
+          [
+           53.4,
+           0.3305
+          ],
+          [
+           187.0,
+           0.3494
+          ],
+          [
+           658.0,
+           0.3643
+          ],
+          [
+           2310.0,
+           0.3826
+          ],
+          [
+           8110.0,
+           0.405
+          ],
+          [
+           28500.0,
+           0.431
+          ],
+          [
+           100000.0,
+           0.4494
+          ]
+         ],
+         "q_curve_r": 0.02
+        }
+       }
+      }
+     }
+    },
+    "truth_variants": {
+     "smoothed": "Savitzky-Golay (15 frames, order 2) NGSIM positions as input and truth",
+     "raw": "unsmoothed NGSIM local_x/local_y (ft->m) as input and truth; NGSIM-interpolated frames excluded from scoring"
+    },
+    "screening": {
+     "max_step_m": 5.0,
+     "tracks_excluded": 0,
+     "ids": [],
+     "rule": "tracks with any 0.1 s displacement > 5 m (smoothed or raw) are not scored in either protocol (NGSIM position jumps); they still occlude others"
+    },
+    "notes": [
+     "Truth 'smoothed' is the Savitzky-Golay (15 frames, order 2) track; the smoother also spreads information from inside a gap into its first/last ~0.7 s of context, which favours smooth models.",
+     "Truth 'raw' is the unsmoothed NGSIM position (ft->m); it carries NGSIM measurement noise, so it bounds achievable RMSE from below: Punzo, V., Borzacchiello, M. T., Ciuffo, B. (2011). On the assessment of vehicle trajectory data accuracy and application to the Next Generation SIMulation (NGSIM) program data. Transportation Research Part C 19(6), 1243-1262.",
+     "Reconstruction of noisy NGSIM trajectories and its validation: Montanino, M., Punzo, V. (2015). Trajectory data reconstruction and simulation-based validation against macroscopic traffic patterns. Transportation Research Part B 80, 82-106.",
+     "Occluder protocol is 2D (shadow of nearer vehicle footprints along the sensor ray, sensor height ignored): it over-states occlusion by cars relative to a 4.5 m pole and should be read as a realistic gap-placement protocol, not a LiDAR visibility model.",
+     "Speed is not scored against raw truth: differentiated raw NGSIM positions are dominated by jitter."
+    ],
     "kalman_rts": {
-     "rmse_m": 0.079,
-     "speed_rmse": 0.11
+     "rmse_m": 0.38,
+     "speed_rmse": 0.279
     },
     "linear": {
-     "rmse_m": 0.408,
-     "speed_rmse": 0.443
+     "rmse_m": 1.028,
+     "speed_rmse": 0.72
     }
    }
   }
@@ -268,113 +1221,129 @@
   "s": 90,
   "hz": 10,
   "tracks": 170,
-  "conflicts": 49,
+  "conflicts": 119,
   "summary": {
    "conflicts_by_type": {
     "rear_end": 28,
-    "crossing": 18,
+    "crossing": 88,
     "lane_change": 3
    },
    "conflicts_by_type_severity": {
-    "crossing:critical": 12,
-    "crossing:moderate": 4,
-    "crossing:serious": 2,
+    "crossing:critical": 31,
+    "crossing:moderate": 38,
+    "crossing:serious": 19,
     "lane_change:critical": 2,
-    "lane_change:serious": 1,
-    "rear_end:critical": 25,
-    "rear_end:serious": 3
+    "lane_change:moderate": 1,
+    "rear_end:critical": 18,
+    "rear_end:moderate": 3,
+    "rear_end:serious": 7
+   },
+   "conflicts_drac_flag": 22,
+   "conflicts_overlap": 17,
+   "ssm_rules": {
+    "detection": {
+     "ttc_max_s": 1.5,
+     "pet_max_s": 5.0,
+     "rule": "rear_end / lane_change: event while TTC <= 1.5 s for >= 0.3 s; crossing: PET <= 5.0 s over the shared swept-footprint zone",
+     "citation": "FHWA SSAM default (Gettman et al. 2008, FHWA-HRT-08-051; SSAM User Manual FHWA-HRT-08-050)"
+    },
+    "drac": {
+     "threshold_mps2": 3.4,
+     "rule": "drac_flag = DRAC_max >= 3.4 m/s^2 (11.2 ft/s^2); reported alongside TTC events, not a detection criterion",
+     "citation": "AASHTO (2018) A Policy on Geometric Design of Highways and Streets, 7th ed."
+    }
    },
    "repair": {
-    "tracks_occluded": 20,
-    "tracks_eligible": 98,
+    "tracks_occluded": 18,
+    "tracks_eligible": 90,
     "seed": 20251,
     "gap_s": [
-     0.8,
-     3.0
+     0.5,
+     5.0
     ],
-    "gaps": 26,
-    "gap_frames": 498,
+    "gaps": 22,
+    "gap_frames": 593,
     "context_s": 3.0,
-    "selected_method": "kf_ca_path",
+    "selected_method": "kf_ca",
     "params": {
      "kf_ca": {
-      "q": 8110.0,
+      "q": 28500.0,
       "r": 0.05
      },
      "kf_ca_path": {
-      "qa": 8110.0,
+      "qa": 28500.0,
       "qc": 100000.0,
       "r": 0.05
      },
      "q_status": {
       "interior": true,
       "flat_within_1pct_from": 8110.0,
-      "flat_within_1pct_to": 8110.0,
+      "flat_within_1pct_to": 100000.0,
       "note": "validation RMSE within 1% of optimum over this q range"
      }
     },
     "validation": {
      "tracks": 60,
-     "gap_frames": 1568,
+     "gap_frames": 1994,
      "rmse_m": {
-      "linear": 0.5184031736647703,
-      "kf_ca": 0.5082549234473718,
-      "kf_ca_path": 0.5072097094499961
+      "linear": 1.211,
+      "kf_ca": 0.453,
+      "kf_ca_path": 0.453
      },
      "speed_rmse": {
-      "linear": 0.8587284932674998,
-      "kf_ca": 0.970999810855351,
-      "kf_ca_path": 0.9725621278874798
+      "linear": 0.862,
+      "kf_ca": 0.428,
+      "kf_ca_path": 0.429
      },
-     "selected": "kf_ca_path",
+     "selected": "kf_ca",
      "q_curve": [
       [
        0.1,
-       0.7129
+       0.6262
       ],
       [
        0.351,
-       0.7514
+       0.6593
       ],
       [
        1.23,
-       0.6505
+       0.6408
       ],
       [
        4.33,
-       0.6971
+       0.6014
       ],
       [
        15.2,
-       0.774
+       0.5684
       ],
       [
        53.4,
-       0.7698
+       0.5346
       ],
       [
        187.0,
-       0.6956
+       0.5051
       ],
       [
        658.0,
-       0.5621
+       0.4834
       ],
       [
        2310.0,
-       0.5322
+       0.4662
       ],
       [
        8110.0,
-       0.5083
+       0.4556
       ],
       [
        28500.0,
-       0.5986
+       0.4527
       ],
       [
        100000.0,
-       0.8835
+       0.4538
       ]
      ],
      "q_curve_r": 0.05,
@@ -403,110 +1372,1058 @@
     },
     "methods": {
      "linear": {
-      "gaps": 26,
-      "gap_frames": 498,
-      "rmse_m": 0.475,
-      "speed_rmse": 0.609
+      "gaps": 22,
+      "gap_frames": 593,
+      "rmse_m": 1.633,
+      "speed_rmse": 1.314
      },
      "kf_ca": {
-      "gaps": 26,
-      "gap_frames": 498,
-      "rmse_m": 0.255,
-      "speed_rmse": 0.28
+      "gaps": 22,
+      "gap_frames": 593,
+      "rmse_m": 1.234,
+      "speed_rmse": 1.156
      },
      "kf_ca_path": {
-      "gaps": 26,
-      "gap_frames": 498,
-      "rmse_m": 0.255,
-      "speed_rmse": 0.28
+      "gaps": 22,
+      "gap_frames": 593,
+      "rmse_m": 1.235,
+      "speed_rmse": 1.156
      }
     },
     "by_gap": [
      {
       "gap_s": [
-       0.8,
-       1.5
+       0.5,
+       1.0
       ],
       "linear": {
-       "gaps": 8,
-       "gap_frames": 95,
-       "rmse_m": 0.443,
-       "speed_rmse": 0.634
+       "gaps": 1,
+       "gap_frames": 7,
+       "rmse_m": 0.0,
+       "speed_rmse": 0.0
       },
       "kf_ca": {
-       "gaps": 8,
-       "gap_frames": 95,
-       "rmse_m": 0.086,
-       "speed_rmse": 0.226
+       "gaps": 1,
+       "gap_frames": 7,
+       "rmse_m": 0.0,
+       "speed_rmse": 0.0
       },
       "kf_ca_path": {
-       "gaps": 8,
-       "gap_frames": 95,
-       "rmse_m": 0.084,
-       "speed_rmse": 0.226
+       "gaps": 1,
+       "gap_frames": 7,
+       "rmse_m": 0.0,
+       "speed_rmse": 0.0
       }
      },
      {
       "gap_s": [
-       1.5,
-       2.2
+       1.0,
+       2.0
       ],
       "linear": {
-       "gaps": 8,
-       "gap_frames": 150,
-       "rmse_m": 0.546,
-       "speed_rmse": 0.74
+       "gaps": 7,
+       "gap_frames": 100,
+       "rmse_m": 0.249,
+       "speed_rmse": 0.47
       },
       "kf_ca": {
-       "gaps": 8,
-       "gap_frames": 150,
-       "rmse_m": 0.082,
-       "speed_rmse": 0.091
+       "gaps": 7,
+       "gap_frames": 100,
+       "rmse_m": 0.061,
+       "speed_rmse": 0.2
       },
       "kf_ca_path": {
-       "gaps": 8,
-       "gap_frames": 150,
-       "rmse_m": 0.08,
-       "speed_rmse": 0.09
+       "gaps": 7,
+       "gap_frames": 100,
+       "rmse_m": 0.06,
+       "speed_rmse": 0.2
       }
      },
      {
       "gap_s": [
-       2.2,
+       2.0,
        3.0
       ],
       "linear": {
+       "gaps": 4,
+       "gap_frames": 101,
+       "rmse_m": 0.501,
+       "speed_rmse": 0.501
+      },
+      "kf_ca": {
+       "gaps": 4,
+       "gap_frames": 101,
+       "rmse_m": 0.367,
+       "speed_rmse": 0.385
+      },
+      "kf_ca_path": {
+       "gaps": 4,
+       "gap_frames": 101,
+       "rmse_m": 0.367,
+       "speed_rmse": 0.385
+      }
+     },
+     {
+      "gap_s": [
+       3.0,
+       5.0
+      ],
+      "linear": {
        "gaps": 10,
-       "gap_frames": 253,
-       "rmse_m": 0.439,
-       "speed_rmse": 0.503
+       "gap_frames": 385,
+       "rmse_m": 2.007,
+       "speed_rmse": 1.593
       },
       "kf_ca": {
        "gaps": 10,
-       "gap_frames": 253,
-       "rmse_m": 0.348,
-       "speed_rmse": 0.36
+       "gap_frames": 385,
+       "rmse_m": 1.519,
+       "speed_rmse": 1.417
       },
       "kf_ca_path": {
        "gaps": 10,
-       "gap_frames": 253,
-       "rmse_m": 0.349,
-       "speed_rmse": 0.36
+       "gap_frames": 385,
+       "rmse_m": 1.521,
+       "speed_rmse": 1.418
       }
      }
     ],
     "better_than_linear_share": {
-     "kf_ca": 0.5,
-     "kf_ca_path": 0.5
+     "kf_ca": 0.667,
+     "kf_ca_path": 0.667
     },
-    "truth": "Savitzky-Golay-smoothed NGSIM track (held out inside gaps)",
+    "truth": "Savitzky-Golay-smoothed NGSIM track (held out inside gaps); uniform protocol. See summary.protocols for the occluder protocol and raw-truth variant.",
+    "protocols": {
+     "uniform": {
+      "description": "seeded random gaps 0.5-5.0 s, 1-2 per track, >= 1.0 s from track ends",
+      "gap_s": [
+       0.5,
+       5.0
+      ],
+      "seed": 20251,
+      "truth_variants": {
+       "smoothed": {
+        "tracks_test": 18,
+        "tracks_val": 60,
+        "selected_method": "kf_ca",
+        "params": {
+         "kf_ca": {
+          "q": 28500.0,
+          "r": 0.05
+         },
+         "kf_ca_path": {
+          "qa": 28500.0,
+          "qc": 100000.0,
+          "r": 0.05
+         },
+         "q_status": {
+          "interior": true,
+          "flat_within_1pct_from": 8110.0,
+          "flat_within_1pct_to": 100000.0,
+          "note": "validation RMSE within 1% of optimum over this q range"
+         }
+        },
+        "methods": {
+         "linear": {
+          "gaps": 22,
+          "gap_frames": 593,
+          "rmse_m": 1.633,
+          "speed_rmse": 1.314
+         },
+         "kf_ca": {
+          "gaps": 22,
+          "gap_frames": 593,
+          "rmse_m": 1.234,
+          "speed_rmse": 1.156
+         },
+         "kf_ca_path": {
+          "gaps": 22,
+          "gap_frames": 593,
+          "rmse_m": 1.235,
+          "speed_rmse": 1.156
+         }
+        },
+        "by_gap": [
+         {
+          "gap_s": [
+           0.5,
+           1.0
+          ],
+          "linear": {
+           "gaps": 1,
+           "gap_frames": 7,
+           "rmse_m": 0.0,
+           "speed_rmse": 0.0
+          },
+          "kf_ca": {
+           "gaps": 1,
+           "gap_frames": 7,
+           "rmse_m": 0.0,
+           "speed_rmse": 0.0
+          },
+          "kf_ca_path": {
+           "gaps": 1,
+           "gap_frames": 7,
+           "rmse_m": 0.0,
+           "speed_rmse": 0.0
+          }
+         },
+         {
+          "gap_s": [
+           1.0,
+           2.0
+          ],
+          "linear": {
+           "gaps": 7,
+           "gap_frames": 100,
+           "rmse_m": 0.249,
+           "speed_rmse": 0.47
+          },
+          "kf_ca": {
+           "gaps": 7,
+           "gap_frames": 100,
+           "rmse_m": 0.061,
+           "speed_rmse": 0.2
+          },
+          "kf_ca_path": {
+           "gaps": 7,
+           "gap_frames": 100,
+           "rmse_m": 0.06,
+           "speed_rmse": 0.2
+          }
+         },
+         {
+          "gap_s": [
+           2.0,
+           3.0
+          ],
+          "linear": {
+           "gaps": 4,
+           "gap_frames": 101,
+           "rmse_m": 0.501,
+           "speed_rmse": 0.501
+          },
+          "kf_ca": {
+           "gaps": 4,
+           "gap_frames": 101,
+           "rmse_m": 0.367,
+           "speed_rmse": 0.385
+          },
+          "kf_ca_path": {
+           "gaps": 4,
+           "gap_frames": 101,
+           "rmse_m": 0.367,
+           "speed_rmse": 0.385
+          }
+         },
+         {
+          "gap_s": [
+           3.0,
+           5.0
+          ],
+          "linear": {
+           "gaps": 10,
+           "gap_frames": 385,
+           "rmse_m": 2.007,
+           "speed_rmse": 1.593
+          },
+          "kf_ca": {
+           "gaps": 10,
+           "gap_frames": 385,
+           "rmse_m": 1.519,
+           "speed_rmse": 1.417
+          },
+          "kf_ca_path": {
+           "gaps": 10,
+           "gap_frames": 385,
+           "rmse_m": 1.521,
+           "speed_rmse": 1.418
+          }
+         }
+        ],
+        "better_than_linear_share": {
+         "kf_ca": 0.667,
+         "kf_ca_path": 0.667
+        },
+        "validation": {
+         "tracks": 60,
+         "gap_frames": 1994,
+         "rmse_m": {
+          "linear": 1.211,
+          "kf_ca": 0.453,
+          "kf_ca_path": 0.453
+         },
+         "speed_rmse": {
+          "linear": 0.862,
+          "kf_ca": 0.428,
+          "kf_ca_path": 0.429
+         },
+         "selected": "kf_ca",
+         "q_curve": [
+          [
+           0.1,
+           0.6262
+          ],
+          [
+           0.351,
+           0.6593
+          ],
+          [
+           1.23,
+           0.6408
+          ],
+          [
+           4.33,
+           0.6014
+          ],
+          [
+           15.2,
+           0.5684
+          ],
+          [
+           53.4,
+           0.5346
+          ],
+          [
+           187.0,
+           0.5051
+          ],
+          [
+           658.0,
+           0.4834
+          ],
+          [
+           2310.0,
+           0.4662
+          ],
+          [
+           8110.0,
+           0.4556
+          ],
+          [
+           28500.0,
+           0.4527
+          ],
+          [
+           100000.0,
+           0.4538
+          ]
+         ],
+         "q_curve_r": 0.05
+        }
+       },
+       "raw": {
+        "tracks_test": 18,
+        "tracks_val": 60,
+        "selected_method": "kf_ca_path",
+        "params": {
+         "kf_ca": {
+          "q": 0.351,
+          "r": 0.2
+         },
+         "kf_ca_path": {
+          "qa": 0.1,
+          "qc": 1.23,
+          "r": 0.2
+         },
+         "q_status": {
+          "interior": true,
+          "flat_within_1pct_from": 0.1,
+          "flat_within_1pct_to": 0.351,
+          "note": "validation RMSE within 1% of optimum over this q range"
+         }
+        },
+        "methods": {
+         "linear": {
+          "gaps": 22,
+          "gap_frames": 593,
+          "rmse_m": 1.634,
+          "speed_rmse": null
+         },
+         "kf_ca": {
+          "gaps": 22,
+          "gap_frames": 593,
+          "rmse_m": 1.085,
+          "speed_rmse": null
+         },
+         "kf_ca_path": {
+          "gaps": 22,
+          "gap_frames": 593,
+          "rmse_m": 1.122,
+          "speed_rmse": null
+         }
+        },
+        "by_gap": [
+         {
+          "gap_s": [
+           0.5,
+           1.0
+          ],
+          "linear": {
+           "gaps": 1,
+           "gap_frames": 7,
+           "rmse_m": 0.0,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 1,
+           "gap_frames": 7,
+           "rmse_m": 0.0,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 1,
+           "gap_frames": 7,
+           "rmse_m": 0.0,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           1.0,
+           2.0
+          ],
+          "linear": {
+           "gaps": 7,
+           "gap_frames": 100,
+           "rmse_m": 0.234,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 7,
+           "gap_frames": 100,
+           "rmse_m": 0.318,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 7,
+           "gap_frames": 100,
+           "rmse_m": 0.371,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           2.0,
+           3.0
+          ],
+          "linear": {
+           "gaps": 4,
+           "gap_frames": 101,
+           "rmse_m": 0.505,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 4,
+           "gap_frames": 101,
+           "rmse_m": 0.642,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 4,
+           "gap_frames": 101,
+           "rmse_m": 0.649,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           3.0,
+           5.0
+          ],
+          "linear": {
+           "gaps": 10,
+           "gap_frames": 385,
+           "rmse_m": 2.008,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 10,
+           "gap_frames": 385,
+           "rmse_m": 1.296,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 10,
+           "gap_frames": 385,
+           "rmse_m": 1.339,
+           "speed_rmse": null
+          }
+         }
+        ],
+        "better_than_linear_share": {
+         "kf_ca": 0.5,
+         "kf_ca_path": 0.556
+        },
+        "validation": {
+         "tracks": 60,
+         "gap_frames": 1994,
+         "rmse_m": {
+          "linear": 1.215,
+          "kf_ca": 0.58,
+          "kf_ca_path": 0.549
+         },
+         "speed_rmse": {
+          "linear": null,
+          "kf_ca": null,
+          "kf_ca_path": null
+         },
+         "selected": "kf_ca_path",
+         "q_curve": [
+          [
+           0.1,
+           0.5818
+          ],
+          [
+           0.351,
+           0.5799
+          ],
+          [
+           1.23,
+           0.6471
+          ],
+          [
+           4.33,
+           0.7054
+          ],
+          [
+           15.2,
+           0.7218
+          ],
+          [
+           53.4,
+           0.7191
+          ],
+          [
+           187.0,
+           0.7236
+          ],
+          [
+           658.0,
+           0.7426
+          ],
+          [
+           2310.0,
+           0.7724
+          ],
+          [
+           8110.0,
+           0.7556
+          ],
+          [
+           28500.0,
+           0.7141
+          ],
+          [
+           100000.0,
+           0.73
+          ]
+         ],
+         "q_curve_r": 0.2
+        }
+       }
+      }
+     },
+     "occluder": {
+      "description": "real 2D line-of-sight occlusion intervals from a virtual roadside sensor; intervals 0.5-5.0 s kept, >= 1.0 s from track ends; visible flickers <= 2 frames merged",
+      "sensor": {
+       "x_m": -12.0,
+       "y_m": 12.0,
+       "height_m": 4.5,
+       "model": "2D"
+      },
+      "gap_s": [
+       0.5,
+       5.0
+      ],
+      "seed": 20253,
+      "occlusion": {
+       "frames": 25887,
+       "occluded_frames": 18265,
+       "occluded_share": 0.706,
+       "tracks_with_gaps": 53,
+       "gaps": 197,
+       "gap_len_mean_s": 1.33,
+       "gaps_by_bin": [
+        [
+         0.5,
+         1.0,
+         84
+        ],
+        [
+         1.0,
+         2.0,
+         77
+        ],
+        [
+         2.0,
+         3.0,
+         22
+        ],
+        [
+         3.0,
+         5.0,
+         14
+        ]
+       ]
+      },
+      "truth_variants": {
+       "smoothed": {
+        "tracks_test": 26,
+        "tracks_val": 27,
+        "selected_method": "kf_ca_path",
+        "params": {
+         "kf_ca": {
+          "q": 8110.0,
+          "r": 0.2
+         },
+         "kf_ca_path": {
+          "qa": 8110.0,
+          "qc": 100000.0,
+          "r": 0.2
+         },
+         "q_status": {
+          "interior": true,
+          "flat_within_1pct_from": 8110.0,
+          "flat_within_1pct_to": 8110.0,
+          "note": "validation RMSE within 1% of optimum over this q range"
+         }
+        },
+        "methods": {
+         "linear": {
+          "gaps": 94,
+          "gap_frames": 1296,
+          "rmse_m": 0.682,
+          "speed_rmse": 0.601
+         },
+         "kf_ca": {
+          "gaps": 94,
+          "gap_frames": 1296,
+          "rmse_m": 0.376,
+          "speed_rmse": 0.358
+         },
+         "kf_ca_path": {
+          "gaps": 94,
+          "gap_frames": 1296,
+          "rmse_m": 0.376,
+          "speed_rmse": 0.359
+         }
+        },
+        "by_gap": [
+         {
+          "gap_s": [
+           0.5,
+           1.0
+          ],
+          "linear": {
+           "gaps": 39,
+           "gap_frames": 271,
+           "rmse_m": 0.092,
+           "speed_rmse": 0.215
+          },
+          "kf_ca": {
+           "gaps": 39,
+           "gap_frames": 271,
+           "rmse_m": 0.039,
+           "speed_rmse": 0.176
+          },
+          "kf_ca_path": {
+           "gaps": 39,
+           "gap_frames": 271,
+           "rmse_m": 0.038,
+           "speed_rmse": 0.176
+          }
+         },
+         {
+          "gap_s": [
+           1.0,
+           2.0
+          ],
+          "linear": {
+           "gaps": 35,
+           "gap_frames": 455,
+           "rmse_m": 0.142,
+           "speed_rmse": 0.257
+          },
+          "kf_ca": {
+           "gaps": 35,
+           "gap_frames": 455,
+           "rmse_m": 0.067,
+           "speed_rmse": 0.141
+          },
+          "kf_ca_path": {
+           "gaps": 35,
+           "gap_frames": 455,
+           "rmse_m": 0.066,
+           "speed_rmse": 0.14
+          }
+         },
+         {
+          "gap_s": [
+           2.0,
+           3.0
+          ],
+          "linear": {
+           "gaps": 12,
+           "gap_frames": 268,
+           "rmse_m": 0.59,
+           "speed_rmse": 0.775
+          },
+          "kf_ca": {
+           "gaps": 12,
+           "gap_frames": 268,
+           "rmse_m": 0.386,
+           "speed_rmse": 0.481
+          },
+          "kf_ca_path": {
+           "gaps": 12,
+           "gap_frames": 268,
+           "rmse_m": 0.388,
+           "speed_rmse": 0.485
+          }
+         },
+         {
+          "gap_s": [
+           3.0,
+           5.0
+          ],
+          "linear": {
+           "gaps": 8,
+           "gap_frames": 302,
+           "rmse_m": 1.285,
+           "speed_rmse": 0.936
+          },
+          "kf_ca": {
+           "gaps": 8,
+           "gap_frames": 302,
+           "rmse_m": 0.684,
+           "speed_rmse": 0.535
+          },
+          "kf_ca_path": {
+           "gaps": 8,
+           "gap_frames": 302,
+           "rmse_m": 0.682,
+           "speed_rmse": 0.535
+          }
+         }
+        ],
+        "better_than_linear_share": {
+         "kf_ca": 0.769,
+         "kf_ca_path": 0.769
+        },
+        "validation": {
+         "tracks": 27,
+         "gap_frames": 1322,
+         "rmse_m": {
+          "linear": 0.462,
+          "kf_ca": 0.283,
+          "kf_ca_path": 0.276
+         },
+         "speed_rmse": {
+          "linear": 0.48,
+          "kf_ca": 0.321,
+          "kf_ca_path": 0.321
+         },
+         "selected": "kf_ca_path",
+         "q_curve": [
+          [
+           0.1,
+           0.5111
+          ],
+          [
+           0.351,
+           0.439
+          ],
+          [
+           1.23,
+           0.378
+          ],
+          [
+           4.33,
+           0.3443
+          ],
+          [
+           15.2,
+           0.3454
+          ],
+          [
+           53.4,
+           0.3449
+          ],
+          [
+           187.0,
+           0.3388
+          ],
+          [
+           658.0,
+           0.3166
+          ],
+          [
+           2310.0,
+           0.2903
+          ],
+          [
+           8110.0,
+           0.2829
+          ],
+          [
+           28500.0,
+           0.2884
+          ],
+          [
+           100000.0,
+           0.2894
+          ]
+         ],
+         "q_curve_r": 0.2
+        }
+       },
+       "raw": {
+        "tracks_test": 26,
+        "tracks_val": 27,
+        "selected_method": "kf_ca_path",
+        "params": {
+         "kf_ca": {
+          "q": 0.351,
+          "r": 0.05
+         },
+         "kf_ca_path": {
+          "qa": 0.351,
+          "qc": 100000.0,
+          "r": 0.05
+         },
+         "q_status": {
+          "interior": true,
+          "flat_within_1pct_from": 0.351,
+          "flat_within_1pct_to": 0.351,
+          "note": "validation RMSE within 1% of optimum over this q range"
+         }
+        },
+        "methods": {
+         "linear": {
+          "gaps": 94,
+          "gap_frames": 1296,
+          "rmse_m": 0.682,
+          "speed_rmse": null
+         },
+         "kf_ca": {
+          "gaps": 94,
+          "gap_frames": 1296,
+          "rmse_m": 0.292,
+          "speed_rmse": null
+         },
+         "kf_ca_path": {
+          "gaps": 94,
+          "gap_frames": 1296,
+          "rmse_m": 0.308,
+          "speed_rmse": null
+         }
+        },
+        "by_gap": [
+         {
+          "gap_s": [
+           0.5,
+           1.0
+          ],
+          "linear": {
+           "gaps": 39,
+           "gap_frames": 271,
+           "rmse_m": 0.121,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 39,
+           "gap_frames": 271,
+           "rmse_m": 0.145,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 39,
+           "gap_frames": 271,
+           "rmse_m": 0.133,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           1.0,
+           2.0
+          ],
+          "linear": {
+           "gaps": 35,
+           "gap_frames": 455,
+           "rmse_m": 0.156,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 35,
+           "gap_frames": 455,
+           "rmse_m": 0.172,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 35,
+           "gap_frames": 455,
+           "rmse_m": 0.202,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           2.0,
+           3.0
+          ],
+          "linear": {
+           "gaps": 12,
+           "gap_frames": 268,
+           "rmse_m": 0.597,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 12,
+           "gap_frames": 268,
+           "rmse_m": 0.309,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 12,
+           "gap_frames": 268,
+           "rmse_m": 0.351,
+           "speed_rmse": null
+          }
+         },
+         {
+          "gap_s": [
+           3.0,
+           5.0
+          ],
+          "linear": {
+           "gaps": 8,
+           "gap_frames": 302,
+           "rmse_m": 1.277,
+           "speed_rmse": null
+          },
+          "kf_ca": {
+           "gaps": 8,
+           "gap_frames": 302,
+           "rmse_m": 0.466,
+           "speed_rmse": null
+          },
+          "kf_ca_path": {
+           "gaps": 8,
+           "gap_frames": 302,
+           "rmse_m": 0.468,
+           "speed_rmse": null
+          }
+         }
+        ],
+        "better_than_linear_share": {
+         "kf_ca": 0.5,
+         "kf_ca_path": 0.5
+        },
+        "validation": {
+         "tracks": 27,
+         "gap_frames": 1322,
+         "rmse_m": {
+          "linear": 0.469,
+          "kf_ca": 0.364,
+          "kf_ca_path": 0.359
+         },
+         "speed_rmse": {
+          "linear": null,
+          "kf_ca": null,
+          "kf_ca_path": null
+         },
+         "selected": "kf_ca_path",
+         "q_curve": [
+          [
+           0.1,
+           0.3833
+          ],
+          [
+           0.351,
+           0.364
+          ],
+          [
+           1.23,
+           0.3681
+          ],
+          [
+           4.33,
+           0.3759
+          ],
+          [
+           15.2,
+           0.404
+          ],
+          [
+           53.4,
+           0.435
+          ],
+          [
+           187.0,
+           0.4417
+          ],
+          [
+           658.0,
+           0.4456
+          ],
+          [
+           2310.0,
+           0.4431
+          ],
+          [
+           8110.0,
+           0.4187
+          ],
+          [
+           28500.0,
+           0.4026
+          ],
+          [
+           100000.0,
+           0.4017
+          ]
+         ],
+         "q_curve_r": 0.05
+        }
+       }
+      }
+     }
+    },
+    "truth_variants": {
+     "smoothed": "Savitzky-Golay (15 frames, order 2) NGSIM positions as input and truth",
+     "raw": "unsmoothed NGSIM local_x/local_y (ft->m) as input and truth; NGSIM-interpolated frames excluded from scoring"
+    },
+    "screening": {
+     "max_step_m": 5.0,
+     "tracks_excluded": 8,
+     "ids": [
+      705,
+      787,
+      826,
+      831,
+      846,
+      851,
+      954,
+      958
+     ],
+     "rule": "tracks with any 0.1 s displacement > 5 m (smoothed or raw) are not scored in either protocol (NGSIM position jumps); they still occlude others"
+    },
+    "notes": [
+     "Truth 'smoothed' is the Savitzky-Golay (15 frames, order 2) track; the smoother also spreads information from inside a gap into its first/last ~0.7 s of context, which favours smooth models.",
+     "Truth 'raw' is the unsmoothed NGSIM position (ft->m); it carries NGSIM measurement noise, so it bounds achievable RMSE from below: Punzo, V., Borzacchiello, M. T., Ciuffo, B. (2011). On the assessment of vehicle trajectory data accuracy and application to the Next Generation SIMulation (NGSIM) program data. Transportation Research Part C 19(6), 1243-1262.",
+     "Reconstruction of noisy NGSIM trajectories and its validation: Montanino, M., Punzo, V. (2015). Trajectory data reconstruction and simulation-based validation against macroscopic traffic patterns. Transportation Research Part B 80, 82-106.",
+     "Occluder protocol is 2D (shadow of nearer vehicle footprints along the sensor ray, sensor height ignored): it over-states occlusion by cars relative to a 4.5 m pole and should be read as a realistic gap-placement protocol, not a LiDAR visibility model.",
+     "Speed is not scored against raw truth: differentiated raw NGSIM positions are dominated by jitter."
+    ],
     "kalman_rts": {
-     "rmse_m": 0.255,
-     "speed_rmse": 0.28
+     "rmse_m": 1.234,
+     "speed_rmse": 1.156
     },
     "linear": {
-     "rmse_m": 0.475,
-     "speed_rmse": 0.609
+     "rmse_m": 1.633,
+     "speed_rmse": 1.314
     }
    }
   }

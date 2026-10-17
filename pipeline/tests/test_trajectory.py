@@ -45,19 +45,79 @@ def test_no_rear_end_across_lanes():
     assert ssm.rear_end([lead, fol]) == []
 
 
-def test_pet_crossing_cells():
-    t = np.round(np.arange(0, 4, 0.1), 1)
-    # A northbound along x=1 through y=0 at t=2.0 (10 m/s); B eastbound along y=1, reaching
-    # x=1 at t=3.0. Shared 2 m cell [0,2)x[0,2): A in t=[2.0,2.1], B in t=[2.9,3.0] -> PET 0.8 s.
+def test_pet_bounding_boxes_on_toy_crossing():
+    t = np.round(np.arange(0, 5, 0.1), 1)
+    # A: NB, front bumper at x=1, y=-20+10t, 4.5 x 1.8 m box -> covers x in [0.1, 1.9].
+    # B: EB, front bumper at y=1, x=-29+10t -> covers y in [0.1, 1.9].
+    # Shared zone ~[0.1,1.9]^2 (on the 0.5 m raster: [0,2)^2). A's rear leaves when y_front-4.5 >= 2
+    # -> t = 2.65; B's front enters at x_front >= 0 -> t = 2.9. PET = 0.25 s (exact geometry 0.27 s).
     a = track(1, t, np.full_like(t, 1.0), -20 + 10 * t, np.full_like(t, 10.0), dir_="NB")
     b = track(2, t, -29 + 10 * t, np.full_like(t, 1.0), np.full_like(t, 10.0), dir_="EB")
     ev = ssm.pet([a, b])
     assert len(ev) == 1
-    assert ev[0]["pet"] == pytest.approx(0.8, abs=1e-6)
-    assert (ev[0]["a"], ev[0]["b"], ev[0]["severity"]) == (1, 2, "critical")
+    e = ev[0]
+    assert e["pet"] == pytest.approx(0.27, abs=0.04)
+    assert (e["a"], e["b"], e["overlap"], e["severity"]) == (1, 2, False, "critical")
+    assert e["angle_deg"] == pytest.approx(90, abs=1)
+    assert abs(e["cell"][0] - 1) < 0.3 and abs(e["cell"][1] - 1) < 0.3
+    # centre-point PET would be 0.8 s (2 m cells): footprints shorten it, as they must
+    assert e["pet"] < 0.8
     # opposing throughs do not conflict
     c = track(3, t, np.full_like(t, 1.0), 20 - 10 * t, np.full_like(t, 10.0), dir_="SB")
     assert ssm.pet([a, c]) == []
+
+
+def test_pet_overlap_is_flagged_not_skipped():
+    t = np.round(np.arange(0, 5, 0.1), 1)
+    a = track(1, t, np.full_like(t, 1.0), -20 + 10 * t, np.full_like(t, 10.0), dir_="NB")
+    # B enters the zone at t=2.4 while A's footprint is still in it (until 2.65)
+    b = track(2, t, -24 + 10 * t, np.full_like(t, 1.0), np.full_like(t, 10.0), dir_="EB")
+    ev = ssm.pet([a, b])
+    assert len(ev) == 1
+    assert ev[0]["overlap"] is True and ev[0]["pet"] == 0.0
+    assert ev[0]["severity"] == "critical"
+
+
+def test_severity_bins_match_detection_rules():
+    assert ssm.severity_ttc(0.5) == "critical" and ssm.severity_ttc(0.9) == "serious"
+    assert ssm.severity_ttc(1.5) == "moderate" and ssm.severity_ttc(1.6) is None
+    assert ssm.severity_pet(1.0) == "critical" and ssm.severity_pet(2.0) == "serious"
+    assert ssm.severity_pet(5.0) == "moderate" and ssm.severity_pet(5.1) is None
+    assert ssm.RULES["detection"]["ttc_max_s"] == ssm.TTC_BINS[-1][0]
+    assert ssm.RULES["detection"]["pet_max_s"] == ssm.PET_BINS[-1][0]
+
+
+def test_analyse_sensitivity_is_monotone():
+    t = np.arange(0, 3, 0.1)
+    lead = track(1, t, np.zeros_like(t), 20 + 5 * t, np.full_like(t, 5.0))
+    fol = track(2, t, np.zeros_like(t), 5 + 15 * t, np.full_like(t, 15.0))
+    conf, doc = ssm.analyse([lead, fol])
+    assert len(conf) == 1 and conf[0]["drac_flag"] is True
+    ttc = doc["sensitivity"]["ttc"]
+    assert list(ttc) == ["1.0", "1.5", "2.0", "3.0"]
+    assert all(ttc[k]["rear_end"] >= 1 for k in ttc)
+    assert doc["scatter"][0][2] == "rear_end" and doc["rules"]["citations"]
+
+
+def test_occluder_line_of_sight_on_toy_geometry():
+    t = np.round(np.arange(0, 10, 0.1), 1)
+    n = len(t)
+    # sensor (-12, 12). Parked NB occluder, box centre (0, 12) -> x in [-0.9,0.9], y in [9.75,14.25].
+    occl = track(1, t, np.zeros(n), np.full(n, 14.25), np.zeros(n), dir_="NB")
+    # target NB at x=12, box centre y_c = 2 + 2t. The ray to (12, y_c) is at y = 12 + (y_c-12)*11.1/24
+    # on the occluder's near face x=-0.9, inside [9.75, 14.25] for y_c in [7.14, 16.86] -> t in [2.57, 7.43].
+    tgt = track(2, t, np.full(n, 12.0), 4.25 + 2 * t, np.full(n, 2.0), dir_="NB")
+    occ = repair.occlusion([occl, tgt], sensor=(-12.0, 12.0))
+    m, by = occ[2]
+    hidden = t[m]
+    assert hidden.min() == pytest.approx(2.6, abs=0.06) and hidden.max() == pytest.approx(7.4, abs=0.06)
+    assert set(by[m]) == {1}
+    assert not occ[1][0].any()            # nothing between sensor and occluder
+    obs, sel = repair.occluder_gaps(tgt, m)
+    assert len(sel) == 1 and 4.0 <= (sel[0][1] - sel[0][0]) * 0.1 <= 5.0
+    # a 5.5 s occlusion exceeds the 0.5-5 s protocol range and is not used
+    m2 = np.zeros(n, bool); m2[20:75] = True
+    assert repair.occluder_gaps(tgt, m2)[1] == []
 
 
 def test_kalman_beats_linear_on_accelerating_track():
@@ -90,6 +150,23 @@ def test_occlusion_is_seeded_and_in_range():
     r2 = repair.occlude_and_repair(trs, seed=7)
     assert [r["gaps"] for r in r1["tracks"]] == [r["gaps"] for r in r2["tracks"]]
     assert r1["summary"]["tracks_occluded"] == 4
+    s = r1["summary"]
+    assert set(s["protocols"]) == {"uniform", "occluder"}
+    assert {"methods", "by_gap", "validation", "params", "selected_method"} <= set(s)
+    assert [b["gap_s"] for b in s["by_gap"]] == [[0.5, 1.0], [1.0, 2.0], [2.0, 3.0], [3.0, 5.0]]
     for r in r1["tracks"]:
+        assert r["protocol"] in ("uniform", "occluder")
+        if r["protocol"] != "uniform":
+            continue
         for g0, g1 in r["gaps"]:
-            assert 0.7 <= g1 - g0 + 0.1 <= 3.05
+            assert 0.45 <= g1 - g0 + 0.1 <= 5.05
+
+
+def test_kalman_batch_matches_scalar():
+    rng = np.random.default_rng(1)
+    z = np.cumsum(rng.normal(0, 0.3, 60))
+    obs = np.ones(60, bool); obs[20:35] = False
+    pb, vb = repair.kalman_rts(z, obs, r=np.array([0.05, 0.2]), q=np.array([2.0, 50.0]))
+    for i, (r, q) in enumerate(((0.05, 2.0), (0.2, 50.0))):
+        p, v = repair.kalman_rts(z, obs, r=r, q=q)
+        assert np.allclose(pb[i], p) and np.allclose(vb[i], v)

@@ -4,10 +4,10 @@ import type { AskResponse } from '../lib/types';
 import '../styles/ask.css';
 
 const SUGGESTED = [
-  'Which US 84 segments have the highest EB excess and what is their AADT?',
+  'Which US 84 segments have the highest EB excess of ped/bike crashes, and what is their AADT?',
   'How many KA pedestrian crashes happened in dark-not-lighted conditions?',
   'At Peachtree, how many rear-end conflicts had TTC below 1.0 s?',
-  'What are the pooled SPF coefficients and overdispersion for Lubbock County segments?',
+  'Which SPF does each site type use, and how well does it fit (MAD, Pearson χ²/df)?',
   'Which PBCAT crash type is most frequent among pedestrian crashes?',
   'Did the Kalman RTS smoother beat linear interpolation on occluded tracks at Lankershim?',
 ];

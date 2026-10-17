@@ -3,29 +3,39 @@ import { useApi } from '../lib/api';
 import { nf } from '../lib/format';
 
 type P3 = [number, number, number];
-interface RTrack { id: number; gaps: number | [number, number][]; method: string; rmse_m: number; speed_rmse: number; raw: P3[]; truth: P3[]; repaired: P3[]; linear: P3[]; methods?: Record<string, { rmse_m: number; speed_rmse: number }> }
+interface RTrack { protocol?: string; occluded_by?: number; id: number; gaps: number | [number, number][]; method: string; rmse_m: number; speed_rmse: number; raw: P3[]; truth: P3[]; repaired: P3[]; linear: P3[]; methods?: Record<string, { rmse_m: number; speed_rmse: number }> }
 interface M { gaps: number; gap_frames: number; rmse_m: number; speed_rmse: number }
 interface RSummary {
   tracks_occluded: number; tracks_eligible: number; gaps: number; seed: number; gap_s: [number, number]; context_s?: number; selected_method?: string;
   params?: Record<string, Record<string, number>>; methods?: Record<string, M>; by_gap?: ({ gap_s: [number, number] } & Record<string, M | [number, number]>)[];
   validation?: { tracks: number; rmse_m: Record<string, number>; selected: string; grid?: { q: number[]; r: number[] }; q_curve?: { q: number; rmse_m: number }[] };
   better_than_linear_share?: Record<string, number>; truth?: string;
+  protocols?: Record<string, { description: string; occlusion?: { gaps: number; occluded_share: number; gap_len_mean_s: number }; truth_variants: Record<string, Variant> }>;
+  notes?: string[];
 }
+interface Variant { methods: Record<string, M>; by_gap: ({ gap_s: [number, number] } & Record<string, M | [number, number]>)[]; selected_method?: string; params?: Record<string, any>; better_than_linear_share?: Record<string, number>; tracks_test?: number }
 const NAME: Record<string, string> = { linear: 'Linear interpolation', kf_ca: 'Kalman CA + RTS', kf_ca_path: 'Kalman CA + RTS, along/cross-track' };
 
 export default function RepairPanel({ id }: { id: string }) {
   const r = useApi<{ tracks: RTrack[]; summary: RSummary }>(`/intersections/${id}/repair`);
   const tracks = useMemo(() => [...(r.data?.tracks ?? [])].sort((a, b) => b.truth.length - a.truth.length), [r.data]);
   const [pick, setPick] = useState(0);
-  const tr = tracks[Math.min(pick, tracks.length - 1)];
-  const s = r.data?.summary;
+  const [proto, setProto] = useState<'occluder' | 'uniform'>('occluder');
+  const [truth, setTruth] = useState<'smoothed' | 'raw'>('smoothed');
+  const base = r.data?.summary;
+  const pv = base?.protocols?.[proto];
+  const v = pv?.truth_variants?.[truth];
+  // the table reads the selected protocol × truth; fall back to legacy top-level summary
+  const s = base && v ? { ...base, methods: v.methods, by_gap: v.by_gap, selected_method: v.selected_method, params: v.params ?? base.params, better_than_linear_share: v.better_than_linear_share } : base;
+  const shown = tracks.filter((t) => !t.protocol || t.protocol === proto);
+  const tr = shown[Math.min(pick, shown.length - 1)];
   const methods = s?.methods ? Object.keys(s.methods) : [];
 
   return (
     <section className="section repair" aria-labelledby="rep-h">
       <div className="section-head">
         <h2 id="rep-h">Trajectory repair under occlusion</h2>
-        <p>Synthetic occlusion on {s ? `${s.tracks_occluded} of ${s.tracks_eligible}` : '…'} tracks, gaps {s ? `${s.gap_s[0]}–${s.gap_s[1]} s` : ''}, seed {s?.seed}</p>
+        <p>{proto === 'occluder' ? 'Gaps placed where a nearer vehicle blocks a virtual roadside sensor' : 'Gaps of uniform random length'}, 0.5–5 s · scored against {truth === 'raw' ? 'raw' : 'smoothed'} NGSIM positions</p>
       </div>
       <p className="rep-intro">
         Roadside sensors lose vehicles behind other vehicles, poles and turning trucks, and broken tracks corrupt speed profiles and conflict measures.
@@ -36,10 +46,21 @@ export default function RepairPanel({ id }: { id: string }) {
       {s && tr && (
         <div className="rep-grid">
           <div className="panel rep-plot">
+            <div className="rep-plot-h rep-switch">
+              <div className="seg" role="group" aria-label="Occlusion protocol">
+                <button aria-pressed={proto === 'occluder'} onClick={() => { setProto('occluder'); setPick(0); }}>Line-of-sight occlusion</button>
+                <button aria-pressed={proto === 'uniform'} onClick={() => { setProto('uniform'); setPick(0); }}>Uniform random gaps</button>
+              </div>
+              <div className="seg" role="group" aria-label="Ground truth">
+                <button aria-pressed={truth === 'smoothed'} onClick={() => setTruth('smoothed')}>Smoothed truth</button>
+                <button aria-pressed={truth === 'raw'} onClick={() => setTruth('raw')}>Raw NGSIM truth</button>
+              </div>
+            </div>
+            {pv && <p className="muted rep-desc">{pv.description}{pv.occlusion ? ` — ${pv.occlusion.gaps} real gaps, mean ${pv.occlusion.gap_len_mean_s.toFixed(2)} s.` : ''}</p>}
             <div className="rep-plot-h">
               <label className="select"><span>Occluded track</span>
                 <select value={pick} onChange={(e) => setPick(Number(e.target.value))}>
-                  {tracks.map((t, i) => <option key={t.id} value={i}>#{t.id} · {(t.truth.length / 10).toFixed(1)} s missing · {t.method === 'linear' ? 'linear' : 'Kalman'} {t.rmse_m.toFixed(2)} m</option>)}
+                  {shown.map((t, i) => <option key={t.id} value={i}>#{t.id} · {(t.truth.length / 10).toFixed(1)} s missing · {t.method === 'linear' ? 'linear' : 'Kalman'} {t.rmse_m.toFixed(2)} m</option>)}
                 </select>
               </label>
             </div>
@@ -64,10 +85,10 @@ export default function RepairPanel({ id }: { id: string }) {
                   <td>All test gaps <span className="muted num">({s.gaps})</span></td>
                   {methods.map((m) => <td key={m} className="r num">{nf(s.methods![m].rmse_m, 3)}</td>)}
                 </tr>
-                <tr>
+                {truth === 'smoothed' && <tr>
                   <td>Speed RMSE (m/s)</td>
                   {methods.map((m) => <td key={m} className="r num">{nf(s.methods![m].speed_rmse, 3)}</td>)}
-                </tr>
+                </tr>}
               </tbody>
             </table>
             <dl className="rep-facts num">
@@ -78,6 +99,7 @@ export default function RepairPanel({ id }: { id: string }) {
               <dt>Truth</dt><dd>{s.truth ?? 'smoothed NGSIM track'}</dd>
             </dl>
             {s.validation?.q_curve && <QCurve c={s.validation.q_curve} chosen={s.params?.kf_ca?.q} />}
+            {base?.notes && <ul className="rep-notes muted">{base.notes.map((n) => <li key={n.slice(0, 40)}>{n}</li>)}</ul>}
           </div>
         </div>
       )}

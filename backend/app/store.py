@@ -129,6 +129,6 @@ def intersection_ids() -> list[str]:
     ids = []
     for name in list_names("intersections"):
         stem = Path(name).name
-        if stem.endswith(".json") and stem != "index.json" and not stem.endswith(("_conflicts.json", "_repair.json")):
+        if stem.endswith(".json") and stem != "index.json" and not stem.endswith(("_conflicts.json", "_repair.json", "_ssm.json")):
             ids.append(stem[: -len(".json")])
     return ids

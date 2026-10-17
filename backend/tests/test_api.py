@@ -216,3 +216,8 @@ def test_lambda_handler_import() -> None:
     from app.lambda_handler import handler
 
     assert callable(handler)
+
+
+def test_intersection_list_excludes_ssm_files(client: TestClient) -> None:
+    ids = [i["id"] for i in client.get("/api/v1/intersections").json()]
+    assert all(not i.endswith("_ssm") for i in ids)

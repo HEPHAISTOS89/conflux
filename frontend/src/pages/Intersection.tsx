@@ -4,6 +4,7 @@ import PlanView from '../components/PlanView';
 import TimeSpace from '../components/TimeSpace';
 import Player from '../components/Player';
 import RepairPanel from '../components/RepairPanel';
+import SsmPanel from '../components/SsmPanel';
 import { useApi } from '../lib/api';
 import { nf } from '../lib/format';
 import { ClockCtx, MPS_TO_MPH, poseAt, useClockFrame, useClockState, type ConflictT, type IntersectionT } from '../lib/traj';
@@ -83,7 +84,7 @@ export default function IntersectionPage() {
                       {conflicts.map((c) => (
                         <tr key={c.id} onClick={() => jump(c)} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && jump(c)} data-active={selected === String(c.a)}>
                           <td className="r num">{c.t.toFixed(1)}</td>
-                          <td><span className={`sev sev-${c.severity}`}>{TYPE_LABEL[c.type]}</span></td>
+                          <td><span className={`sev sev-${c.severity}`}>{TYPE_LABEL[c.type]}</span>{(c as any).overlap ? <span className="flag" title="Simultaneous occupancy of the conflict zone; likely NGSIM position error">overlap</span> : null}</td>
                           <td className="r num">{c.ttc_min != null ? `${c.ttc_min.toFixed(2)} s` : '—'}</td>
                           <td className="r num">{c.pet != null ? `${c.pet.toFixed(2)} s` : '—'}</td>
                           <td className={`r num ${c.drac_max != null && c.drac_max > 8 ? 'implaus' : ''}`}>{c.drac_max != null ? (c.drac_max * 3.281).toFixed(1) : '—'}</td>
@@ -107,6 +108,7 @@ export default function IntersectionPage() {
         </ClockCtx.Provider>
       )}
 
+      <SsmPanel id={id} />
       <RepairPanel id={id} />
     </div>
   );

@@ -21,7 +21,7 @@
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2018/National/FARS2018NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
       "records": 24,
-      "fetched_at": "2026-10-17T06:56:23+00:00",
+      "fetched_at": "2026-10-17T07:36:23+00:00",
       "sha256": "bd0c5473e3f0eaf44c3236000225e5ca90070884684d1b69036062b2ddbdaf2e"
     },
     {
@@ -29,7 +29,7 @@
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2019/National/FARS2019NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
       "records": 58,
-      "fetched_at": "2026-10-17T06:56:24+00:00",
+      "fetched_at": "2026-10-17T07:36:23+00:00",
       "sha256": "0974abb92cfb04fa022631a838a3f46555025f2b011ee78ecad15bcf86c60f31"
     },
     {
@@ -37,7 +37,7 @@
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2020/National/FARS2020NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
       "records": 38,
-      "fetched_at": "2026-10-17T06:56:24+00:00",
+      "fetched_at": "2026-10-17T07:36:24+00:00",
       "sha256": "b2806902b3da9b45c632499f82e1c74fd108238ae7f67e108ebf40360ee4c9c3"
     },
     {
@@ -45,7 +45,7 @@
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2021/National/FARS2021NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
       "records": 59,
-      "fetched_at": "2026-10-17T06:56:24+00:00",
+      "fetched_at": "2026-10-17T07:36:24+00:00",
       "sha256": "743c19a13884614430d295289e655c5ad32b0a025a11e5b2149dfb57acae389b"
     },
     {
@@ -53,7 +53,7 @@
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2022/National/FARS2022NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
       "records": 49,
-      "fetched_at": "2026-10-17T06:56:25+00:00",
+      "fetched_at": "2026-10-17T07:36:24+00:00",
       "sha256": "989448d7a2f3964264c96a3cdb220f6c413c782a33eb759781f520c5acb5f744"
     },
     {
@@ -61,7 +61,7 @@
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2023/National/FARS2023NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
       "records": 51,
-      "fetched_at": "2026-10-17T06:56:25+00:00",
+      "fetched_at": "2026-10-17T07:36:25+00:00",
       "sha256": "edde841eb493e55751961b36bac2d1ce8750f601cb8e6e183a525723bb62bab0"
     },
     {
@@ -69,12 +69,13 @@
       "url": "https://data.transportation.gov/resource/8ect-6jqj.json",
       "licence": "CC BY-SA 3.0 (USDOT ITS DataHub); attribution and share-alike",
       "records": 55554,
-      "fetched_at": "2026-10-17T07:05:21+00:00",
+      "fetched_at": "2026-10-17T07:36:06+00:00",
       "sha256": "40231fcdebedf532801e73bfcf3dc192af93d6dad651bf02c36ab379e27ce76d",
       "filter": "location='lankershim', int_id=2 zone, global_time [1118937024000, 1118937114000]",
       "outputs": [
         "intersections/lankershim-main.json",
         "intersections/lankershim-main_conflicts.json",
+        "intersections/lankershim-main_ssm.json",
         "intersections/lankershim-main_repair.json"
       ]
     },
@@ -83,12 +84,13 @@
       "url": "https://data.transportation.gov/resource/8ect-6jqj.json",
       "licence": "CC BY-SA 3.0 (USDOT ITS DataHub); attribution and share-alike",
       "records": 27237,
-      "fetched_at": "2026-10-17T07:05:21+00:00",
+      "fetched_at": "2026-10-17T07:36:06+00:00",
       "sha256": "b6111f447432b0d31196394702f0e181ec56ad4e50b85d0f21a0d0e670a34b19",
       "filter": "location='peachtree', int_id=1 zone, global_time [1163540000, 1163630000]",
       "outputs": [
         "intersections/peachtree-10th.json",
         "intersections/peachtree-10th_conflicts.json",
+        "intersections/peachtree-10th_ssm.json",
         "intersections/peachtree-10th_repair.json"
       ]
     },
@@ -120,12 +122,12 @@
   "metrics": {
     "segments": 443,
     "segments_screened": 395,
-    "segments_with_crashes": 86,
-    "segment_crashes_total": 823,
-    "segment_crash_years": 9,
-    "spf_b0": -12.7127,
-    "spf_b1": 1.2275,
-    "spf_k": 7.2041,
+    "segments_with_crashes": 64,
+    "segment_crashes_total": 114,
+    "segment_crash_years": 3,
+    "spf_b0": -11.756,
+    "spf_b1": 1.0316,
+    "spf_k": 2.3519,
     "corridors": 7,
     "vru_crashes": 307,
     "vru_ka": 86,
@@ -143,7 +145,50 @@
     },
     "fatal_crashes": 278,
     "fatalities": 301,
-    "fatal_years": "2018-2023"
+    "fatal_years": "2018-2023",
+    "segment_crash_period": "2021-2023",
+    "segment_crash_outcome": "on-system ped/bike/e-scooter CRIS crashes (all KABCO)",
+    "spf_site_types_fitted": [
+      "Urban interstate/freeway",
+      "Urban minor arterial",
+      "Urban principal arterial"
+    ],
+    "aadt_ext_date": [
+      "10-01-2026"
+    ],
+    "join_quality": {
+      "Interstate/Freeway": {
+        "segments": 59,
+        "pct_aadt_matched": 100.0,
+        "pct_inventory_matched": 100.0,
+        "crashes_matched": 28
+      },
+      "Principal arterial": {
+        "segments": 94,
+        "pct_aadt_matched": 100.0,
+        "pct_inventory_matched": 100.0,
+        "crashes_matched": 56
+      },
+      "Minor arterial": {
+        "segments": 72,
+        "pct_aadt_matched": 100.0,
+        "pct_inventory_matched": 100.0,
+        "crashes_matched": 24
+      },
+      "Collector/Local": {
+        "segments": 170,
+        "pct_aadt_matched": 100.0,
+        "pct_inventory_matched": 100.0,
+        "crashes_matched": 2
+      },
+      "Unclassified (no inventory match)": {
+        "segments": 48,
+        "pct_aadt_matched": 16.7,
+        "pct_inventory_matched": 0.0,
+        "crashes_matched": 4
+      }
+    },
+    "crash_points_matched_pct": 100.0
   },
-  "generated_at": "2026-10-17T06:56:25+00:00"
+  "generated_at": "2026-10-17T07:36:25+00:00"
 }

@@ -47,3 +47,10 @@ def conflicts(
 def repair(request: Request, iid: str = Id) -> Response:
     data = load_or_404(store.load, f"intersections/{iid}_repair.json", what=f"Repair results for intersection '{iid}'")
     return cached(request, Repair, data)
+
+
+@router.get("/{iid}/ssm")
+def ssm(request: Request, iid: str = Id) -> Response:
+    """Detection rules with citations, threshold sensitivity table and TTC–DRAC scatter."""
+    data = load_or_404(store.load, f"intersections/{iid}_ssm.json", what=f"SSM summary for intersection '{iid}'")
+    return cached(request, dict, data)

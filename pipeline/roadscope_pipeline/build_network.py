@@ -29,8 +29,10 @@ def build(out: Path, raw: Path, refresh=False, fars=True, spf_existing: dict | N
         layers[key], entry = fetch_layer(key, raw, refresh)
         sources.append(entry)
 
-    segs, idx = network.build_segments(layers["segment_crash"], layers["aadt"], layers["roadway_inventory"], layers["speed_2024"])
+    segs, idx, meta = network.build_segments(layers["segment_crash"], layers["aadt"], layers["roadway_inventory"],
+                                             layers["speed_2024"], layers["active_transportation_crashes"])
     spf = network.screen(segs, fitted=spf_existing)
+    spf["diagnostics"].update(crash_field=meta["crash_field"], aadt=meta["aadt"], join=meta["join"])
     net = network.to_geojson(segs)
     corridors = network.build_corridors(segs, idx)
     vru_gj = vru.to_geojson(layers["active_transportation_crashes"])
@@ -38,15 +40,22 @@ def build(out: Path, raw: Path, refresh=False, fars=True, spf_existing: dict | N
     _write(out / "network.geojson", net)
     _write(out / "corridors.json", corridors)
     _write(out / "vru_crashes.geojson", vru_gj)
-    _write(out / "spf.json", spf, compact=False)
+    _write(out / "spf.json", spf)  # compact: CURE arrays
 
     sev = Counter(f["properties"]["severity"] for f in vru_gj["features"])
     joined = [s for s in segs if s["rank"] is not None]
     metrics = {
         "segments": len(segs), "segments_screened": len(joined),
         "segments_with_crashes": sum(s["crashes_total"] > 0 for s in segs),
-        "segment_crashes_total": sum(s["crashes_total"] for s in segs), "segment_crash_years": network.CRASH_YEARS,
+        "segment_crashes_total": sum(s["crashes_total"] for s in segs), "segment_crash_years": spf["crash_years"],
+        "segment_crash_period": spf["crash_period"],
+        "segment_crash_outcome": "on-system ped/bike/e-scooter CRIS crashes (all KABCO)",
         "spf_b0": round(spf["b0"], 4), "spf_b1": round(spf["b1"], 4), "spf_k": round(spf["k"], 4),
+        "spf_site_types_fitted": sorted(t for t, v in spf["site_types"].items() if v["fitted"]),
+        "aadt_ext_date": sorted(meta["aadt"]["ext_date"]),
+        "join_quality": {g: {k: v[k] for k in ("segments", "pct_aadt_matched", "pct_inventory_matched", "crashes_matched")}
+                         for g, v in meta["join"]["by_facility_group"].items()},
+        "crash_points_matched_pct": meta["join"]["crash_points"]["pct_on_system_matched"],
         "corridors": len(corridors), "vru_crashes": len(vru_gj["features"]),
         "vru_ka": sev["K"] + sev["A"], "vru_by_severity": dict(sev),
         "vru_by_mode": dict(Counter(f["properties"]["mode"] for f in vru_gj["features"])),

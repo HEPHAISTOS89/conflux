@@ -10,6 +10,11 @@ import type { FC, SegmentProps } from '../lib/types';
 import '../styles/atlas.css';
 
 const ebColor: any = ['interpolate', ['linear'], ['coalesce', ['get', 'eb_excess'], -1], ...EB_STOPS.flat()];
+// legend ramp: colour stops placed at their EB values so the ticks line up with the map colours
+const EB_MIN = EB_STOPS[0][0], EB_MAX = EB_STOPS[EB_STOPS.length - 1][0];
+const ebPct = (v: number) => ((v - EB_MIN) / (EB_MAX - EB_MIN)) * 100;
+const EB_RAMP = `linear-gradient(90deg, ${EB_STOPS.map(([v, c]) => `${c} ${ebPct(v).toFixed(1)}%`).join(', ')})`;
+const EB_TICKS: [number, string][] = [[0, '≤0'], [0.4, '0.4'], [0.8, '0.8'], [1.5, '1.5+']];
 
 export default function Atlas() {
   const net = useApi<FC<SegmentProps>>('/network');
@@ -24,9 +29,10 @@ export default function Atlas() {
   const stats = useMemo(() => {
     const f = net.data?.features ?? [];
     const crashes = f.reduce((s, x) => s + (x.properties.crashes_total ?? 0), 0);
-    const flagged = f.filter((x) => (x.properties.eb_excess ?? 0) > 1).length;
+    const flagged = f.filter((x) => (x.properties.eb_excess ?? 0) > 0.25).length;
+    const withCrash = f.filter((x) => (x.properties.crashes_total ?? 0) > 0).length;
     const deaths = (fatal.data?.features ?? []).reduce((s, x) => s + (x.properties.fatals ?? 1), 0);
-    return { segs: f.length, crashes, flagged, deaths };
+    return { segs: f.length, crashes, flagged, withCrash, deaths };
   }, [net.data, fatal.data]);
 
   const sources = useMemo<MapLayer[]>(() => {
@@ -59,18 +65,19 @@ export default function Atlas() {
   return (
     <div className="page atlas">
       <header className="page-head atlas-head">
-        <h1>Where Lubbock's crashes concentrate, and what the trajectories say before they happen</h1>
+        <h1>Where Lubbock's pedestrian and cyclist crashes concentrate, and what the trajectories say before they happen</h1>
         <p>
-          A proactive safety workbench for the TxDOT Lubbock District: HSM network screening of every state-system mile in
-          Lubbock County, corridor straight-line diagrams, vulnerable-road-user crashes, and surrogate safety measures
-          computed from vehicle trajectories at signalised intersections.
+          A proactive safety workbench for the TxDOT Lubbock District: HSM Part B screening of every state-system mile in
+          Lubbock County for on-system pedestrian, cyclist and e-scooter crashes (TxDOT CRIS, 2021–2023), corridor
+          straight-line diagrams, vulnerable-road-user crash patterns, and surrogate safety measures computed from vehicle
+          trajectories at signalised intersections. The county map is a ped/bike screening, not an all-crash one.
         </p>
       </header>
 
       <section className="atlas-grid" aria-label="County overview">
         <div className="atlas-map panel">
           <MapView
-            label="Lubbock County state-system segments coloured by Empirical Bayes excess expected crashes"
+            label="Lubbock County state-system segments coloured by Empirical Bayes excess expected pedestrian and cyclist crashes per year, 2021–2023"
             sources={sources}
             interactiveLayers={['net-line']}
             highlight={{ source: 'net', key: 'seg_id', value: hover?.seg_id ?? null }}
@@ -78,9 +85,13 @@ export default function Atlas() {
             onClick={(_, f) => nav(`/screening?seg=${encodeURIComponent((f.properties as any).seg_id)}`)}
           />
           <div className="map-legend">
-            <div className="legend-title">Excess expected crashes / yr (EB − SPF)</div>
-            <div className="legend-ramp" style={{ background: `linear-gradient(90deg, ${EB_STOPS.map(([, c]) => c).join(',')})` }} />
-            <div className="legend-ticks num"><span>≤0</span><span>1.5</span><span>3</span><span>4.5+</span></div>
+            <div className="legend-title">Excess expected ped/bike crashes / yr (EB − SPF)</div>
+            <div className="legend-ramp" style={{ background: EB_RAMP }} />
+            <div className="legend-ticks num" style={{ position: 'relative', height: 14 }} aria-label="Ticks at 0, 0.4, 0.8 and 1.5 or more">
+              {EB_TICKS.map(([v, l], i) => (
+                <span key={l} style={{ position: 'absolute', left: `${ebPct(v)}%`, transform: i === EB_TICKS.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)' }}>{l}</span>
+              ))}
+            </div>
             <label className="legend-toggle">
               <input type="checkbox" checked={layers.fatal} onChange={(e) => setLayers({ fatal: e.target.checked })} />
               <span className="dot-k" /> Fatal crashes, FARS 2018–2023
@@ -92,7 +103,7 @@ export default function Atlas() {
                 <strong>{hover.name}</strong> <span className="num muted">{hover.seg_id}</span>
                 <dl className="readout-grid num">
                   <dt>AADT</dt><dd>{nf(hover.aadt)}</dd>
-                  <dt>Crashes / 9 yr</dt><dd>{nf(hover.crashes_total)}</dd>
+                  <dt>Ped/bike crashes 2021–23</dt><dd>{nf(hover.crashes_total)}</dd>
                   <dt>Rate /100 MVMT</dt><dd>{nf(hover.rate_100mvmt, 1)}</dd>
                   <dt>EB excess</dt><dd>{nf(hover.eb_excess, 2)}</dd>
                 </dl>
@@ -116,18 +127,18 @@ export default function Atlas() {
       </section>
 
       <section className="atlas-figures" aria-label="Key figures">
-        <Figure v={nf(stats.segs)} u="one-mile segments" d="State-system mileage in Lubbock County screened with HSM Part B methods." />
-        <Figure v={nf(stats.crashes)} u="crashes, 9-year record" d="Reported on those segments; 395 with AADT matched to a TxDOT count." />
-        <Figure v={nf(stats.flagged)} u="segments with EB excess > 1 / yr" d="Candidates for detailed diagnosis after Empirical Bayes adjustment." />
-        <Figure v={vru.data ? nf((vru.data.by_severity.K ?? 0) + (vru.data.by_severity.A ?? 0)) : '…'} u={`KA pedestrian & cyclist crashes, ${vru.data?.years.join('–') ?? ''}`} d="Fatal and suspected-serious injuries to vulnerable road users." />
+        <Figure v={nf(stats.segs)} u="one-mile segments" d="State-system mileage in Lubbock County screened with HSM Part B methods; 395 have AADT and a site type and enter the SPFs." />
+        <Figure v={nf(stats.crashes)} u="on-system ped/bike crashes, 2021–23" d={`TxDOT CRIS pedestrian, cyclist and e-scooter crashes snapped to those segments (all KABCO); ${nf(stats.withCrash)} segments have at least one.`} />
+        <Figure v={nf(stats.flagged)} u="segments with EB excess > 0.25 / yr" d="Candidates for detailed ped/bike diagnosis after Empirical Bayes adjustment against site-type SPFs." />
+        <Figure v={vru.data ? nf((vru.data.by_severity.K ?? 0) + (vru.data.by_severity.A ?? 0)) : '…'} u={`KA pedestrian & cyclist crashes, ${vru.data?.years.join('–') ?? ''}`} d="Fatal and suspected-serious injuries to vulnerable road users, countywide (on- and off-system)." />
         <Figure v={nf(stats.deaths)} u="deaths, FARS 2018–2023" d="All public roads in Lubbock County (FIPS 48303)." />
       </section>
 
       <section className="section" aria-labelledby="path">
         <div className="section-head"><h2 id="path">Work through it the way a safety study does</h2></div>
         <ol className="path">
-          <PathStep to="/screening" title="Screen the network" body="Rank segments by crash frequency, rate, critical-rate ratio and EB excess using locally estimated, site-type-specific negative binomial SPFs." />
-          <PathStep to="/corridors/us-84" title="Diagnose a corridor" body="Read lanes, posted and operating speed, AADT, truck share and crash density against DFO on a straight-line diagram." />
+          <PathStep to="/screening" title="Screen the network" body="Rank segments by ped/bike crash frequency, rate, critical-rate ratio and EB excess using locally estimated, site-type-specific negative binomial SPFs (2021–2023)." />
+          <PathStep to="/corridors/us-84" title="Diagnose a corridor" body="Read lanes, posted and operating speed, AADT, truck share and ped/bike crash density against DFO on a straight-line diagram." />
           <PathStep to="/vru" title="Look at who is hit" body="Pedestrian and cyclist crashes by PBCAT type, lighting and hour, the population behind failure-to-yield countermeasures." />
           <PathStep to="/intersections/peachtree-10th" title="Measure conflicts, not just crashes" body="TTC, PET and DRAC on 10 Hz trajectories, a roadside-LiDAR view, and occluded-track repair evaluated against held-out truth." />
         </ol>

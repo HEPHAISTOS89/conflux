@@ -30,3 +30,16 @@ td.strong { font-weight: 600; }
 .sw.pooled { border-top: 2.5px solid var(--stop); }
 @media (max-width: 1100px) { .scr-grid { grid-template-columns: 1fr; } .scr-map { min-height: 440px; } }
 @media (max-width: 560px) { .seg-card { left: 12px; width: auto; } }
+.spf-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: var(--s5); align-items: start; }
+.spf-gof { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: var(--s3) 0 0; font-size: 12.5px; }
+.spf-gof dt { color: var(--ink-3); font-family: var(--f-ui); }
+.spf-gof dd { margin: 0; text-align: right; }
+.cure { margin: 0; display: grid; gap: 6px; font-size: 12px; }
+.cure svg { width: 100%; height: auto; }
+.cure .gl { stroke: var(--grid); }
+.cure .zero { stroke: var(--ink); stroke-width: 1; }
+.cure .band { fill: none; stroke: var(--ink-3); stroke-dasharray: 4 3; stroke-width: 1.2; }
+.cure .cum { fill: none; stroke: var(--caution); stroke-width: 2.2; }
+.cure .tick { font: 11px var(--f-num); fill: var(--ink-3); }
+.cure .axis { font: 12px var(--f-ui); fill: var(--ink-2); }
+@media (max-width: 1000px) { .spf-grid { grid-template-columns: 1fr; } }

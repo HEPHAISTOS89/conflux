@@ -56,7 +56,7 @@ export default function CorridorPage() {
     ) },
     { key: 'aadt', title: 'AADT', unit: `veh/day · max ${nf(max('aadt'))}`, h: 72, render: (h) => area(st, 'aadt', X, h, max('aadt'), '#c5cac2') },
     { key: 'truck', title: 'Trucks', unit: '% of AADT', h: 46, render: (h) => area(st, 'truck_pct', X, h, Math.max(20, max('truck_pct')), '#d9c79a') },
-    { key: 'crash', title: 'Crash density', unit: 'crashes / mi / yr', h: 72, render: (h) => bars(st, 'crashes_per_mi', X, h, Math.max(4, max('crashes_per_mi')), '#b3261e') },
+    { key: 'crash', title: 'Ped/bike crash density', unit: 'ped/bike crashes / mi / yr (2021–23)', h: 72, render: (h) => bars(st, 'crashes_per_mi', X, h, Math.max(1, max('crashes_per_mi')), '#b3261e') },
   ];
   let y = 26;
   const layout = strips.map((s) => { const o = { ...s, y }; y += s.h + 22; return o; });
@@ -72,7 +72,7 @@ export default function CorridorPage() {
         <h1>{cor.data?.name ?? 'Corridor'}</h1>
         <p>
           Straight-line diagram along the TxDOT distance-from-origin (DFO) reference, stationed every quarter mile: geometry, posted and 2024 operating speeds by period,
-          volume, heavy-vehicle share and crash density on one axis, so a crash cluster can be read against what the road is doing at that point.
+          volume, heavy-vehicle share and on-system pedestrian/cyclist crash density (TxDOT CRIS, 2021–2023) on one axis, so a ped/bike crash cluster can be read against what the road is doing at that point.
         </p>
       </header>
 
@@ -80,7 +80,7 @@ export default function CorridorPage() {
         {(list.data ?? []).map((c) => (
           <button key={c.id} aria-pressed={c.id === id} onClick={() => { setCur(null); nav(`/corridors/${c.id}`); }}>
             <span>{c.name.split(' (')[0]}</span>
-            <small className="num">{nf(c.len_mi, 1)} mi · {nf(c.summary.crashes_per_yr, 1)}/yr</small>
+            <small className="num">{nf(c.len_mi, 1)} mi · {nf(c.summary.crashes_per_yr, 1)} ped/bike/yr</small>
           </button>
         ))}
       </nav>
@@ -119,7 +119,7 @@ export default function CorridorPage() {
         </figure>
 
         <aside className="cor-side">
-          <div className="panel cor-map"><MapView label="Corridor alignment with crash density" sources={sources} bounds={bounds} /></div>
+          <div className="panel cor-map"><MapView label="Corridor alignment with ped/bike crash density, 2021–2023" sources={sources} bounds={bounds} /></div>
           <div className="panel cor-read" aria-live="polite">
             {at ? (
               <>
@@ -130,14 +130,14 @@ export default function CorridorPage() {
                   <dt>Operating AM / MD / PM</dt><dd>{nf(at.speed_am)} / {nf(at.speed_md)} / {nf(at.speed_pm)}</dd>
                   <dt>AADT</dt><dd>{nf(at.aadt)}</dd>
                   <dt>Trucks</dt><dd>{nf(at.truck_pct, 1)}%</dd>
-                  <dt>Crashes / mi / yr</dt><dd>{nf(at.crashes_per_mi, 2)}</dd>
+                  <dt>Ped/bike crashes / mi / yr</dt><dd>{nf(at.crashes_per_mi, 2)}</dd>
                 </dl>
                 {at.seg_id && <Link to={`/screening?seg=${encodeURIComponent(at.seg_id)}`}>See this segment in the screening</Link>}
               </>
             ) : cor.data ? (
               <dl className="num">
                 <dt>Screened segments</dt><dd>{nf(cor.data.summary.segments)}</dd>
-                <dt>Crashes</dt><dd>{nf(cor.data.summary.crashes_total)} / {cor.data.summary.crash_years} yr</dd>
+                <dt>Ped/bike crashes</dt><dd>{nf(cor.data.summary.crashes_total)} / {cor.data.summary.crash_years} yr (2021–23)</dd>
                 <dt>Mean AADT</dt><dd>{nf(cor.data.summary.aadt_mean)}</dd>
                 <dt>Peak AADT</dt><dd>{nf(cor.data.summary.aadt_max)}</dd>
                 <dt>Mean operating speed</dt><dd>{nf(cor.data.summary.speed_all_mean, 1)} mph</dd>

@@ -6,7 +6,7 @@ export const SEV_COLOR: Record<string, string> = { K: 'var(--sev-k)', A: 'var(--
 export const SEV_HEX: Record<string, string> = { K: '#6e120d', A: '#b3261e', B: '#d4612a', C: '#d9a038', O: '#98a1a7' };
 
 /** Sequential ramp for "excess expected crashes" (EB): grey below zero, amber → red above. */
-export const EB_STOPS: [number, string][] = [[-0.5, '#b8bfb6'], [0, '#c9cfc6'], [0.5, '#d9a038'], [1.5, '#d4612a'], [3, '#b3261e'], [4.5, '#6e120d']];
+export const EB_STOPS: [number, string][] = [[-0.3, '#b8bfb6'], [0, '#c9cfc6'], [0.1, '#d9a038'], [0.4, '#d4612a'], [0.8, '#b3261e'], [1.5, '#6e120d']];
 
 export function bboxOf(coords: number[][]): [[number, number], [number, number]] {
   let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;

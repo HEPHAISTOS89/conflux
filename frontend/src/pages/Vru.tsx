@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import MapView, { type MapLayer } from '../components/MapView';
 import { useApi } from '../lib/api';
@@ -86,8 +87,9 @@ export default function Vru() {
       <header className="page-head">
         <h1>Pedestrian and cyclist crashes in Lubbock County</h1>
         <p>
-          Crashes involving people on foot, on bicycles and on scooters, from TxDOT's Active Transportation crash layer
-          for {years[0]}–{years[years.length - 1]}. Where and when vulnerable road users are struck, and the PBCAT
+          Crashes involving people on foot, on bicycles and on e-scooters, from TxDOT CRIS via the Active Transportation
+          crash layer for {years[0]}–{years[years.length - 1]}, on and off the state system. The on-system subset is the
+          outcome of the <Link to="/screening">network screening</Link>. Where and when vulnerable road users are struck, and the PBCAT
           pre-crash type, is the starting evidence for siting failure-to-yield countermeasures: high-visibility
           crosswalks, RRFBs, PHBs, leading pedestrian intervals and lighting. Locations here are candidates for field
           review, not findings of cause.

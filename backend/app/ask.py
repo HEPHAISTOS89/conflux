@@ -18,23 +18,26 @@ FALLBACK_MODEL = "deterministic-fallback"
 
 SYSTEM_PROMPT = (
     "You are a transportation-safety analyst for Lubbock, Texas (TxDOT Lubbock District), supporting the "
-    "Texas Tech TransTech Lab. Answer only from the tool results: HSM Part B network screening (crash frequency, "
-    "rate per 100 MVMT, critical-rate ratio, EPDO, Empirical Bayes excess), corridor straight-line data, "
-    "vulnerable-road-user crashes (KABCO, PBCAT), NGSIM surrogate safety measures (TTC, PET, DRAC) and the "
-    "Negative Binomial SPF. For every number, cite the table/tool it came from in brackets, e.g. "
+    "Texas Tech TransTech Lab. Answer only from the tool results: HSM Part B network screening of on-system "
+    "pedestrian/cyclist/e-scooter crashes (TxDOT CRIS, 2021-2023, Y = 3; frequency, rate per 100 MVMT, "
+    "critical-rate ratio, Empirical Bayes excess; EPDO is not computed), corridor straight-line data, "
+    "vulnerable-road-user crashes (KABCO, PBCAT), NGSIM surrogate safety measures (FHWA SSAM TTC <= 1.5 s, "
+    "PET <= 5.0 s, DRAC flag) and the site-type Negative Binomial SPFs. Screening counts are ped/bike crashes, "
+    "never all crashes. For every number, cite the table/tool it came from in brackets, e.g. "
     "[query_screening: network.geojson]. Use US units (miles, mph, vehicles/day). State limitations explicitly "
     "(reporting years, informational TxDOT data, NGSIM sites are Los Angeles/Atlanta not Lubbock, screening "
     "ranks indicate where to investigate, not causation). Be concise; never invent values."
 )
 
 CITATION = {
-    "query_screening": "network.geojson (HSM Part B screening, TxDOT Roadway Inventory/AADT/crash segments)",
+    "query_screening": "network.geojson (HSM Part B ped/bike screening, 2021-2023: TxDOT Roadway Inventory/AADT, CRIS ped/bike crashes)",
     "get_corridor": "corridors.json (TxDOT inventory, AADT, 2024 statewide speed)",
     "vru_summary": "vru_crashes.geojson (TxDOT Active Transportation Crashes)",
     "vru_count": "vru_crashes.geojson (TxDOT Active Transportation Crashes)",
     "intersection_conflicts": "intersections/<id>_conflicts.json (NGSIM trajectories, SSM)",
-    "get_spf": "spf.json (Negative Binomial SPF fit)",
+    "get_spf": "spf.json (Negative Binomial SPFs by site type, ped/bike crashes 2021-2023)",
     "get_manifest": "manifest.json (sources, licences, fetch times)",
+    "get_repair": "intersections/<id>_repair.json (NGSIM occlusion repair: linear vs Kalman RTS)",
 }
 
 
@@ -99,8 +102,65 @@ def t_intersection_conflicts(intersection_id: str | None = None, type: str | Non
     return {"intersection_id": iid, "available": ids, "count": len(rows), "by_type": by_type, "lowest_ttc": worst}
 
 
+def _model_summary(m: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not m:
+        return None
+    return {k: m.get(k) for k in ("spec", "coef", "se", "k", "se_k", "k_convention", "n", "crashes", "aic")}
+
+
 def t_get_spf() -> dict[str, Any]:
-    return store.load("spf.json")
+    """Compact SPF summary: pooled model plus per-site-type model and GOF (no CURE points / segment points)."""
+    d = store.load("spf.json")
+    out: dict[str, Any] = {k: d.get(k) for k in ("form", "units", "outcome", "crash_period", "crash_years",
+                                                  "estimation", "eb") if d.get(k) is not None}
+    out["pooled"] = {"spec": ["ln_aadt"], "coef": {"const": d.get("b0"), "ln_aadt": d.get("b1")},
+                     "se": {"const": d.get("se_b0"), "ln_aadt": d.get("se_b1")}, "k": d.get("k"),
+                     "n": d.get("n"), "crashes": d.get("crashes"), "aic": d.get("aic"),
+                     "gof": {k: v for k, v in (d.get("pooled_gof") or {}).items() if k != "cure"} or None}
+    if d.get("fallback"):
+        out["fallback"] = _model_summary(d["fallback"])
+    st = d.get("site_types") or {}
+    out["site_types"] = {
+        name: {"segments": t.get("segments"), "crashes": t.get("crashes"), "model_used": t.get("model_used"),
+               "fitted": t.get("fitted"),
+               **({k: v for k, v in (_model_summary(t.get("model")) or {}).items() if k in ("spec", "coef", "se", "k")}
+                  if t.get("model") else {}),
+               "gof": t.get("gof")}
+        for name, t in st.items()}
+    if not st and d.get("by_class"):
+        out["by_class"] = d["by_class"]
+    if d.get("system_gof"):
+        out["system_gof"] = {k: v for k, v in d["system_gof"].items() if k != "cure"}
+    return out
+
+
+METHODS = ("linear", "kf_ca", "kf_ca_path")
+
+
+def t_get_repair(intersection_id: str | None = None) -> dict[str, Any]:
+    """Occlusion-repair RMSE by protocol (uniform / occluder) x truth (smoothed / raw), overall and by gap length."""
+    ids = store.intersection_ids()
+    iid = intersection_id if intersection_id in ids else (ids[0] if ids else None)
+    if iid is None:
+        return {"error": "no intersections available"}
+    s = store.load(f"intersections/{iid}_repair.json").get("summary", {})
+    out: dict[str, Any] = {"intersection_id": iid, "available": ids,
+                           "methods": {"linear": "linear interpolation", "kf_ca": "constant-acceleration Kalman + RTS",
+                                       "kf_ca_path": "Kalman RTS with path constraint"}}
+    prot = s.get("protocols") or {}
+    out["protocols"] = {
+        pn: {"description": p.get("description"),
+             "truth": {tn: {"selected": t.get("selected_method"),
+                            "rmse_m": {m: (t.get("methods", {}).get(m) or {}).get("rmse_m") for m in METHODS},
+                            "by_gap": [{"gap_s": b.get("gap_s"), "gaps": (b.get("linear") or {}).get("gaps"),
+                                        **{m: (b.get(m) or {}).get("rmse_m") for m in METHODS}} for b in t.get("by_gap", [])]}
+                       for tn, t in (p.get("truth_variants") or {}).items()}}
+        for pn, p in prot.items()}
+    if not prot:
+        out["summary"] = s
+    if s.get("notes"):
+        out["notes"] = s["notes"]
+    return out
 
 
 def t_get_manifest() -> dict[str, Any]:
@@ -115,11 +175,12 @@ TOOLS: dict[str, Callable[..., dict[str, Any]]] = {
     "intersection_conflicts": t_intersection_conflicts,
     "get_spf": t_get_spf,
     "get_manifest": t_get_manifest,
+    "get_repair": t_get_repair,
 }
 
 _S = {"type": "object", "properties": {}}
 TOOL_SPECS: list[dict[str, Any]] = [
-    {"toolSpec": {"name": "query_screening", "description": "Rank one-mile Lubbock County segments by an HSM screening method.",
+    {"toolSpec": {"name": "query_screening", "description": "Rank one-mile Lubbock County segments by an HSM screening method; outcome is on-system ped/bike/e-scooter crashes 2021-2023 (epdo is null, not computed).",
                   "inputSchema": {"json": {"type": "object", "properties": {
                       "method": {"type": "string", "enum": list(queries.METHOD_FIELD)},
                       "limit": {"type": "integer", "minimum": 1, "maximum": 20},
@@ -137,8 +198,10 @@ TOOL_SPECS: list[dict[str, Any]] = [
                       "intersection_id": {"type": "string"},
                       "type": {"type": "string", "enum": ["rear_end", "crossing", "lane_change"]},
                       "max_ttc": {"type": "number"}}}}}},
-    {"toolSpec": {"name": "get_spf", "description": "Negative Binomial safety performance function coefficients.",
+    {"toolSpec": {"name": "get_spf", "description": "Negative Binomial SPFs: pooled model and per site type (model used, covariates, coefficients with SE, k per mile, GOF MAD and Pearson chi2/df).",
                   "inputSchema": {"json": _S}}},
+    {"toolSpec": {"name": "get_repair", "description": "Occluded-trajectory repair RMSE (m) at an NGSIM intersection: linear vs Kalman RTS, by protocol (uniform synthetic gaps / occluder line-of-sight gaps), truth (smoothed / raw NGSIM) and gap length.",
+                  "inputSchema": {"json": {"type": "object", "properties": {"intersection_id": {"type": "string"}}}}}},
     {"toolSpec": {"name": "get_manifest", "description": "Data sources, licences, record counts and fetch times.",
                   "inputSchema": {"json": _S}}},
 ]
@@ -225,7 +288,12 @@ def _route(q: str) -> list[tuple[str, dict[str, Any]]]:
         y = re.search(r"\b(20[12]\d)\b", ql)
         if y: f["year"] = int(y.group(1))
         plan.append(("vru_count", f) if f.keys() - {"mode"} or re.search(r"how many|count|number", ql) else ("vru_summary", {}))
-    if re.search(r"\b(conflict|ttc|pet|drac|near.?(crash|miss)|intersection|ngsim|trajector)", ql):
+    repair = re.search(r"\b(repair|kalman|rts|smoother|occlu\w*|interpolat\w*|gap)", ql)
+    if repair:
+        ids = store.intersection_ids()
+        iid = next((i for i in ids if i.lower() in ql or i.split("-")[0].lower() in ql), None)
+        plan.append(("get_repair", {"intersection_id": iid} if iid else {}))
+    if not repair and re.search(r"\b(conflict|ttc|pet|drac|near.?(crash|miss)|intersection|ngsim|trajector)", ql):
         ids = store.intersection_ids()
         iid = next((i for i in ids if i.lower() in ql or i.split("-")[0].lower() in ql), None)
         args: dict[str, Any] = {"intersection_id": iid} if iid else {}
@@ -253,11 +321,14 @@ def _compose(name: str, d: dict[str, Any]) -> str:
     if "error" in d and d["error"] and name != "get_corridor":
         return f"{name} could not answer: {d['error']}."
     if name == "query_screening":
-        lines = [f"Top {len(d['items'])} of {d['total']} screened segments by {d['method']} ({d['field']}) {cite}:"]
+        note = " EPDO is not computed (no sourced severity weights), so this ranking has no values." if d["method"] == "epdo" else ""
+        lines = [f"Top {len(d['items'])} of {d['total']} screened segments by {d['method']} ({d['field']}); outcome: "
+                 f"on-system ped/bike crashes (2021–2023) {cite}:{note}"]
         for r in d["items"]:
             lines.append(f"{r['screen_rank']}. {r.get('name') or r.get('route')} (seg {r['seg_id']}, {_f(r.get('len_mi'))} mi, "
-                         f"AADT {_f(r.get('aadt'))}): {_f(r.get('crashes_total'))} crashes, rate {_f(r.get('rate_100mvmt'))}/100 MVMT, "
-                         f"crit. ratio {_f(r.get('crit_ratio'))}, EPDO {_f(r.get('epdo'))}, EB excess {_f(r.get('eb_excess'))}.")
+                         f"AADT {_f(r.get('aadt'))}): {_f(r.get('crashes_total'))} ped/bike crashes (2021–2023), "
+                         f"rate {_f(r.get('rate_100mvmt'))}/100 MVMT, crit. ratio {_f(r.get('crit_ratio'))}, "
+                         f"EB excess {_f(r.get('eb_excess'))}/yr.")
         return "\n".join(lines)
     if name == "get_corridor":
         if "corridors" in d:
@@ -281,17 +352,45 @@ def _compose(name: str, d: dict[str, Any]) -> str:
         tail = f" Lowest TTC {_f(worst['ttc_min'])} s ({worst['type'].replace('_', '-')}, t={_f(worst['t'], 1)} s)." if worst else ""
         return f"{d['count']} conflicts at NGSIM site '{d['intersection_id']}' ({types}).{tail} {cite}"
     if name == "get_spf":
-        return (f"SPF {d['form']}: b0={_f(d['b0'], 3)}, b1={_f(d['b1'], 3)}, overdispersion k={_f(d['k'], 3)}, "
-                f"n={d['n']} segments, AIC {_f(d.get('aic'), 1)} {cite}.")
+        p = d["pooled"]
+        head = (f"Pooled SPF {d.get('form', '')}: b0={_f(p['coef']['const'], 3)}, b1={_f(p['coef']['ln_aadt'], 3)}, "
+                f"k={_f(p['k'], 3)}, n={p['n']} segments, AIC {_f(p.get('aic'), 1)}")
+        if d.get("outcome"):
+            head += f"; outcome {d['outcome']}, {d.get('crash_period')}"
+        lines = [head + f" {cite}."]
+        for name, t in d.get("site_types", {}).items():
+            g = t.get("gof") or {}
+            if t.get("fitted"):
+                coef = ", ".join(f"{k} {_f(v, 3)}" for k, v in (t.get("coef") or {}).items())
+                lines.append(f"{name}: own NB2 ({' + '.join(t.get('spec') or [])}); {coef}; k={_f(t.get('k'), 4)}/mi; "
+                             f"{t['segments']} segments, {t['crashes']} crashes; MAD {_f(g.get('mad'), 3)}, "
+                             f"Pearson χ²/df {_f(g.get('chi2_df'), 2)}.")
+            else:
+                lines.append(f"{name}: {t['segments']} segments, {t['crashes']} crashes, uses the pooled site-type fallback model.")
+        return "\n".join(lines)
+    if name == "get_repair":
+        if not d.get("protocols"):
+            return f"Repair summary for '{d['intersection_id']}': {json.dumps(d.get('summary'), default=str)[:300]} {cite}"
+        lines = [f"Occlusion repair at NGSIM site '{d['intersection_id']}', position RMSE in m (linear / Kalman RTS / Kalman RTS path) {cite}:"]
+        for pn, p in d["protocols"].items():
+            for tn, t in p["truth"].items():
+                r = t["rmse_m"]
+                lines.append(f"{pn} gaps, {tn} truth: {_f(r.get('linear'), 3)} / {_f(r.get('kf_ca'), 3)} / {_f(r.get('kf_ca_path'), 3)}"
+                             f" (selected {t['selected']}); by gap, linear / Kalman RTS: " + "; ".join(
+                                 f"{b['gap_s'][0]}–{b['gap_s'][1]} s n={b['gaps']}: {_f(b.get('linear'), 2)} / {_f(b.get('kf_ca'), 2)}"
+                                 for b in t["by_gap"]) + ".")
+        return "\n".join(lines)
     if name == "get_manifest":
         src = "; ".join(f"{s['id']} ({_f(s.get('records'))} records, {s.get('licence') or s.get('license') or 'licence n/a'})" for s in d["sources"])
         return f"Curated data generated {d['generated_at']}. Sources: {src} {cite}."
     return json.dumps(d, default=str)[:400]
 
 
-LIMITATIONS = ("Limitations: TxDOT data are informational and crash counts cover the reporting years in the source; "
-               "screening ranks flag sites for investigation, not causation; NGSIM conflict sites are Los Angeles/Atlanta "
-               "arterials used as method demonstrations, not Lubbock locations.")
+LIMITATIONS = ("Limitations: TxDOT data are informational; network screening counts only on-system pedestrian/cyclist/"
+               "e-scooter crashes (TxDOT CRIS, 2021–2023), not all crashes; the AADT count year is not published by the "
+               "service; site types with few crashes use a pooled fallback SPF; screening ranks flag sites for "
+               "investigation, not causation; NGSIM conflict sites are Los Angeles/Atlanta arterials used as method "
+               "demonstrations, not Lubbock locations.")
 
 
 def ask_fallback(question: str) -> dict[str, Any]:
