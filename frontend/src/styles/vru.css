@@ -100,9 +100,7 @@
 .vru-sh-a { margin-left: auto; }
 .vru-sh h2 > .icon { color: var(--accent); flex: none; }
 .vru-sh-a { display: flex; gap: 4px; }
-.vru-exp { display: inline-flex; align-items: center; gap: 6px; min-height: var(--ctl-s); padding: 4px 10px; border: 0; border-radius: var(--r-m); background: var(--raise); color: var(--ink-2); font: 500 var(--t-label) var(--f-ui); cursor: pointer; transition: background-color 140ms, color 140ms; }
-@media (hover: hover) { .vru-exp:hover { background: var(--rule); color: var(--ink); } }
-.vru-exp:active { transform: scale(0.97); }
+.vru-exp { padding: 0 10px; gap: 6px; color: var(--ink-2); }
 
 /* Heatmap with the peak-window callout beside it. */
 .vru-heat-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: var(--s5); align-items: start; }
@@ -141,6 +139,7 @@
 .vru-bd-row[data-dim] { opacity: 0.5; }
 .vru-bd-row { transition: opacity 160ms; }
 .vru-bd-l { font: 500 var(--t-ui) var(--f-ui); fill: var(--ink-2); }
+.vru-bd svg[data-narrow] .vru-bd-l { font-size: var(--t-micro); }
 .vru-bd-row[data-on] .vru-bd-l { fill: var(--ink); }
 .vru-bd-rest { fill: color-mix(in srgb, var(--ink-3) 55%, var(--sheet)); }
 .vru-bd-n { font: 500 var(--t-label) var(--f-measure); fill: var(--ink-2); }

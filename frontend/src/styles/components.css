@@ -25,6 +25,9 @@
 @media (max-width: 640px) {
   .ph-side, .ph-readouts { width: 100%; }
   .ph-fig { flex: 1 1 calc(50% - 2px); }
+  /* Actions share rows instead of stacking one per line */
+  .ph-actions { width: 100%; }
+  .ph-actions .btn { flex: 1 1 calc(50% - 4px); padding: 0 10px; }
 }
 
 /* Select (listbox) */

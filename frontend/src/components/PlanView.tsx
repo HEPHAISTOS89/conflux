@@ -3,7 +3,8 @@ import Reticle from './Reticle';
 import { focusConflict } from '../lib/lab/hooks';
 import { kinAt, renderPose, type RenderPose } from '../lib/lab/metrics';
 import { labPalette, useThemeName, type LabPalette } from '../lib/lab/palette';
-import { MUTCD, roadGeometry, type RoadGeom, type XY } from '../lib/lab/road';
+import { bandLines, bandPolygon, MUTCD, roadGeometry, type RoadGeom, type XY } from '../lib/lab/road';
+import { ghostFade, trackQuality } from '../lib/lab/quality';
 import { activeAt, fitCanvas, leadIn, useClock, useClockFrame, useSelection, type ConflictT, type IntersectionT, type TrackT } from '../lib/traj';
 import { reducedMotion } from '../lib/motion';
 
@@ -37,6 +38,8 @@ export default function PlanView({ data, conflicts, occlusion, label }: Props) {
   const [zoomed, setZoomed] = useState(false);
   const [[x0, y0], [x1, y1]] = data.bbox as [[number, number], [number, number]];
   const road = useMemo(() => roadGeometry(data), [data]);
+  // duplicate / ID-switched tracks fade out while they overlap the vehicle they duplicate (lib/lab/quality.ts)
+  const quality = useMemo(() => trackQuality(data.tracks, data.hz), [data]);
   const byId = useMemo(() => new Map(data.tracks.map((t) => [String(t.id), t])), [data]);
   const staticLayer = useRef<{ key: string; c: HTMLCanvasElement } | null>(null);
   const focus = focusConflict(sel, conflicts);
@@ -123,6 +126,8 @@ export default function PlanView({ data, conflicts, occlusion, label }: Props) {
       const id = String(tr.id);
       const p = renderPose(tr, t, data.hz, win);
       if (!p) continue;
+      p.fade *= ghostFade(quality, id, t);
+      if (p.fade <= 0.01) continue;
       poses.set(id, p);
       const isSel = selected.has(id), isPartner = partners.has(id);
       const i1 = Math.min(tr.pts.length - 1, Math.floor((t - tr.pts[0][0]) * data.hz)), i0 = Math.max(0, i1 - 30);
@@ -404,8 +409,21 @@ function drawRoad(
   const poly = (pts: XY[]) => { ctx.beginPath(); pts.forEach(([x, y], i) => { const [a, b] = P(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.closePath(); };
   const line = (pts: XY[]) => { ctx.beginPath(); pts.forEach(([x, y], i) => { const [a, b] = P(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); };
 
-  // cross street through the box: solid across the corridor, fading out beyond the observed corridor edges
-  if (road.cross) {
+  // cross street derived from the EB/WB tracks (road.crossBand): solid across the corridor, fading beyond the observed edges
+  const band = road.crossBand;
+  if (band && road.cross) {
+    const { x0: cx0, x1: cx1 } = road.cross;
+    const reach = 30;
+    for (const [a, b] of [[cx0, cx0 - reach], [cx1, cx1 + reach]] as [number, number][]) {
+      const [pa, pb] = [P(a, band.m * a + band.b), P(b, band.m * b + band.b)];
+      const grad = ctx.createLinearGradient(pa[0], pa[1], pb[0], pb[1]);
+      grad.addColorStop(0, pal.asphalt); grad.addColorStop(1, pal.ground);
+      ctx.fillStyle = grad;
+      poly(bandPolygon(band, a, b)); ctx.fill();
+    }
+    ctx.fillStyle = pal.asphalt; poly(bandPolygon(band, cx0, cx1)); ctx.fill();
+    ctx.fillStyle = pal.asphalt; poly([[cx0, road.cross.y0], [cx1, road.cross.y0], [cx1, road.cross.y1], [cx0, road.cross.y1]]); ctx.fill();
+  } else if (road.cross) {
     const { x0: cx0, x1: cx1, y0: cy0, y1: cy1 } = road.cross;
     const reach = 30;
     for (const [a, b] of [[cx0, cx0 - reach], [cx1, cx1 + reach]] as [number, number][]) {
@@ -425,7 +443,8 @@ function drawRoad(
   // markings: scaled to true width, never thinner than a hairline
   const px = (m: number) => Math.max(1, m * s);
   ctx.lineCap = 'butt';
-  for (const l of road.lines) {
+  const crossMarks = band && road.cross ? [...bandLines(band, road.cross.x0 - 22, road.cross.x0 - 0.6), ...bandLines(band, road.cross.x1 + 0.6, road.cross.x1 + 22)] : [];
+  for (const l of [...road.lines, ...crossMarks]) {
     if (l.kind === 'lane') {
       ctx.strokeStyle = pal.lane; ctx.lineWidth = px(MUTCD.line); ctx.setLineDash([MUTCD.dash * s, MUTCD.gap * s]);
       line(l.pts); ctx.stroke(); ctx.setLineDash([]);
@@ -435,8 +454,9 @@ function drawRoad(
       // double yellow: two lines 4 in apart
       ctx.strokeStyle = pal.centre; ctx.lineWidth = px(MUTCD.line);
       const d = (MUTCD.line + MUTCD.yellowGap) / 2;
-      line(l.pts.map(([x, y]) => [x - d, y] as XY)); ctx.stroke();
-      line(l.pts.map(([x, y]) => [x + d, y] as XY)); ctx.stroke();
+      const [ax, ay] = l.pts[0], [bx, by] = l.pts[l.pts.length - 1], len = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / len, ny = (bx - ax) / len;
+      line(l.pts.map(([x, y]) => [x - nx * d, y - ny * d] as XY)); ctx.stroke();
+      line(l.pts.map(([x, y]) => [x + nx * d, y + ny * d] as XY)); ctx.stroke();
     }
   }
   ctx.strokeStyle = pal.stop; ctx.lineWidth = px(MUTCD.bar);

@@ -70,7 +70,7 @@
 .sc-posted { stroke: var(--ink-3); stroke-dasharray: 3 4; opacity: 0.7; }
 .sc-zero { stroke: var(--ink-2); stroke-dasharray: 4 3; }
 .sc-posted-l { font: var(--t-micro) var(--f-measure); fill: var(--ink-3); }
-.sc-dot { fill: var(--ink-3); opacity: 0.45; transition: opacity 140ms var(--ease-out), cx 380ms var(--ease-out); }
+.sc-dot { fill: var(--ink-3); opacity: 0.7; transition: opacity 140ms var(--ease-out), cx 380ms var(--ease-out); }
 /* dots rise from the axis when the scatter first draws */
 .sc-dot { animation: dot-in 400ms var(--ease-out) backwards; }
 @keyframes dot-in { from { opacity: 0; transform: translateY(8px); } }
@@ -87,7 +87,7 @@
 @media (prefers-reduced-motion: reduce) { .sld-strip, .cor-read h3, .corridor .cor-tabs button, .sc-dot { animation: none; } .sc-dot { transition: none; } }
 .sc-key { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: var(--t-label); color: var(--ink-2); margin: 0; }
 .sc-key span { display: inline-flex; align-items: center; gap: 6px; }
-.sc-key i { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-3); opacity: 0.6; }
+.sc-key i { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-3); opacity: 0.7; }
 .sc-key i[data-k='hit'] { background: var(--sev-a); opacity: 0.85; }
 .sc-key i[data-k='over'] { background: var(--sev-a); opacity: 1; box-shadow: 0 0 0 1.5px var(--ink); }
 .sld-axis > span { display: inline-flex; align-items: baseline; white-space: nowrap; }

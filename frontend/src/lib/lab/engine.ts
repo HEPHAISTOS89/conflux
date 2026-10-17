@@ -13,7 +13,11 @@ import { reducedMotion } from '../motion';
 import { activeAt, leadIn, type ConflictT, type IntersectionT, type TrackT } from '../traj';
 import { bearingDeg, bearingLabel, conflictPoint, easeInOutCubic, kinAt, MPS_TO_MPH, projectCA, renderPose, type RenderPose } from './metrics';
 import { labPalette, type LabPalette } from './palette';
-import { dashes, MUTCD, offset, ribbon, roadGeometry, type XY } from './road';
+import { roadGeometry } from './road';
+import { buildSignals, buildStreet } from './street';
+import { ghostFade, trackQuality, type Quality } from './quality';
+import { cumulativeDistance, distanceAt, KINDS, kindOf, lampGeometry, steerAngle, vehicleGeometry, WHEEL, wheelGeometry, wheelOffsets, type VehicleKind } from './vehicles';
+import { inferSignals, lampAt, type Group, type Lamp } from '../../components/world/signals';
 
 export type CamMode = 'orbit' | 'fly' | 'follow' | 'top' | 'sensor';
 export type PresetId = 'overview' | 'approach' | 'zone' | 'stopline' | 'sensor';
@@ -112,6 +116,8 @@ export interface EngineOpts {
   mode: CamMode;
   palette?: LabPalette;
   view?: EngineView | null;
+  /** Ghost windows (lib/lab/quality.ts); computed here when absent. */
+  quality?: Quality | null;
   clock: { now: () => number; setT: (t: number) => void; play: () => void; pause: () => void };
   onPick: (id: string | null, add: boolean) => void;
   onHover: (id: string | null) => void;
@@ -177,46 +183,47 @@ export function createEngine(o: EngineOpts): Engine {
     }
   }
 
-  /* ----- road model derived from the data: carriageway, MUTCD markings, stop bars ----- */
+  /* ----- street derived from the data: carriageway, cross street from the EB/WB tracks, MUTCD markings, stop bars ----- */
   const road = roadGeometry(data);
   const flat = (geo: THREE.BufferGeometry) => { geo.rotateX(-Math.PI / 2); return geo; };
+  const FADE = 30;
+  const street = buildStreet(road, data.bbox as [[number, number], [number, number]], {
+    far: { s: by0 - FADE, n: by1 + FADE, w: bx0 - FADE - 10, e: bx1 + FADE + 10 }, crosswalks: false, lineScale: 1.5, markH: 0.014,
+    colours: { lane: pal.lane, edge: pal.edge, centre: pal.centre, stop: pal.stop, crosswalk: pal.stop },
+  });
   {
-    const asphalt = new THREE.MeshBasicMaterial({ color: pal.asphalt });
-    const armGeos = road.arms.map((a) => flat(new THREE.ShapeGeometry(new THREE.Shape(a.map(([x, y]) => new THREE.Vector2(x, y))))));
-    if (road.cross) {
-      const { x0, x1, y0, y1 } = road.cross;
-      armGeos.push(flat(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(x0, y0), new THREE.Vector2(x1, y0), new THREE.Vector2(x1, y1), new THREE.Vector2(x0, y1)]))));
-      // cross street beyond the observed corridor: fades into the ground over 30 m (outside the study area)
-      const pos: number[] = [], col: number[] = [], a = C(pal.asphalt), gnd = C(pal.ground);
-      for (const [xa, xb] of [[x0, x0 - 30], [x1, x1 + 30]]) {
-        const q = [[xa, y0 + 1.5, a], [xb, y0 + 1.5, gnd], [xb, y1 - 1.5, gnd], [xa, y0 + 1.5, a], [xb, y1 - 1.5, gnd], [xa, y1 - 1.5, a]] as [number, number, THREE.Color][];
-        for (const [x, y, c] of q) { pos.push(x, -0.005, -y); col.push(c.r, c.g, c.b); }
+    // beyond the observed corridor the pavement fades into the ground (outside the study area): vertex alpha by distance from the bbox
+    const g = street.asphalt;
+    if (g) {
+      const pos = g.attributes.position, n = pos.count, col = new Float32Array(n * 3), a = C(pal.asphalt), gnd = C(pal.ground), tmpc = new THREE.Color();
+      for (let i = 0; i < n; i++) {
+        const x = pos.getX(i), y = -pos.getZ(i);
+        const d = Math.max(bx0 - x, x - bx1, by0 - y, y - by1, 0);
+        tmpc.copy(a).lerp(gnd, Math.min(1, d / FADE));
+        col[i * 3] = tmpc.r; col[i * 3 + 1] = tmpc.g; col[i * 3 + 2] = tmpc.b;
       }
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-      scene.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true })));
     }
-    const merged = mergeGeometries(armGeos.map((g) => g.toNonIndexed()));
-    armGeos.forEach((g) => g.dispose());
-    if (merged) scene.add(new THREE.Mesh(merged, asphalt));
-    // kerb outline
-    const kerb: number[] = [];
-    for (const a of road.arms) for (let i = 0; i < a.length; i++) { const p = a[i], q = a[(i + 1) % a.length]; kerb.push(p[0], 0.008, -p[1], q[0], 0.008, -q[1]); }
-    const kg = new THREE.BufferGeometry(); kg.setAttribute('position', new THREE.Float32BufferAttribute(kerb, 3));
-    scene.add(new THREE.LineSegments(kg, new THREE.LineBasicMaterial({ color: pal.kerb })));
-    // markings as true-width ribbons, one draw call
-    const mp: number[] = [], mc: number[] = [];
-    const add = (tri: number[], hex: string, h: number) => { const c = C(hex); for (let i = 0; i < tri.length; i += 2) { mp.push(tri[i], h, -tri[i + 1]); mc.push(c.r, c.g, c.b); } };
-    for (const l of road.lines) {
-      if (l.kind === 'lane') for (const d of dashes(l.pts)) add(ribbon(d, MUTCD.line * 1.5), pal.lane, 0.014);
-      else if (l.kind === 'edge') add(ribbon(l.pts, MUTCD.line * 1.5), pal.edge, 0.014);
-      else { const d = (MUTCD.line + MUTCD.yellowGap) / 2; add(ribbon(offset(l.pts, -d), MUTCD.line * 1.5), pal.centre, 0.014); add(ribbon(offset(l.pts, d), MUTCD.line * 1.5), pal.centre, 0.014); }
-    }
-    for (const b of road.stops) add(ribbon([b.a, b.b] as XY[], MUTCD.bar), pal.stop, 0.016);
-    const mg = new THREE.BufferGeometry();
-    mg.setAttribute('position', new THREE.Float32BufferAttribute(mp, 3)); mg.setAttribute('color', new THREE.Float32BufferAttribute(mc, 3));
-    scene.add(new THREE.Mesh(mg, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+    scene.add(new THREE.LineSegments(street.kerbs, new THREE.LineBasicMaterial({ color: pal.kerb })));
+    scene.add(new THREE.Mesh(street.markings, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
   }
+  /* ----- signal heads on mast arms; phase inferred from flow (components/world/signals.ts) ----- */
+  const nbBar = road.stops.find((s) => s.dir === 'NB'), sbBar = road.stops.find((s) => s.dir === 'SB');
+  const plan = inferSignals(data.tracks, { nbBar: nbBar?.a[1] ?? null, sbBar: sbBar?.a[1] ?? null, xMid: street.ext.xMid }, data.window_s, data.hz);
+  const sig = buildSignals(road, street);
+  if (sig.structure) scene.add(new THREE.Mesh(sig.structure, new THREE.MeshLambertMaterial({ color: pal.ink3 })));
+  const sigLamps = new THREE.InstancedMesh(new THREE.CircleGeometry(0.13, 16), new THREE.MeshBasicMaterial({ color: 0xffffff }), Math.max(1, sig.lampCount));
+  {
+    const m = new THREE.Matrix4(), qq = new THREE.Quaternion();
+    let k = 0;
+    sig.heads.forEach((h) => { qq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), h.rotY); for (const p of h.lamps) { m.compose(p, qq, new THREE.Vector3(1, 1, 1)); sigLamps.setMatrixAt(k++, m); } });
+    sigLamps.count = k;
+    scene.add(sigLamps);
+  }
+  const SIG = [C(pal.critical), C(pal.caution), C(pal.dark ? '#2ee6a0' : '#0fa36a')], SIG_OFF = C(pal.dark ? '#1b1d1c' : '#5a5c59');
+  const lastLamp: Record<Group, Lamp | -1> = { ns: -1, ew: -1 };
+  const quality = o.quality ?? trackQuality(data.tracks, data.hz);
 
   /* ----- simulated ground returns: rings of the sensor's down-looking channels (cloud layer) ----- */
   const g: number[] = [], gc: number[] = [];
@@ -286,21 +293,41 @@ export function createEngine(o: EngineOpts): Engine {
   cloud.frustumCulled = false;
   scene.add(cloud);
 
-  /* ----- vehicle bodies (cloud off): body + cabin, tail and head lamps, blob shadows; all instanced ----- */
+  /* ----- vehicle bodies (cloud off): class-shaped bodies, glass, lamps and rolling wheels (lib/lab/vehicles.ts) ----- */
   const unitBox = (sx: number, sy: number, sz: number, x: number, y: number, z = 0) => new THREE.BoxGeometry(sx, sy, sz).translate(x, y, z);
-  const bodyGeo = mergeGeometries([unitBox(1, 0.45, 1, 0, 0.325), unitBox(0.52, 0.4, 0.84, -0.06, 0.75)])!;
-  const fadeAttr = new THREE.InstancedBufferAttribute(new Float32Array(N).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
-  bodyGeo.setAttribute('aFade', fadeAttr);
-  const bodies = new THREE.InstancedMesh(bodyGeo, withFade(new THREE.MeshLambertMaterial({ color: 0xffffff })), N);
-  bodies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  bodies.setColorAt(0, cols[0]);
-  bodies.frustumCulled = false;
-  scene.add(bodies);
-  const lampGeo = (x: number) => mergeGeometries([unitBox(0.03, 0.09, 0.16, x, 0.42, 0.36), unitBox(0.03, 0.09, 0.16, x, 0.42, -0.36)])!;
-  const tails = new THREE.InstancedMesh(lampGeo(-0.505), new THREE.MeshBasicMaterial({ color: 0xffffff }), N);
-  tails.instanceMatrix.setUsage(THREE.DynamicDrawUsage); tails.setColorAt(0, C(pal.lampOff)); tails.frustumCulled = false; scene.add(tails);
-  const heads = new THREE.InstancedMesh(lampGeo(0.505), new THREE.MeshBasicMaterial({ color: pal.head }), N);
-  heads.instanceMatrix.setUsage(THREE.DynamicDrawUsage); heads.frustumCulled = false; scene.add(heads);
+  const kinds = data.tracks.map(kindOf);
+  const slotOf = new Int32Array(N);
+  const perKind = new Map<VehicleKind, number[]>();
+  KINDS.forEach((k) => perKind.set(k, []));
+  data.tracks.forEach((_, i) => { const arr = perKind.get(kinds[i])!; slotOf[i] = arr.length; arr.push(i); });
+  interface ClassMeshes { body: THREE.InstancedMesh; glass: THREE.InstancedMesh; head: THREE.InstancedMesh; tail: THREE.InstancedMesh; fade: THREE.InstancedBufferAttribute; wheelX: [number, number] }
+  const classMeshes = new Map<VehicleKind, ClassMeshes>();
+  const vehicleParts: THREE.InstancedMesh[] = [];
+  const mkInst = (g: THREE.BufferGeometry, m: THREE.Material, n: number) => { const im = new THREE.InstancedMesh(g, m, n); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false; scene.add(im); vehicleParts.push(im); return im; };
+  for (const k of KINDS) {
+    const idx = perKind.get(k)!;
+    if (!idx.length) continue;
+    const vg = vehicleGeometry(k);
+    const fade = new THREE.InstancedBufferAttribute(new Float32Array(idx.length).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
+    const hg = lampGeometry(true, k), tg = lampGeometry(false, k);
+    for (const g of [vg.body, vg.glass, hg, tg]) g.setAttribute('aFade', fade);
+    const cm: ClassMeshes = {
+      body: mkInst(vg.body, withFade(new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 60, specular: C(pal.dark ? '#5a5f63' : '#9a9ea0') })), idx.length),
+      glass: mkInst(vg.glass, withFade(new THREE.MeshPhongMaterial({ color: pal.dark ? '#141a1e' : '#2a3238', shininess: 110, specular: C('#c9d2d8') })), idx.length),
+      head: mkInst(hg, withFade(new THREE.MeshBasicMaterial({ color: pal.head })), idx.length),
+      tail: mkInst(tg, withFade(new THREE.MeshBasicMaterial({ color: 0xffffff })), idx.length),
+      fade, wheelX: vg.wheelX,
+    };
+    cm.body.setColorAt(0, cols[0]); cm.tail.setColorAt(0, C(pal.lampOff));
+    classMeshes.set(k, cm);
+  }
+  const wheelFade = new THREE.InstancedBufferAttribute(new Float32Array(N * 4).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
+  const wheelGeo = wheelGeometry(); wheelGeo.setAttribute('aFade', wheelFade);
+  const wheels = mkInst(wheelGeo, withFade(new THREE.MeshLambertMaterial({ vertexColors: true })), N * 4);
+  const cums = data.tracks.map(cumulativeDistance);
+  const wq = new THREE.Quaternion(), wq2 = new THREE.Quaternion(), wp = new THREE.Vector3(), fwdV = new THREE.Vector3(), sideV = new THREE.Vector3(), zAxis = new THREE.Vector3(0, 0, 1);
+  const fadeAttr = { setX: (_i: number, _v: number) => {}, needsUpdate: false }; // kept for the per-class attributes below
+  void unitBox;
   const shadowTex = (() => {
     const c = document.createElement('canvas'); c.width = c.height = 64;
     const x = c.getContext('2d')!, gr = x.createRadialGradient(32, 32, 4, 32, 32, 32);
@@ -309,7 +336,7 @@ export function createEngine(o: EngineOpts): Engine {
     return new THREE.CanvasTexture(c);
   })();
   const shadows = new THREE.InstancedMesh(flat(new THREE.PlaneGeometry(1, 1)), new THREE.MeshBasicMaterial({ map: shadowTex, color: pal.shadow, transparent: true, opacity: pal.dark ? 0.6 : 0.28, depthWrite: false }), N);
-  shadows.instanceMatrix.setUsage(THREE.DynamicDrawUsage); shadows.frustumCulled = false; shadows.renderOrder = 1; scene.add(shadows);
+  shadows.instanceMatrix.setUsage(THREE.DynamicDrawUsage); shadows.frustumCulled = false; shadows.renderOrder = 1; scene.add(shadows); vehicleParts.push(shadows);
   const pick = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshBasicMaterial(), N);
   pick.layers.set(PICK_LAYER);
   pick.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -431,7 +458,7 @@ export function createEngine(o: EngineOpts): Engine {
 
   const applyLayers = () => {
     groundPts.visible = layers.cloud;
-    cloud.visible = layers.cloud; bodies.visible = tails.visible = heads.visible = shadows.visible = !layers.cloud;
+    cloud.visible = layers.cloud; for (const im of vehicleParts) im.visible = !layers.cloud;
     trails.visible = layers.trails; proj.visible = layers.projection;
     zones.visible = layers.zones; fov.visible = layers.fov;
     dirty = true;
@@ -448,12 +475,17 @@ export function createEngine(o: EngineOpts): Engine {
       const k = renderPose(tr, t, data.hz, win);
       const pos = k && W(k.x, k.y);
       const inRange = !!pos && Math.hypot(pos.x - sensorWorld.x, pos.z - sensorWorld.z) < SENSOR.range;
-      if (!k || !pos || !inRange || k.fade <= 0) {
+      const gf = k ? ghostFade(quality, id, t) : 0;
+      const cm = classMeshes.get(kinds[i])!, slot = slotOf[i];
+      if (!k || !pos || !inRange || k.fade * gf <= 0) {
         poseArr[i * 4 + 3] = 0;
-        for (const m of [pick, bodies, tails, heads, shadows]) m.setMatrixAt(i, zero);
+        for (const m of [pick, shadows]) m.setMatrixAt(i, zero);
+        for (const m of [cm.body, cm.glass, cm.head, cm.tail]) m.setMatrixAt(slot, zero);
+        for (let w = 0; w < 4; w++) wheels.setMatrixAt(i * 4 + w, zero);
         const tg = tags.get(id); if (tg) tg.visible = false;
         continue;
       }
+      k.fade *= gf;
       posOf.set(id, pos); kinOf.set(id, k);
       const isSel = selIds.has(id), isPartner = partnerIds.has(id), isHov = id === hovId;
       const state = isSel ? 6 : isHov ? 5 : isPartner ? 4 : hot.has(id) ? 3 : tr.cls === 'truck' ? 2 : 1;
@@ -461,11 +493,28 @@ export function createEngine(o: EngineOpts): Engine {
       poseArr[N * 4 + i * 4] = k.fade; poseArr[N * 4 + i * 4 + 1] = k.brake;
       const h = heightOf(tr.cls);
       q.setFromAxisAngle(up, k.h);
-      m4.compose(sc.set(pos.x, 0, pos.z), q, v3.set(tr.len_m, h, tr.w_m));
-      bodies.setMatrixAt(i, m4); tails.setMatrixAt(i, m4); heads.setMatrixAt(i, m4);
-      fadeAttr.setX(i, k.fade);
-      bodies.setColorAt(i, cols[state - 1]);
-      tails.setColorAt(i, lampC.copy(lampOff).lerp(lampOn, k.brake));
+      m4.compose(sc.set(pos.x, 0, pos.z), q, v3.set(tr.len_m, 1, tr.w_m));
+      cm.body.setMatrixAt(slot, m4); cm.glass.setMatrixAt(slot, m4); cm.tail.setMatrixAt(slot, m4); cm.head.setMatrixAt(slot, m4);
+      cm.fade.setX(slot, k.fade);
+      cm.body.setColorAt(slot, cols[state - 1]);
+      cm.tail.setColorAt(slot, lampC.copy(lampOff).lerp(lampOn, k.brake));
+      if (!layers.cloud) {
+        // wheels roll with the travelled distance; the front pair steers with the yaw rate (bicycle model)
+        fwdV.set(Math.cos(k.h), 0, -Math.sin(k.h)); sideV.set(Math.sin(k.h), 0, Math.cos(k.h));
+        const spin = distanceAt(tr, cums[i], t, data.hz) / WHEEL.r;
+        const ahead = renderPose(tr, t + 0.2, data.hz, win), behind = renderPose(tr, t - 0.2, data.hz, win);
+        const rate = ahead && behind ? Math.atan2(Math.sin(ahead.h - behind.h), Math.cos(ahead.h - behind.h)) / 0.4 : 0;
+        const steer = steerAngle(rate, k.v, tr.len_m * (cm.wheelX[1] - cm.wheelX[0]));
+        const offs = wheelOffsets(cm.wheelX, tr.w_m);
+        for (let w = 0; w < 4; w++) {
+          const [ax, az] = offs[w];
+          wp.copy(pos).addScaledVector(fwdV, ax * tr.len_m).addScaledVector(sideV, az).setY(WHEEL.r);
+          wq.setFromAxisAngle(up, w < 2 ? steer : 0); wq2.setFromAxisAngle(zAxis, -spin);
+          wq.multiplyQuaternions(q, wq).multiply(wq2);
+          m4.compose(wp, wq, v3.set(1, 1, 1));
+          wheels.setMatrixAt(i * 4 + w, m4); wheelFade.setX(i * 4 + w, k.fade);
+        }
+      }
       m4.compose(sc.set(pos.x, 0.012, pos.z), q, v3.set((tr.len_m + 1.1) * k.fade, 1, (tr.w_m + 1.3) * k.fade)); shadows.setMatrixAt(i, m4);
       m4.compose(sc.set(pos.x, -0.2, pos.z), q, v3.set(tr.len_m + 0.6, h + 0.4, tr.w_m + 0.6)); pick.setMatrixAt(i, m4);
       if ((isSel || isPartner) && nb < MAX_BOXES) {
@@ -482,11 +531,19 @@ export function createEngine(o: EngineOpts): Engine {
     }
     for (let i = nb; i < MAX_BOXES; i++) boxes[i].visible = false;
     poseTex.needsUpdate = true;
-    for (const m of [pick, bodies, tails, heads, shadows]) m.instanceMatrix.needsUpdate = true;
+    for (const m of [pick, shadows, wheels]) m.instanceMatrix.needsUpdate = true;
+    for (const cm of classMeshes.values()) { for (const m of [cm.body, cm.glass, cm.head, cm.tail]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; } cm.fade.needsUpdate = true; }
+    wheelFade.needsUpdate = true;
     pick.boundingSphere = null; pick.boundingBox = null;
     fadeAttr.needsUpdate = true;
-    if (bodies.instanceColor) bodies.instanceColor.needsUpdate = true;
-    if (tails.instanceColor) tails.instanceColor.needsUpdate = true;
+    // signal lamps follow the inferred plan
+    const lamps: Record<Group, Lamp> = { ns: lampAt(plan, 'ns', t), ew: lampAt(plan, 'ew', t) };
+    if (lamps.ns !== lastLamp.ns || lamps.ew !== lastLamp.ew) {
+      let kk = 0;
+      for (const hd of sig.heads) { const on = lamps[hd.g]; [0, 1, 2].forEach((slot2) => { const li = (2 - slot2) as Lamp; sigLamps.setColorAt(kk++, li === on ? SIG[li] : SIG_OFF); }); }
+      if (sigLamps.instanceColor) sigLamps.instanceColor.needsUpdate = true;
+      lastLamp.ns = lamps.ns; lastLamp.ew = lamps.ew;
+    }
 
     // trails: 3 s for every road user in view (faint), selected and partners in colour; ends at the drawn pose
     if (layers.trails) {

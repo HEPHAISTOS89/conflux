@@ -9,7 +9,7 @@
 .scr-warn { display: flex; align-items: flex-start; gap: var(--s2); margin-top: calc(-1 * var(--s2)); font-size: var(--t-ui); color: var(--caution-ink); max-width: 90ch; }
 .scr-warn > .icon { flex: none; margin-top: 2px; }
 
-.scr-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--s4); }
+.scr-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--s4); }
 .scr-table-wrap { overflow: auto; max-height: 680px; scroll-padding: 48px 0; }
 .scr-state { margin: var(--s3); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
 .scr-empty { padding: var(--s6) var(--s4) !important; color: var(--ink-3); text-align: center; }
@@ -28,7 +28,10 @@
 .scr-table-wrap tbody tr:not([data-top]) .rank { opacity: 0.7; }
 @keyframes row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .seg-name { font-weight: var(--w-strong); display: flex; align-items: center; gap: 8px; }
-.seg-id { font-size: var(--t-label); color: var(--ink-3); }
+.seg-id { font-size: var(--t-label); color: var(--ink-3); white-space: nowrap; }
+.scr-table-wrap td.measure, .scr-table-wrap th { white-space: nowrap; }
+.scr-table-wrap td:first-child { padding-right: 4px; }
+.scr-table-wrap table.data td, .scr-table-wrap table.data th { padding-left: 8px; padding-right: 8px; }
 .seg-fc { font-family: var(--f-ui); letter-spacing: 0; }
 .scr-both { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--sev-a); }
 td.strong { font-weight: 600; }
@@ -75,7 +78,9 @@ td.strong { font-weight: 600; }
 .stab-head { font: var(--w-strong) var(--t-ui) var(--f-ui); fill: var(--ink-3); }
 .stab-head.on { fill: var(--accent); }
 .stab-tick { font: var(--t-micro) var(--f-measure); fill: var(--ink-3); }
-.stab-lab { font: var(--t-ui) var(--f-ui); fill: var(--ink-3); cursor: pointer; transition: fill 140ms var(--ease-out); }
+.stab-lab { font: var(--t-ui) var(--f-ui); fill: var(--ink-3); cursor: pointer; transition: fill 140ms var(--ease-out); outline: none; }
+.stab-lab:focus-visible { fill: var(--accent); text-decoration: underline; }
+.cure svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-s); }
 .stab-lab[data-robust] { fill: var(--ink); font-weight: var(--w-strong); }
 .stab-lab[data-on] { fill: var(--sev-a); }
 .stab-line { cursor: pointer; }
@@ -123,10 +128,13 @@ td.strong { font-weight: 600; }
 .cure-read { min-height: 20px; font-size: var(--t-label); color: var(--ink-2); }
 @keyframes draw { from { stroke-dashoffset: 2400; } to { stroke-dashoffset: 0; } }
 
+/* Between 1100 and 1320 the table shares the row with the map: the second comparison column waits for a wider screen. */
+@media (min-width: 1101px) and (max-width: 1320px) { .scr-table-wrap .opt2 { display: none; } .seg-id { white-space: normal; } }
 @media (max-width: 1100px) { .scr-grid { grid-template-columns: 1fr; } .scr-map { min-height: 440px; } }
 @media (max-width: 1000px) { .spf-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) {
   .scr-table-wrap .opt { display: none; }
+  .seg-id { white-space: normal; }
   .scr-table-wrap { max-height: 56vh; }
   /* On a phone the card sits under the map instead of covering it */
   .scr-map { min-height: 0; display: grid; }

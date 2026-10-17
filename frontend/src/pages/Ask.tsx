@@ -99,7 +99,7 @@ export default function Ask() {
   // Model state: a dot and one word; the reason sits behind the info button.
   const chip = (
     <span className="ask-model-state">
-      <Info label="About the model" title={isBedrock ? 'Amazon Bedrock' : 'Rule-based fallback'} align="right">
+      <Info label="About the model" text={model.state === 'unknown' ? 'Model' : isBedrock ? 'Bedrock' : 'Fallback'} title={isBedrock ? 'Amazon Bedrock' : 'Rule-based fallback'} align="right">
         {isBedrock
           ? <p>Answered by <span className="measure">{model.id}</span> through Bedrock Converse with tool use.</p>
           : <p>Bedrock model access awaits AWS account verification (or the daily Bedrock cap was reached). The same named tools answer deterministically, over the same curated tables.</p>}

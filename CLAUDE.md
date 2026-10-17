@@ -24,6 +24,7 @@ Win the Texas Tech TransTech Lab Graduate Assistant position (Prof. Hongchao Liu
 - Pending on AWS account verification: CloudFront (`cdk deploy -c edge=cloudfront`) and Bedrock model access (analyst currently uses the deterministic fallback).
 - Screening outcome is on-system CRIS ped/bike crashes 2021–2023 (SUM_CRASH_ is an SATP score, not a crash count).
 - Screened population: 395 matched one-mile segments (48 unmatched reported apart), 110 crashes; on-system K+A 43.
+- Peachtree critical conflicts: 25 (34 flagged minus 9 between a duplicate/ID-switched track and its host, lib/lab/quality.ts; overlap flags excluded). 38/170 tracks carry duplicate windows and are faded out of every view.
 - On-demand ingest: POST /api/v1/ops/ingest (30-min cooldown + S3 lock, IAM scoped to the ingest ARN). First production run 2026-10-17 18:12 UTC, 20,708 records, 11.8 s.
 - AWS CLI uses `aws login` sessions that expire; if `aws sts get-caller-identity` says expired, run `aws login` in a terminal tab and let the owner approve in the browser.
 

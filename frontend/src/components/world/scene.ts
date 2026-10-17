@@ -1,18 +1,24 @@
 /**
- * The landing world: 90 s of NGSIM trajectories at Peachtree St & 10th St replayed on a road model derived from
- * the same data (lib/lab/road.ts), with headlights, tail lights that brighten on braking, signal heads whose phase
- * is inferred from flow (./signals.ts) and SSAM conflicts flaring where and when they happened.
+ * The landing world: 90 s of NGSIM trajectories at Peachtree St & 10th St replayed on a street derived from
+ * the same data (lib/lab/road.ts, lib/lab/street.ts): corridor lanes, the skewed cross street fitted to the
+ * EB/WB tracks, MUTCD markings and stop bars. Vehicles are class-shaped bodies (lib/lab/vehicles.ts) with
+ * wheels that roll with the travelled distance and steer with the yaw rate, headlights, tail lights that
+ * brighten on braking, signal heads whose phase is inferred from flow (./signals.ts) and SSAM conflicts flaring
+ * where and when they happened. Duplicate and ID-switched tracks (lib/lab/quality.ts) are faded out while
+ * they overlap the vehicle they duplicate, so no car is ever drawn through another.
  *
- * Budget: every repeated part is one InstancedMesh with a shared material (bodies, glass, lamps, beams, shadows,
- * buildings, street-light poles, pools, signal lamps, conflict rings) and every light glow is one Points draw;
- * about 20 draw calls in total. No post-processing: glows are additive sprites. DPR ≤ 2. The loop stops while the
- * hero is off screen, the tab is hidden, or the replay is paused and the camera has settled.
+ * Budget: every repeated part is one InstancedMesh with a shared material (one body + glass + lamp set per
+ * vehicle class, one wheel mesh for every wheel, beams, shadows, buildings, poles, pools, signal lamps, rings)
+ * and every glow is one Points draw: about 30 draw calls. No post-processing. DPR ≤ 2. The loop stops while
+ * the hero is off screen, the tab is hidden, or the replay is paused and the camera has settled.
  */
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { ConflictT, IntersectionT, TrackT } from '../../lib/traj';
+import type { ConflictT, IntersectionT } from '../../lib/traj';
 import { conflictPoint, renderPose } from '../../lib/lab/metrics';
-import { dashes, MUTCD, offset, ribbon, roadGeometry, type XY } from '../../lib/lab/road';
+import { roadGeometry } from '../../lib/lab/road';
+import { asphaltTexture, buildSignals, buildStreet } from '../../lib/lab/street';
+import { conflictIsGhostPair, ghostFade, trackQuality, type Quality } from '../../lib/lab/quality';
+import { cumulativeDistance, distanceAt, KINDS, kindOf, lampGeometry, steerAngle, vehicleGeometry, WHEEL, wheelGeometry, wheelOffsets, type VehicleKind } from '../../lib/lab/vehicles';
 import type { ThemeName } from '../../lib/lab/palette';
 import { worldLook } from './look';
 import { inferSignals, lampAt, type Group, type Lamp } from './signals';
@@ -30,6 +36,8 @@ export interface WorldOpts {
   /** Start paused (reduced motion) on a composed frame. */
   still: boolean;
   state?: WorldState | null;
+  /** Precomputed track quality (ghost windows); computed here when absent. */
+  quality?: Quality | null;
   onPlaying?: (p: boolean) => void;
 }
 export interface World {
@@ -119,6 +127,17 @@ void main() { float h = clamp(vP.y, 0.0, 1.0); gl_FragColor = vec4(mix(uHor, uZe
   #include <colorspace_fragment>
 }`;
 
+/** Per-instance fade (screen-door) for an opaque instanced material: no sorting, no transparency artefacts. */
+function withFade(mat: THREE.Material) {
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aFade;\nvarying float vFade;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFade = aFade;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vFade;')
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (vFade < 0.999 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) > vFade) discard;');
+  };
+  return mat;
+}
+
 export function createWorld(o: WorldOpts): World {
   const { host, data, theme } = o;
   const L = worldLook(theme);
@@ -126,6 +145,7 @@ export function createWorld(o: WorldOpts): World {
   const dur = data.window_s;
   const tracks = data.tracks;
   const N = tracks.length;
+  const quality = o.quality ?? trackQuality(tracks, HZ);
 
   /* ---------- renderer, scene, sky, lights ---------- */
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -149,80 +169,36 @@ export function createWorld(o: WorldOpts): World {
   scene.add(sky);
   scene.add(new THREE.HemisphereLight(L.hemiSky, L.hemiGround, L.hemi));
   const moon = new THREE.DirectionalLight(L.moon, L.moonI); moon.position.set(-60, 90, 40); scene.add(moon);
+  // a second, low key light from the street-lit side gives the car paint a second highlight
+  const key = new THREE.DirectionalLight(L.lamp, L.dark ? 0.35 : 0.2); key.position.set(50, 30, -20); scene.add(key);
 
   const flat = (g: THREE.BufferGeometry) => { g.rotateX(-Math.PI / 2); return g; };
-  const basic = (col: string, extra: THREE.MeshBasicMaterialParameters = {}) => new THREE.MeshBasicMaterial({ color: col, ...extra });
 
-  /* ---------- ground and road (derived from the trajectories; stylised beyond the study area) ---------- */
-  const ground = new THREE.Mesh(flat(new THREE.PlaneGeometry(1600, 1600)), basic(L.lot));
+  /* ---------- ground and street (derived from the trajectories; stylised beyond the study area) ---------- */
+  const ground = new THREE.Mesh(flat(new THREE.PlaneGeometry(1600, 1600)), new THREE.MeshLambertMaterial({ color: L.lot }));
   ground.position.y = -0.02;
   scene.add(ground);
 
   const road = roadGeometry(data);
-  const [[, by0], [, by1]] = data.bbox as [[number, number], [number, number]];
-  const FAR_S = -320, FAR_N = 360, FAR_W = -300, FAR_E = 300;
-  const asphaltGeos: THREE.BufferGeometry[] = [];
-  const poly = (pts: XY[]) => asphaltGeos.push(flat(new THREE.ShapeGeometry(new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y))))));
-  const quad = (x0: number, y0: number, x1: number, y1: number) => poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]);
-  road.arms.forEach((a) => poly(a));
-  let xL = Infinity, xR = -Infinity;
-  for (const a of road.arms) {
-    const n = a.length / 2;
-    const ySouth = a[0][1], yNorth = a[n - 1][1];
-    for (const p of a) { xL = Math.min(xL, p[0]); xR = Math.max(xR, p[0]); }
-    // continue the arm straight beyond the study area with its end cross-section (stylised context)
-    if (ySouth <= by0 + 3) quad(a[0][0], FAR_S, a[a.length - 1][0], ySouth + 0.5);
-    if (yNorth >= by1 - 3) quad(a[n - 1][0], yNorth - 0.5, a[n][0], FAR_N);
+  const FAR = { s: -320, n: 360, w: -300, e: 300 };
+  const street = buildStreet(road, data.bbox as [[number, number], [number, number]], {
+    far: FAR, crosswalks: true, lineScale: 1.6,
+    colours: { lane: L.lane, edge: L.edge, centre: L.centre, stop: L.stop, crosswalk: L.crosswalk },
+  });
+  const asphaltMap = asphaltTexture(L.asphalt, 9);
+  if (street.asphalt) {
+    const g = street.asphalt;
+    // planar UVs in metres so the aggregate texture tiles evenly across arms and the band
+    const pos = g.attributes.position, uv = new Float32Array(pos.count * 2);
+    for (let i = 0; i < pos.count; i++) { uv[i * 2] = pos.getX(i); uv[i * 2 + 1] = pos.getZ(i); }
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: '#ffffff', map: asphaltMap })));
   }
-  const cross = road.cross;
-  const yC0 = cross?.y0 ?? -10, yC1 = cross?.y1 ?? 10, yCm = (yC0 + yC1) / 2;
-  if (cross) {
-    quad(cross.x0, cross.y0, cross.x1, cross.y1);
-    quad(FAR_W, cross.y0, cross.x0 + 0.5, cross.y1);
-    quad(cross.x1 - 0.5, cross.y0, FAR_E, cross.y1);
-  }
-  const asphalt = mergeGeometries(asphaltGeos.map((g) => g.toNonIndexed()));
-  asphaltGeos.forEach((g) => g.dispose());
-  if (asphalt) scene.add(new THREE.Mesh(asphalt, basic(L.asphalt)));
-
-  // markings: MUTCD dimensions, true-width ribbons, one draw call
-  {
-    const mp: number[] = [], mc: number[] = [];
-    const add = (tri: number[], hex: string, h = 0.012) => { const c = C(hex); for (let i = 0; i < tri.length; i += 2) { mp.push(tri[i], h, -tri[i + 1]); mc.push(c.r, c.g, c.b); } };
-    const w = MUTCD.line * 1.6;
-    const draw = (kind: string, pts: XY[]) => {
-      if (pts.length < 2) return;
-      if (kind === 'lane') for (const d of dashes(pts)) add(ribbon(d, w), L.lane);
-      else if (kind === 'edge') add(ribbon(pts, w), L.edge);
-      else { const d = (MUTCD.line + MUTCD.yellowGap) / 2; add(ribbon(offset(pts, -d), w), L.centre); add(ribbon(offset(pts, d), w), L.centre); }
-    };
-    for (const l of road.lines) {
-      draw(l.kind, l.pts);
-      const first = l.pts[0], last = l.pts[l.pts.length - 1];
-      if (first[1] <= by0 + 3) draw(l.kind, [[first[0], FAR_S], first]);
-      if (last[1] >= by1 - 3) draw(l.kind, [last, [last[0], FAR_N]]);
-    }
-    for (const b of road.stops) add(ribbon([b.a, b.b], MUTCD.bar), L.stop, 0.014);
-    if (cross) {
-      const half = (yC1 - yC0) / 2;
-      for (const [xa, xb] of [[FAR_W, cross.x0 - 1], [cross.x1 + 1, FAR_E]]) {
-        draw('centre', [[xa, yCm], [xb, yCm]]);
-        draw('edge', [[xa, yC0 + 0.5], [xb, yC0 + 0.5]]); draw('edge', [[xa, yC1 - 0.5], [xb, yC1 - 0.5]]);
-        if (half > 6.5) { draw('lane', [[xa, yCm - half / 2], [xb, yCm - half / 2]]); draw('lane', [[xa, yCm + half / 2], [xb, yCm + half / 2]]); }
-      }
-    }
-    const mg = new THREE.BufferGeometry();
-    mg.setAttribute('position', new THREE.Float32BufferAttribute(mp, 3)); mg.setAttribute('color', new THREE.Float32BufferAttribute(mc, 3));
-    scene.add(new THREE.Mesh(mg, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-  }
-  // kerb line around the derived carriageway
-  {
-    const kerb: number[] = [];
-    for (const a of road.arms) for (let i = 0; i < a.length; i++) { const p = a[i], q = a[(i + 1) % a.length]; kerb.push(p[0], 0.01, -p[1], q[0], 0.01, -q[1]); }
-    const kg = new THREE.BufferGeometry(); kg.setAttribute('position', new THREE.Float32BufferAttribute(kerb, 3));
-    scene.add(new THREE.LineSegments(kg, new THREE.LineBasicMaterial({ color: L.kerb })));
-  }
-  const xWest = Math.min(xL, cross?.x0 ?? xL), xEast = Math.max(xR, cross?.x1 ?? xR);
+  scene.add(new THREE.Mesh(street.markings, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+  scene.add(new THREE.LineSegments(street.kerbs, new THREE.LineBasicMaterial({ color: L.kerb })));
+  if (street.sidewalks) scene.add(new THREE.Mesh(street.sidewalks, new THREE.MeshLambertMaterial({ color: L.walk })));
+  const { xWest, xEast, ySouth: yC0, yNorth: yC1 } = street.ext;
+  const yCm = (yC0 + yC1) / 2;
 
   /* ---------- abstract low-rise massing (stylised context, not surveyed) ---------- */
   const glowP: number[] = [], glowC: number[] = [], glowS: number[] = [], glowA: number[] = [];
@@ -231,11 +207,10 @@ export function createWorld(o: WorldOpts): World {
     const rand = mulberry(1016);
     const boxes: { x: number; y: number; w: number; d: number; h: number }[] = [];
     const quads: [number, number, number, number, number, number][] = [
-      // [x from, x to (outward), y from, y to (outward)]: sign of outward direction derived from bounds
-      [xWest - 7, FAR_W + 60, yC0 - 7, FAR_S + 60, -1, -1],
-      [xEast + 7, FAR_E - 60, yC0 - 7, FAR_S + 60, 1, -1],
-      [xWest - 7, FAR_W + 60, yC1 + 7, FAR_N - 60, -1, 1],
-      [xEast + 7, FAR_E - 60, yC1 + 7, FAR_N - 60, 1, 1],
+      [xWest - 7, FAR.w + 60, yC0 - 7, FAR.s + 60, -1, -1],
+      [xEast + 7, FAR.e - 60, yC0 - 7, FAR.s + 60, 1, -1],
+      [xWest - 7, FAR.w + 60, yC1 + 7, FAR.n - 60, -1, 1],
+      [xEast + 7, FAR.e - 60, yC1 + 7, FAR.n - 60, 1, 1],
     ];
     for (const [xa, xb, ya, yb, sx, sy] of quads) {
       const cell = 30;
@@ -290,20 +265,22 @@ export function createWorld(o: WorldOpts): World {
   /* ---------- street lights along both kerbs (stylised context) ---------- */
   {
     const spots: { x: number; y: number; dir: 1 | -1; along: 'y' | 'x' }[] = [];
-    for (let y = FAR_S + 20; y < FAR_N - 20; y += 36) {
+    for (let y = FAR.s + 20; y < FAR.n - 20; y += 36) {
       if (y > yC0 - 6 && y < yC1 + 6) continue;
       spots.push({ x: xWest - 1.4, y, dir: 1, along: 'y' }, { x: xEast + 1.4, y: y + 18, dir: -1, along: 'y' });
     }
-    for (let x = FAR_W + 20; x < FAR_E - 20; x += 36) {
+    const band = road.crossBand;
+    for (let x = FAR.w + 20; x < FAR.e - 20; x += 36) {
       if (x > xWest - 6 && x < xEast + 6) continue;
-      spots.push({ x, y: yC0 - 1.4, dir: 1, along: 'x' }, { x: x + 18, y: yC1 + 1.4, dir: -1, along: 'x' });
+      const yLo = band ? band.m * x + band.b + band.edges[0] - 1.4 : yC0 - 1.4, yHi = band ? band.m * (x + 18) + band.b + band.edges[1] + 1.4 : yC1 + 1.4;
+      spots.push({ x, y: yLo, dir: 1, along: 'x' }, { x: x + 18, y: yHi, dir: -1, along: 'x' });
     }
     const H = 9, ARM = 2.4;
-    const poleGeo = mergeGeometries([
+    const poleGeo = mergeGeo([
       new THREE.CylinderGeometry(0.09, 0.13, H, 6).translate(0, H / 2, 0),
       new THREE.BoxGeometry(ARM, 0.1, 0.1).translate(ARM / 2, H - 0.1, 0),
       new THREE.BoxGeometry(0.6, 0.14, 0.3).translate(ARM, H - 0.2, 0),
-    ])!;
+    ]);
     const poles = new THREE.InstancedMesh(poleGeo, new THREE.MeshLambertMaterial({ color: L.pole }), spots.length);
     const pools = new THREE.InstancedMesh(flat(new THREE.PlaneGeometry(1, 1)), new THREE.MeshBasicMaterial({
       map: radialTexture([[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(255,255,255,0.45)'], [1, 'rgba(255,255,255,0)']]),
@@ -311,7 +288,6 @@ export function createWorld(o: WorldOpts): World {
     }), spots.length);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
     spots.forEach((s, i) => {
-      // arm points toward the carriageway: +x for the west kerb, −x for the east; ±y (world ∓z) on the cross street
       const ang = s.along === 'y' ? (s.dir > 0 ? 0 : Math.PI) : (s.dir > 0 ? Math.PI / 2 : -Math.PI / 2);
       q.setFromAxisAngle(up, ang);
       m.compose(W(s.x, s.y), q, new THREE.Vector3(1, 1, 1)); poles.setMatrixAt(i, m);
@@ -323,40 +299,14 @@ export function createWorld(o: WorldOpts): World {
     if (L.pool > 0) { pools.renderOrder = 2; scene.add(pools); }
   }
 
-  /* ---------- signal heads at the derived stop bars; phase inferred from flow ---------- */
+  /* ---------- signal heads on mast arms; phase inferred from flow ---------- */
   const nbBar = road.stops.find((s) => s.dir === 'NB'), sbBar = road.stops.find((s) => s.dir === 'SB');
-  const plan = inferSignals(tracks, { nbBar: nbBar?.a[1] ?? null, sbBar: sbBar?.a[1] ?? null, xMid: cross ? (cross.x0 + cross.x1) / 2 : 0 }, dur, HZ);
-  interface Head { g: Group; lamps: THREE.Vector3[]; rotY: number }
-  const heads: Head[] = [];
-  const sigLamps = new THREE.InstancedMesh(new THREE.CircleGeometry(0.13, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), 32);
+  const plan = inferSignals(tracks, { nbBar: nbBar?.a[1] ?? null, sbBar: sbBar?.a[1] ?? null, xMid: street.ext.xMid }, dur, HZ);
+  const sig = buildSignals(road, street);
+  const heads = sig.heads;
+  if (sig.structure) scene.add(new THREE.Mesh(sig.structure, new THREE.MeshLambertMaterial({ color: L.housing })));
+  const sigLamps = new THREE.InstancedMesh(new THREE.CircleGeometry(0.13, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), Math.max(1, sig.lampCount));
   {
-    const parts: THREE.BufferGeometry[] = [];
-    const POLE_H = 6.4, HEAD_Y = 5.6;
-    const mk = (g: Group, base: XY, armTo: XY, at: XY[], rotY: number) => {
-      const b = W(base[0], base[1]), e = W(armTo[0], armTo[1]);
-      parts.push(new THREE.CylinderGeometry(0.14, 0.17, POLE_H, 8).translate(b.x, POLE_H / 2, b.z));
-      const len = b.distanceTo(e), mid = b.clone().add(e).multiplyScalar(0.5);
-      const arm = new THREE.BoxGeometry(len, 0.14, 0.14);
-      arm.rotateY(-Math.atan2(e.z - b.z, e.x - b.x)); arm.translate(mid.x, POLE_H - 0.2, mid.z);
-      parts.push(arm);
-      for (const p of at) {
-        const c = W(p[0], p[1], HEAD_Y);
-        const housing = new THREE.BoxGeometry(0.38, 1.08, 0.3); housing.rotateY(rotY); housing.translate(c.x, c.y, c.z);
-        parts.push(housing, new THREE.BoxGeometry(0.05, POLE_H - 0.2 - HEAD_Y - 0.54, 0.05).translate(c.x, (POLE_H - 0.2 + HEAD_Y + 0.54) / 2, c.z));
-        const face = new THREE.Vector3(Math.sin(rotY), 0, Math.cos(rotY));
-        heads.push({ g, rotY, lamps: [0.34, 0, -0.34].map((dy) => c.clone().add(new THREE.Vector3(0, dy, 0)).addScaledVector(face, 0.16)) });
-      }
-    };
-    if (nbBar) { const [a, b] = [nbBar.a, nbBar.b]; mk('ns', [b[0] + 1.3, a[1] - 0.8], [a[0] + 0.6, a[1] - 0.8], [[a[0] + (b[0] - a[0]) * 0.3, a[1] - 0.8], [a[0] + (b[0] - a[0]) * 0.72, a[1] - 0.8]], 0); }
-    if (sbBar) { const [a, b] = [sbBar.a, sbBar.b]; mk('ns', [a[0] - 1.3, a[1] + 0.8], [b[0] - 0.6, a[1] + 0.8], [[b[0] - (b[0] - a[0]) * 0.3, a[1] + 0.8], [b[0] - (b[0] - a[0]) * 0.72, a[1] + 0.8]], Math.PI); }
-    if (cross) {
-      const xE = cross.x0 - 1.2, xW = cross.x1 + 1.2;
-      mk('ew', [xE, yC0 - 1.3], [xE, yCm - 0.6], [[xE, yC0 + (yCm - yC0) * 0.35], [xE, yC0 + (yCm - yC0) * 0.78]], -Math.PI / 2);
-      mk('ew', [xW, yC1 + 1.3], [xW, yCm + 0.6], [[xW, yC1 - (yC1 - yCm) * 0.35], [xW, yC1 - (yC1 - yCm) * 0.78]], Math.PI / 2);
-    }
-    const sg = mergeGeometries(parts.map((p) => p.toNonIndexed()));
-    parts.forEach((p) => p.dispose());
-    if (sg) scene.add(new THREE.Mesh(sg, new THREE.MeshLambertMaterial({ color: L.housing })));
     const m = new THREE.Matrix4(), q = new THREE.Quaternion();
     let k = 0;
     heads.forEach((h) => {
@@ -369,46 +319,63 @@ export function createWorld(o: WorldOpts): World {
   const SIG = [C(L.sigRed), C(L.sigAmber), C(L.sigGreen)], SIG_OFF = C(L.sigOff);
   const SIG_HEX = [L.sigRed, L.sigAmber, L.sigGreen];
 
-  /* ---------- vehicles: instanced bodies, glass, lamps, beams and shadows ---------- */
-  const body = mergeGeometries([
-    new THREE.BoxGeometry(1, 0.56, 1).translate(0, 0.5, 0),
-    new THREE.BoxGeometry(0.5, 0.05, 0.84).translate(-0.07, 1.27, 0),
-  ])!;
-  const glassGeo = new THREE.BoxGeometry(0.56, 0.48, 0.88).translate(-0.06, 1.02, 0);
-  const lampGeo = (x: number) => mergeGeometries([new THREE.BoxGeometry(0.03, 0.09, 0.2).translate(x, 0.62, 0.32), new THREE.BoxGeometry(0.03, 0.09, 0.2).translate(x, 0.62, -0.32)])!;
-  const mkInst = (g: THREE.BufferGeometry, m: THREE.Material, n = N) => {
+  /* ---------- vehicles: one body / glass / lamp set per class, one wheel mesh, beams and shadows ---------- */
+  const kinds = tracks.map(kindOf);
+  const slotOf = new Int32Array(N); // instance slot inside the class's meshes
+  const perKind = new Map<VehicleKind, number[]>();
+  KINDS.forEach((k) => perKind.set(k, []));
+  tracks.forEach((_, i) => { const arr = perKind.get(kinds[i])!; slotOf[i] = arr.length; arr.push(i); });
+  interface ClassMeshes { body: THREE.InstancedMesh; glass: THREE.InstancedMesh; head: THREE.InstancedMesh; tail: THREE.InstancedMesh; fade: THREE.InstancedBufferAttribute; wheelX: [number, number] }
+  const bodyMat = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 70, specular: C(L.dark ? '#6a6f73' : '#9a9ea0') });
+  const glassMat = new THREE.MeshPhongMaterial({ color: L.glass, shininess: 120, specular: C('#c9d2d8') });
+  const lampMat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+  const classMeshes = new Map<VehicleKind, ClassMeshes>();
+  const mkInst = (g: THREE.BufferGeometry, m: THREE.Material, n: number) => {
     const im = new THREE.InstancedMesh(g, m, n);
     im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     im.frustumCulled = false;
     scene.add(im);
     return im;
   };
-  const bodies = mkInst(body, new THREE.MeshLambertMaterial({ color: 0xffffff }));
-  const glass = mkInst(glassGeo, new THREE.MeshLambertMaterial({ color: L.glass }));
-  const headM = mkInst(lampGeo(0.505), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }));
-  const tailM = mkInst(lampGeo(-0.505), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }));
+  for (const k of KINDS) {
+    const idx = perKind.get(k)!;
+    if (!idx.length) continue;
+    const vg = vehicleGeometry(k);
+    const fade = new THREE.InstancedBufferAttribute(new Float32Array(idx.length).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
+    vg.body.setAttribute('aFade', fade); vg.glass.setAttribute('aFade', fade);
+    const hg = lampGeometry(true, k), tg = lampGeometry(false, k);
+    hg.setAttribute('aFade', fade); tg.setAttribute('aFade', fade);
+    const cm: ClassMeshes = {
+      body: mkInst(vg.body, withFade(bodyMat.clone()), idx.length), glass: mkInst(vg.glass, withFade(glassMat.clone()), idx.length),
+      head: mkInst(hg, withFade(lampMat.clone()), idx.length), tail: mkInst(tg, withFade(lampMat.clone()), idx.length), fade, wheelX: vg.wheelX,
+    };
+    for (const im of [cm.body, cm.head, cm.tail]) im.setColorAt(0, C('#000000'));
+    classMeshes.set(k, cm);
+  }
+  const wheelFade = new THREE.InstancedBufferAttribute(new Float32Array(N * 4).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
+  const wheelGeo = wheelGeometry(); wheelGeo.setAttribute('aFade', wheelFade);
+  const wheels = mkInst(wheelGeo, withFade(new THREE.MeshLambertMaterial({ vertexColors: true })), N * 4);
   const shadowM = mkInst(flat(new THREE.PlaneGeometry(1, 1)), new THREE.MeshBasicMaterial({
     map: radialTexture([[0, 'rgba(255,255,255,1)'], [0.55, 'rgba(255,255,255,0.5)'], [1, 'rgba(255,255,255,0)']]),
     color: L.shadow, transparent: true, opacity: L.shadowA, depthWrite: false,
-  }));
+  }), N);
   shadowM.renderOrder = 1;
   const beamGeo = flat(new THREE.PlaneGeometry(1, 1)).translate(0.5, 0, 0);
-  const beamM = L.beam > 0 ? mkInst(beamGeo, new THREE.MeshBasicMaterial({ map: beamTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })) : null;
-  if (beamM) beamM.renderOrder = 2;
-  for (const im of [bodies, headM, tailM, ...(beamM ? [beamM] : [])]) im.setColorAt(0, C('#000000'));
-  const bodyCol = tracks.map((tr) => C(tr.cls === 'truck' ? L.bodies[3] : L.bodies[hashId(tr.id) % L.bodies.length]));
-  const heightOf = (tr: TrackT) => (tr.cls === 'truck' ? 2.2 : tr.len_m > 5.4 ? 1.25 : 1);
-  const bodyFade = C(L.lot), cHead = C(L.head), cTail = C(L.tail), cBrake = C(L.brake), cTailOff = C(L.tailOff), cBeam = C(L.head).multiplyScalar(L.beam);
+  const beamM = L.beam > 0 ? mkInst(beamGeo, new THREE.MeshBasicMaterial({ map: beamTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), N) : null;
+  if (beamM) { beamM.renderOrder = 2; beamM.setColorAt(0, C('#000000')); }
+  const bodyCol = tracks.map((tr) => C(kinds[tracks.indexOf(tr)] === 'truck' ? L.bodies[3] : L.bodies[hashId(tr.id) % L.bodies.length]));
+  const cHead = C(L.head), cTail = C(L.tail), cBrake = C(L.brake), cTailOff = C(L.tailOff), cBeam = C(L.head).multiplyScalar(L.beam);
   const t0s = tracks.map((tr) => tr.pts[0]?.[0] ?? 0), t1s = tracks.map((tr) => tr.pts[tr.pts.length - 1]?.[0] ?? 0);
+  const cums = tracks.map(cumulativeDistance);
+  const ids = tracks.map((tr) => String(tr.id));
 
-  /* ---------- conflict flares at their real place and time; overlap flags excluded ---------- */
+  /* ---------- conflict flares at their real place and time; overlap flags and ghost-pair artefacts excluded ---------- */
   const byId = new Map(tracks.map((tr) => [String(tr.id), tr]));
   const flares = o.conflicts
-    .filter((c) => !c.overlap)
+    .filter((c) => !c.overlap && !conflictIsGhostPair(quality, c.a, c.b, c.t))
     .map((c) => { const p = conflictPoint(c, byId.get(String(c.a)), byId.get(String(c.b)), HZ); return p ? { c, x: p.x, y: p.y, crit: c.severity === 'critical', s: (c.t0 ?? c.t - 0.3) - 0.3, e: (c.t1 ?? c.t + 0.3) + 1.8 } : null; })
     .filter((f): f is NonNullable<typeof f> => !!f)
     .sort((a, b) => a.c.t - b.c.t);
-  // a conflict counts from its first frame (t0), when its flare is already visible
   const confTimes = flares.map((f) => f.s + 0.3).sort((a, b) => a - b), critTimes = flares.filter((f) => f.crit).map((f) => f.s + 0.3).sort((a, b) => a - b);
   const ringGeo = flat(new THREE.PlaneGeometry(2, 2));
   const ringA = new THREE.InstancedBufferAttribute(new Float32Array(RINGS), 1).setUsage(THREE.DynamicDrawUsage);
@@ -454,7 +421,7 @@ export function createWorld(o: WorldOpts): World {
 
   /* ---------- camera: slow drifting dolly, drag to orbit (wheel never captured) ---------- */
   const camera = new THREE.PerspectiveCamera(32, 1, 1, 1400);
-  const target = W(2, 6);
+  const target = W(street.ext.xMid, yCm + 4);
   const st: WorldState = { t: 0, drift: 0, ut: 0, up: 0, ...(o.state ?? {}) };
   let ut = st.ut, up = st.up; // damped user offsets
   let w = 1, h = 1;
@@ -473,7 +440,6 @@ export function createWorld(o: WorldOpts): World {
     w = Math.max(1, Math.round(r.width)); h = Math.max(1, Math.round(r.height));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    // put the intersection right of the copy on wide screens, below it on tall ones
     const aspect = w / h;
     if (aspect > 1.25) camera.setViewOffset(w, h, -w * 0.14, h * 0.02, w, h);
     else if (aspect < 0.8) camera.setViewOffset(w, h, 0, h * 0.06, w, h);
@@ -486,7 +452,8 @@ export function createWorld(o: WorldOpts): World {
   };
 
   /* ---------- per-frame update ---------- */
-  const m4 = new THREE.Matrix4(), qv = new THREE.Quaternion(), yAxis = new THREE.Vector3(0, 1, 0), sv = new THREE.Vector3(), pv = new THREE.Vector3();
+  const m4 = new THREE.Matrix4(), qv = new THREE.Quaternion(), qw = new THREE.Quaternion(), qs = new THREE.Quaternion(), yAxis = new THREE.Vector3(0, 1, 0), zAxis = new THREE.Vector3(0, 0, 1);
+  const sv = new THREE.Vector3(), pv = new THREE.Vector3(), wp = new THREE.Vector3();
   const fwd = new THREE.Vector3(), side = new THREE.Vector3(), tmpC = new THREE.Color();
   const HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
   const lastLamp: Record<Group, Lamp | -1> = { ns: -1, ew: -1 };
@@ -497,34 +464,51 @@ export function createWorld(o: WorldOpts): World {
   const update = (t: number) => {
     let gi = STATIC_GLOWS, visible = 0;
     for (let i = 0; i < N; i++) {
-      const tr = tracks[i];
+      const tr = tracks[i], cm = classMeshes.get(kinds[i])!, s = slotOf[i];
       const base = gi + i * 4;
       const p = t >= t0s[i] && t <= t1s[i] ? renderPose(tr, t, HZ, [0, dur]) : null;
-      if (!p || p.fade <= 0.01) {
-        bodies.setMatrixAt(i, HIDE); glass.setMatrixAt(i, HIDE); headM.setMatrixAt(i, HIDE); tailM.setMatrixAt(i, HIDE); shadowM.setMatrixAt(i, HIDE); beamM?.setMatrixAt(i, HIDE);
-        for (let k = 0; k < 4; k++) gSize[base + k] = 0;
+      const gf = p ? ghostFade(quality, ids[i], t) : 0;
+      if (!p || p.fade * gf <= 0.01) {
+        cm.body.setMatrixAt(s, HIDE); cm.glass.setMatrixAt(s, HIDE); cm.head.setMatrixAt(s, HIDE); cm.tail.setMatrixAt(s, HIDE); shadowM.setMatrixAt(i, HIDE); beamM?.setMatrixAt(i, HIDE);
+        for (let k = 0; k < 4; k++) { wheels.setMatrixAt(i * 4 + k, HIDE); gSize[base + k] = 0; }
         continue;
       }
-      if (p.fade > 0.5) visible++;
-      const f = p.fade;
+      const f = p.fade * gf;
+      if (f > 0.5) visible++;
       qv.setFromAxisAngle(yAxis, p.h);
       pv.set(p.x, 0, -p.y);
-      sv.set(tr.len_m, heightOf(tr), tr.w_m);
+      sv.set(tr.len_m, 1, tr.w_m);
       m4.compose(pv, qv, sv);
-      bodies.setMatrixAt(i, m4); glass.setMatrixAt(i, m4); headM.setMatrixAt(i, m4); tailM.setMatrixAt(i, m4);
-      bodies.setColorAt(i, tmpC.copy(bodyFade).lerp(bodyCol[i], f));
-      headM.setColorAt(i, tmpC.copy(cHead).multiplyScalar(f));
+      cm.body.setMatrixAt(s, m4); cm.glass.setMatrixAt(s, m4); cm.head.setMatrixAt(s, m4); cm.tail.setMatrixAt(s, m4);
+      cm.fade.setX(s, f);
+      cm.body.setColorAt(s, bodyCol[i]);
+      cm.head.setColorAt(s, tmpC.copy(cHead));
       const br = p.brake;
-      tailM.setColorAt(i, tmpC.copy(cTailOff).lerp(cBrake, L.dark ? 0.55 + 0.45 * br : br).multiplyScalar(f));
+      cm.tail.setColorAt(s, tmpC.copy(cTailOff).lerp(cBrake, L.dark ? 0.55 + 0.45 * br : br));
       sv.set(tr.len_m * 1.25, 1, tr.w_m * 1.7); m4.compose(pv, qv, sv); shadowM.setMatrixAt(i, m4);
       fwd.set(Math.cos(p.h), 0, -Math.sin(p.h)); side.set(Math.sin(p.h), 0, Math.cos(p.h));
+      // wheels: roll with the travelled distance, front pair steers with the yaw rate (bicycle model)
+      const spin = distanceAt(tr, cums[i], t, HZ) / WHEEL.r;
+      const ahead = renderPose(tr, Math.min(t1s[i], t + 0.2), HZ, [0, dur]), behind = renderPose(tr, Math.max(t0s[i], t - 0.2), HZ, [0, dur]);
+      const rate = ahead && behind ? Math.atan2(Math.sin(ahead.h - behind.h), Math.cos(ahead.h - behind.h)) / 0.4 : 0;
+      const steer = steerAngle(rate, p.v, tr.len_m * (cm.wheelX[1] - cm.wheelX[0]));
+      const offs = wheelOffsets(cm.wheelX, tr.w_m);
+      for (let k = 0; k < 4; k++) {
+        const [ax, az] = offs[k];
+        wp.copy(pv).addScaledVector(fwd, ax * tr.len_m).addScaledVector(side, az).setY(WHEEL.r);
+        qs.setFromAxisAngle(yAxis, k < 2 ? steer : 0);
+        qw.setFromAxisAngle(zAxis, -spin);
+        qs.multiplyQuaternions(qv, qs).multiply(qw);
+        m4.compose(wp, qs, sv.set(1, 1, 1));
+        wheels.setMatrixAt(i * 4 + k, m4); wheelFade.setX(i * 4 + k, f);
+      }
       if (beamM) {
         const moving = Math.min(1, 0.35 + p.v / 6);
         sv.set(15, 1, 7.5); m4.compose(pv.clone().addScaledVector(fwd, tr.len_m / 2 - 0.2).setY(0.02), qv, sv); beamM.setMatrixAt(i, m4);
         beamM.setColorAt(i, tmpC.copy(cBeam).multiplyScalar(f * moving));
       }
-      const hy = 0.62, hw = tr.w_m / 2 - 0.32;
-      const front = pv.clone().addScaledVector(fwd, tr.len_m / 2 + 0.05).setY(hy), back = pv.clone().addScaledVector(fwd, -tr.len_m / 2 - 0.05).setY(hy);
+      const hy = kinds[i] === 'truck' ? 1.0 : 0.76, hw = tr.w_m / 2 - 0.3;
+      const front = pv.clone().addScaledVector(fwd, tr.len_m / 2 + 0.05).setY(hy), back = pv.clone().addScaledVector(fwd, -tr.len_m / 2 - 0.05).setY(hy + 0.06);
       const hs = L.dark ? 2.3 : 1.1, ha = (L.dark ? 0.85 : 0.45) * f;
       setGlow(base, front.clone().addScaledVector(side, hw), cHead, hs, ha);
       setGlow(base + 1, front.clone().addScaledVector(side, -hw), cHead, hs, ha);
@@ -533,10 +517,13 @@ export function createWorld(o: WorldOpts): World {
       setGlow(base + 3, back.clone().addScaledVector(side, -hw), cTail, ts, ta);
     }
     gi += N * 4;
-    for (const im of [bodies, glass, headM, tailM, shadowM, ...(beamM ? [beamM] : [])]) {
-      im.instanceMatrix.needsUpdate = true;
-      if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    for (const cm of classMeshes.values()) {
+      for (const im of [cm.body, cm.glass, cm.head, cm.tail]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
+      cm.fade.needsUpdate = true;
     }
+    wheels.instanceMatrix.needsUpdate = true; wheelFade.needsUpdate = true;
+    shadowM.instanceMatrix.needsUpdate = true;
+    if (beamM) { beamM.instanceMatrix.needsUpdate = true; if (beamM.instanceColor) beamM.instanceColor.needsUpdate = true; }
 
     // signals
     const lamps: Record<Group, Lamp> = { ns: lampAt(plan, 'ns', t), ew: lampAt(plan, 'ew', t) };
@@ -544,7 +531,6 @@ export function createWorld(o: WorldOpts): World {
       let k = 0;
       for (const hd of heads) {
         const on = lamps[hd.g];
-        // lamp order in a head: red (top), yellow, green
         [0, 1, 2].forEach((slot) => { const lampIdx = (2 - slot) as Lamp; sigLamps.setColorAt(k++, lampIdx === on ? SIG[lampIdx] : SIG_OFF); });
       }
       if (sigLamps.instanceColor) sigLamps.instanceColor.needsUpdate = true;
@@ -590,7 +576,6 @@ export function createWorld(o: WorldOpts): World {
       }
       proj.copy(W(a.f.x, a.f.y, 3.2)).project(camera);
       const x = (proj.x * 0.5 + 0.5) * w, y = (-proj.y * 0.5 + 0.5) * h;
-      // never stack two labels on the same spot: the more severe (earlier in `act`) wins
       const clash = placed.some(([qx, qy]) => Math.abs(qx - x) < 84 && Math.abs(qy - y) < 26);
       const vis = !clash && proj.z < 1 && x > 8 && x < w - 8 && y > 8 && y < h - 8;
       if (vis) placed.push([x, y]);
@@ -620,7 +605,6 @@ export function createWorld(o: WorldOpts): World {
       if (!f.crit) continue;
       const tt = f.c.t + 0.15;
       let n = 0; for (let i = 0; i < N; i++) if (tt >= t0s[i] && tt <= t1s[i]) n++;
-      // prefer flares near the framed intersection centre, where the copy does not cover them
       const score = n - Math.hypot(f.x - 2, f.y - 6) * 0.8;
       if (score > bestN) { bestN = score; best = tt; }
     }
@@ -708,3 +692,13 @@ export function createWorld(o: WorldOpts): World {
   };
 }
 
+function mergeGeo(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  // tiny local merge (positions + normals) so street-light poles stay one geometry without a second import
+  const geos = parts.map((p) => p.toNonIndexed());
+  const pos: number[] = [], nor: number[] = [];
+  for (const g of geos) { pos.push(...Array.from(g.attributes.position.array as Float32Array)); nor.push(...Array.from(g.attributes.normal.array as Float32Array)); }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  parts.forEach((p) => p.dispose()); geos.forEach((g) => g.dispose());
+  return out;
+}

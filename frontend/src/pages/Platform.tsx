@@ -278,7 +278,7 @@ export default function Platform() {
       <div className="pf-lower" ref={lowerRef}>
         <section className="section pf-wide" aria-labelledby="pf-runs" data-r="1">
           <div className="pf-h"><h2 id="pf-runs">Pipeline runs</h2><Info label="About pipeline runs"><p>One S3 run record per job, failures included; the ten most recent.</p></Info></div>
-          {st.loading && !d && <div className="skeleton pf-skel" />}
+          {st.loading && !d && <div className="skel-table pf-skel" aria-hidden="true"><i /><i /><i /><i /><i /></div>}
           {d && runs.length === 0 && <p className="pf-empty"><Icon name="info" size={16} />{d.on_aws ? 'No run records yet.' : 'No run records in local mode (S3 only).'}</p>}
           {runs.length > 0 && (
             <div className="pf-scroll" data-ui role="region" aria-label="Pipeline runs table" tabIndex={0}>

@@ -592,8 +592,8 @@ function SecHead({ id, icon, title, why, actions }: { id: string; icon: IconName
 
 function ExportBtn({ kind, onClick }: { kind: 'png' | 'csv'; onClick: () => void }) {
   return (
-    <button type="button" className="vru-exp" onClick={onClick} aria-label={`Download ${kind.toUpperCase()}`} title={`Download ${kind.toUpperCase()}`}>
-      <Icon name={kind === 'png' ? 'image' : 'download'} size={15} />{kind.toUpperCase()}
+    <button type="button" className="btn ghost sm vru-exp" onClick={onClick} aria-label={`Download ${kind.toUpperCase()}`} title={`Download ${kind.toUpperCase()}`}>
+      <Icon name={kind === 'png' ? 'image' : 'download'} size={16} />{kind.toUpperCase()}
     </button>
   );
 }
@@ -608,7 +608,7 @@ function Breakdown({ ref, rows, overall, selected, onPick, label, unit, loading 
   const [box, w] = useWidth<HTMLDivElement>();
   const [hov, setHov] = useState<string | null>(null);
   const narrow = w < 440;
-  const LW = narrow ? 96 : 128, G = 20, RH = 34, TOP = 26, BOT = 24;
+  const LW = narrow ? 118 : 128, G = 20, RH = 34, TOP = 26, BOT = 24;
   const pw = Math.max(60, (w - LW - G) / 2 - 4);
   const x1 = LW, x2 = LW + pw + G;
   const H = TOP + rows.length * RH + BOT;
@@ -623,13 +623,13 @@ function Breakdown({ ref, rows, overall, selected, onPick, label, unit, loading 
       <div ref={ref} className="vru-bd-fig">
       <div ref={box} className="vru-bd-box">
         {w > 0 && (
-          <svg width={w} height={H} role="img" aria-label={`${label}. ${rows.map((r) => `${r.label}${unit && r.key !== 'unk' ? ` ${unit}` : ''}: ${r.n} crashes, ${r.ka} KA`).join('; ')}`} onMouseLeave={() => setHov(null)}>
+          <svg width={w} height={H} role="img" data-narrow={narrow || undefined} aria-label={`${label}. ${rows.map((r) => `${r.label}${unit && r.key !== 'unk' ? ` ${unit}` : ''}: ${r.n} crashes, ${r.ka} KA`).join('; ')}`} onMouseLeave={() => setHov(null)}>
             <text x={x1} y={14} className="vru-bd-h">Crashes <tspan className="vru-bd-hk">■ KA</tspan></text>
             <text x={x2} y={14} className="vru-bd-h">KA share, 95% CI</text>
             {ticks.map((t) => (
               <g key={t}>
                 <line x1={sx(t)} x2={sx(t)} y1={TOP - 4} y2={H - BOT + 2} className="vru-bd-grid" />
-                {Math.abs(sx(t) - sx(overall)) > 26 && <text x={sx(t)} y={H - 6} textAnchor="middle" className="vru-bd-ax">{Math.round(t * 100)}%</text>}
+                {Math.abs(sx(t) - sx(overall)) > 40 && <text x={sx(t)} y={H - 6} textAnchor="middle" className="vru-bd-ax">{Math.round(t * 100)}%</text>}
               </g>
             ))}
             <line x1={sx(overall)} x2={sx(overall)} y1={TOP - 6} y2={H - BOT + 2} className="vru-bd-ref" />

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { reducedMotion } from '../lib/motion';
 import { Icon, type IconName } from './Icon';
 import Info from './Info';
 
@@ -38,8 +39,30 @@ export default function PageHeader({ icon, title, lede, source, readouts = [], a
   );
 }
 
+/** The first value lands as is; later changes (a filter, a new query) tween to the new figure in 420 ms. */
+function useSettle(target: number | null | undefined) {
+  const [v, setV] = useState(target);
+  const prev = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    const from = prev.current;
+    prev.current = target;
+    if (target == null || from == null || from === target || reducedMotion()) { setV(target); return; }
+    const t0 = performance.now(), ms = 420;
+    let raf = 0;
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+      setV(from + (target - from) * e);
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return v;
+}
+
 function Figure({ r }: { r: Readout }) {
-  const shown = r.value == null ? '—' : r.value.toLocaleString('en-US', { minimumFractionDigits: r.digits ?? 0, maximumFractionDigits: r.digits ?? 0 });
+  const v = useSettle(r.value);
+  const shown = v == null ? '—' : v.toLocaleString('en-US', { minimumFractionDigits: r.digits ?? 0, maximumFractionDigits: r.digits ?? 0 });
   return (
     <div className="ph-fig" data-tone={r.tone}>
       <dt>{r.label}</dt>

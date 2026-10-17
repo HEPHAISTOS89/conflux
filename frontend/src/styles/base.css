@@ -121,3 +121,17 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Scrollbars, caret and text selection in the palette (appended by the design pass; token values above unchanged). */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--rule); border: 3px solid transparent; background-clip: padding-box; border-radius: var(--r-pill); }
+::-webkit-scrollbar-thumb:hover { background-color: var(--ink-3); }
+::-webkit-scrollbar-corner { background: transparent; }
+input, textarea, [contenteditable] { caret-color: var(--accent); }
+::selection { background: color-mix(in srgb, var(--accent) 80%, var(--paper)); color: var(--accent-ink); }
+/* A sub/superscript inside MathML keeps the 12 px floor too. */
+math { font-size: inherit; }
+:is(msub, msup, msubsup) > :not(:first-child) { font-size: max(12px, 0.72em); }
+/* Reduced motion also stops the skeleton pulse. */
+@media (prefers-reduced-motion: reduce) { .skeleton, .skel-table > i { animation: none; opacity: 0.7; } }

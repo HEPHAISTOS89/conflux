@@ -173,7 +173,7 @@ export default function Brief() {
                     <td className="r measure opt">{nf(r.aadt)}</td>
                     <td className="r measure">{nf(r.crashes_per_yr, 2)}</td>
                     <td className="r measure opt">{nf(r.spf_pred, 2)}</td>
-                    <td className="bar-c"><span className="bar" style={{ '--w': `${Math.max(0, (r.eb_excess ?? 0) / maxEx) * 100}%` } as React.CSSProperties} /><b className="measure">{nf(r.eb_excess, 2)}</b></td>
+                    <td className="bar-c"><span className="bar-w"><span className="bar" style={{ '--w': `${Math.max(0, (r.eb_excess ?? 0) / maxEx) * 100}%` } as React.CSSProperties} /><b className="measure">{nf(r.eb_excess, 2)}</b></span></td>
                     <td className="r measure" data-hi={(r.crit_ratio ?? 0) > 1 || undefined}>{nf(r.crit_ratio, 2)}</td>
                     <td className="r robust-c">{robust.has(r.seg_id) ? <span title="Top 25 under all four measures"><Icon name="ok" size={17} title="Robust under all four measures" /></span> : <span className="muted" title="Drops out of the top 25 under at least one measure">—</span>}</td>
                     <td className="no-print prompt-c">{prompts(r).map((p) => <span key={p.t} title={p.t} role="img" aria-label={p.t}><Icon name={p.icon} size={16} /></span>)}</td>

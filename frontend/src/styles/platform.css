@@ -184,7 +184,7 @@
 .pf-job { display: inline-flex; gap: 6px; align-items: center; }
 .pf-job .icon { color: var(--ink-3); }
 .pf-srcid { font-family: var(--f-measure); font-size: var(--t-label); letter-spacing: -0.02em; }
-.pf-skel { min-height: 120px; }
+.pf-skel { margin-top: var(--s2); }
 .pf-empty { display: flex; gap: 8px; align-items: flex-start; color: var(--ink-3); font-size: var(--t-ui); margin: var(--s2) 0 0; }
 .pf-empty .icon { flex: none; margin-top: 2px; }
 .pf-costhead { display: flex; align-items: center; gap: 8px; }
@@ -195,10 +195,11 @@
 .pf-costs li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px; padding: 10px 14px; background: var(--sheet); font-size: var(--t-ui); }
 .pf-costs li small { grid-column: 1; color: var(--ink-3); font-size: var(--t-micro); }
 .pf-costs li .measure { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
-.pf-guards { list-style: none; margin: var(--s2) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-.pf-guards li { display: grid; gap: 4px; padding: 14px; background: var(--sheet); border-radius: var(--r-l); font-size: var(--t-ui); color: var(--ink-3); }
+/* Guardrails: one strip of facts (icon · name · value), not a card per fact. */
+.pf-guards { list-style: none; margin: var(--s2) 0 0; padding: 0; display: grid; gap: 1px; border-radius: var(--r-l); overflow: hidden; }
+.pf-guards li { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 14px; background: var(--sheet); font-size: var(--t-ui); color: var(--ink-2); }
 .pf-guards .icon { color: var(--accent); }
-.pf-guards b { color: var(--ink); font-weight: 600; font-size: var(--t-ui); }
+.pf-guards b { color: var(--ink); font-weight: var(--w-strong); font-size: var(--t-ui); }
 
 @media (max-width: 760px) {
   .ar-list { display: grid; }
@@ -277,7 +278,7 @@
 .pf-costs li .measure { grid-row: auto; }
 @media (max-width: 860px) { .pf-ops-act { flex-direction: row; } }
 @media (prefers-reduced-motion: reduce) { .pf-ops-msg, .ar-sim, .ar-banner > span { animation: none; } }
-.pf-guards li .measure { color: var(--ink-2); font-size: var(--t-ui); }
+.pf-guards li .measure { color: var(--ink); font-size: var(--t-ui); text-align: right; }
 .pf-guards li { animation: pf-msg-in 360ms var(--ease-out) both; }
 .pf-guards li:nth-child(2) { animation-delay: 40ms; } .pf-guards li:nth-child(3) { animation-delay: 80ms; } .pf-guards li:nth-child(4) { animation-delay: 120ms; } .pf-guards li:nth-child(5) { animation-delay: 160ms; } .pf-guards li:nth-child(6) { animation-delay: 200ms; }
 @media (prefers-reduced-motion: reduce) { .pf-guards li { animation: none; } }

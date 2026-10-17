@@ -8,9 +8,13 @@ import Info from '../components/Info';
 import DataHealth from '../components/lab/DataHealth';
 import Shortcuts from '../components/lab/Shortcuts';
 import SpeedHistogram from '../components/lab/SpeedHistogram';
+import QueuePanel from '../components/lab/QueuePanel';
+import { inferSignals } from '../components/world/signals';
+import { phaseIntervals, signalGeometry } from '../lib/lab/queue';
 import { downloadCSV } from '../lib/export';
 import { exportCanvases, focusConflict, useFullscreen, writeParam } from '../lib/lab/hooks';
 import { dataHealth, nearMissWarp, nextRisk, stepFrame } from '../lib/lab/metrics';
+import { conflictIsGhostPair, trackQuality } from '../lib/lab/quality';
 import PlanView from '../components/PlanView';
 import TimeSpace from '../components/TimeSpace';
 import Player from '../components/Player';
@@ -70,10 +74,19 @@ export default function IntersectionPage() {
   const conflicts = useMemo(() => (cf.data ?? []).filter((c) => typeF === 'all' || c.type === typeF).sort((a, b) => a.t - b.t), [cf.data, typeF]);
   const ready = ix.data && cf.data && ix.data.id === id;
   const health = useMemo(() => (ix.data ? dataHealth(ix.data.tracks, ix.data.hz) : null), [ix.data]);
+  const quality = useMemo(() => (ix.data ? trackQuality(ix.data.tracks, ix.data.hz) : null), [ix.data]);
+  // signal phase inferred from flow, shared by the scrubber strip and the queue chart (same geometry as the 3D world)
+  const sig = useMemo(() => {
+    if (!ix.data) return null;
+    const g = signalGeometry(ix.data);
+    const plan = inferSignals(ix.data.tracks, g, ix.data.window_s, ix.data.hz);
+    return { g, plan, ns: phaseIntervals(plan, 'ns') };
+  }, [ix.data]);
   const rep = useApi<{ summary: { tracks_occluded: number; tracks_eligible: number } }>(`/intersections/${id}/repair`);
   const all = cf.data ?? [];
   // critical excludes simultaneous-occupancy (overlap) flags, likely NGSIM position error: same rule as the landing verdict
-  const counts = useMemo(() => ({ n: all.length, crit: all.filter((c) => c.severity === 'critical' && !(c as { overlap?: boolean }).overlap).length, overlap: all.filter((c) => (c as { overlap?: boolean }).overlap).length, ttc: all.reduce<number | null>((m, c) => (c.ttc_min != null && (m == null || c.ttc_min < m) ? c.ttc_min : m), null) }), [all]);
+  const isGhost = useCallback((c: ConflictT) => conflictIsGhostPair(quality, c.a, c.b, c.t), [quality]);
+  const counts = useMemo(() => ({ n: all.length, crit: all.filter((c) => c.severity === 'critical' && !(c as { overlap?: boolean }).overlap && !isGhost(c)).length, ghost: all.filter(isGhost).length, overlap: all.filter((c) => (c as { overlap?: boolean }).overlap).length, ttc: all.reduce<number | null>((m, c) => (c.ttc_min != null && (m == null || c.ttc_min < m) ? c.ttc_min : m), null) }), [all, isGhost]);
 
   const jump = (c: ConflictT) => selectConflict(selection, c);
   useDeepLink(ready ? id : null, cf.data ?? [], clock, selection);
@@ -113,7 +126,7 @@ export default function IntersectionPage() {
         source={<>FHWA NGSIM vehicle trajectories · USDOT ITS DataHub · {site} · 90 s window · vehicles only</>}
         readouts={[
           { label: 'Conflicts', value: ready ? counts.n : null },
-          { label: <span title={`Critical events, excluding ${counts.overlap} overlap flags (likely position error)`}>Critical</span>, value: ready ? counts.crit : null, tone: 'alert' },
+          { label: <span title={`Critical events, excluding ${counts.overlap} overlap flags (likely position error) and ${counts.ghost} events between a duplicate track and its host`}>Critical</span>, value: ready ? counts.crit : null, tone: 'alert' },
           { label: 'Worst TTC', value: ready ? counts.ttc : null, unit: 's', digits: 2 },
           { label: 'Complete', value: health?.completeness ?? null, unit: '%', digits: 1, tone: 'accent' },
         ]}
@@ -128,7 +141,7 @@ export default function IntersectionPage() {
         ))}
       </nav>
 
-      {health && ready && <DataHealth h={health} hz={ix.data!.hz} repaired={rep.data ? { n: rep.data.summary.tracks_occluded, of: rep.data.summary.tracks_eligible } : null} />}
+      {health && ready && <DataHealth h={health} hz={ix.data!.hz} quality={quality} repaired={rep.data ? { n: rep.data.summary.tracks_occluded, of: rep.data.summary.tracks_eligible } : null} />}
 
       {(ix.error || cf.error) && <div className="error-box">{ix.error ?? cf.error}</div>}
       {!ready ? <div className="skeleton" style={{ height: 520 }} /> : (
@@ -140,7 +153,7 @@ export default function IntersectionPage() {
                   <button aria-pressed={view === 'plan'} onClick={() => setView('plan')} title="Plan view (2)">Plan</button>
                   <button aria-pressed={view === 'lidar'} onClick={() => setView('lidar')} title="Simulated roadside LiDAR, 3D (3)">3D</button>
                 </div>
-                <Player conflicts={conflicts} />
+                <Player conflicts={conflicts} phases={sig?.ns} />
                 <div className="ix-view-tools">
                   <button className="btn ghost ic" onClick={exportView} title="Download view as PNG" aria-label="Download view as PNG"><Icon name="image" size={16} /></button>
                   <button className="btn ghost ic" onClick={() => setHelp(true)} title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><Icon name="help" size={16} /></button>
@@ -185,7 +198,7 @@ export default function IntersectionPage() {
                           aria-selected={selection.conflict === c.id}
                           aria-label={`Jump to ${TYPE_LABEL[c.type]} conflict at ${c.t.toFixed(1)} s`}>
                           <td className="r measure">{c.t.toFixed(1)}</td>
-                          <td><span className={`sev sev-${c.severity}`}>{TYPE_LABEL[c.type]}</span>{(c as any).overlap ? <span className="flag" title="Simultaneous occupancy of the conflict zone; likely NGSIM position error">overlap</span> : null}</td>
+                          <td><span className={`sev sev-${c.severity}`}>{TYPE_LABEL[c.type]}</span>{(c as any).overlap ? <span className="flag" title="Simultaneous occupancy of the conflict zone; likely NGSIM position error">overlap</span> : null}{isGhost(c) ? <span className="flag" title="Between a duplicate or ID-switched track and the vehicle it duplicates: an artefact of the tracking, not a near-miss">duplicate</span> : null}</td>
                           <td className="r measure">{c.ttc_min != null ? c.ttc_min.toFixed(2) : '—'}</td>
                           <td className="r measure">{c.pet != null ? c.pet.toFixed(2) : '—'}</td>
                           <td className={`r measure ${c.drac_max != null && c.drac_max > 8 ? 'implaus' : ''}`}>{c.drac_max != null ? (c.drac_max * 3.281).toFixed(1) : '—'}</td>
@@ -216,6 +229,8 @@ export default function IntersectionPage() {
           <div className="panel" data-r="2"><SpeedHistogram data={ix.data!} /></div>
         </Reveal>
       )}
+
+      {ready && sig && <ClockCtx.Provider value={clock}><QueuePanel data={ix.data!} plan={sig.plan} bars={sig.g} /></ClockCtx.Provider>}
 
       <SsmPanel id={id} />
       <RepairPanel id={id} />

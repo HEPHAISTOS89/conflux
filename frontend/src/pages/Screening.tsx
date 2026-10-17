@@ -314,7 +314,7 @@ export default function ScreeningPage() {
               <tr>
                 <th className="r">#</th><th>Segment · DFO, mi</th><th className="r opt"><Term k="AADT" /></th><th className="r">Ped/bike</th>
                 <th className="r">{methodHead}</th><th className="r opt"><Term k="SPF">SPF/yr</Term></th>
-                <th className="r opt">{method === 'eb_excess' ? <Term k="Critical ratio">R/Rc</Term> : <Term k="EB excess" />}</th>
+                <th className="r opt opt2">{method === 'eb_excess' ? <Term k="Critical ratio">R/Rc</Term> : <Term k="EB excess" />}</th>
               </tr>
             </thead>
             <tbody>
@@ -335,7 +335,7 @@ export default function ScreeningPage() {
                   <td className="r measure">{nf(r.crashes_total)}</td>
                   <td className="r measure strong" key={method}><span className="flip">{nf(r[FIELD[method]] as number, dp)}</span></td>
                   <td className="r measure opt">{nf(r.spf_pred, 2)}</td>
-                  <td className="r measure opt">{nf(method === 'eb_excess' ? r.crit_ratio : r.eb_excess, 2)}</td>
+                  <td className="r measure opt opt2">{nf(method === 'eb_excess' ? r.crit_ratio : r.eb_excess, 2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -543,6 +543,8 @@ function RankStability({ rows, method, focus, onPick, group }: { rows: Row[]; me
             })}
             {labels.map(({ r, y }) => (
               <text key={r.seg_id} x={P.l - 14} y={y + 4} textAnchor="end" className="stab-lab" data-on={active === r.seg_id || undefined} data-robust={robust(r.seg_id) || undefined}
+                tabIndex={0} role="button" aria-label={`${r.name} DFO ${nf(r.dfo_from, 1)}: ${order.map((m) => `${METHODS.find((x) => x.id === m)!.short} #${ranks[m].get(r.seg_id) ?? 'n/a'}`).join(', ')}. Select segment`}
+                onFocus={() => setHov(r.seg_id)} onBlur={() => setHov(null)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(r.seg_id); } }}
                 onPointerEnter={() => setHov(r.seg_id)} onClick={() => onPick(r.seg_id)}>
                 {r.name}{narrow ? '' : ` · ${nf(r.dfo_from, 1)}`}
               </text>
@@ -635,8 +637,13 @@ function Cure({ pts, label, k, outside }: { pts: [number, number, number][]; lab
   const fmtK = (a: number) => (a >= 1000 ? `${(a / 1000).toLocaleString('en-US', { maximumFractionDigits: 1 })}k` : String(a));
   return (
     <figure className="cure" ref={ref}>
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={`CURE plot for ${label}: ${outside.toFixed(1)}% of points outside the two-sigma band`}
-        onPointerMove={onMove} onPointerLeave={() => setHi(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" tabIndex={0} aria-label={`CURE plot for ${label}: ${outside.toFixed(1)}% of points outside the two-sigma band. Arrow keys step through the points`}
+        onPointerMove={onMove} onPointerLeave={() => setHi(null)} onBlur={() => setHi(null)}
+        onKeyDown={(e) => {
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
+          e.preventDefault();
+          setHi((h) => e.key === 'Home' ? 0 : e.key === 'End' ? pts.length - 1 : Math.max(0, Math.min(pts.length - 1, (h ?? (e.key === 'ArrowRight' ? -1 : pts.length)) + (e.key === 'ArrowRight' ? 1 : -1))));
+        }}>
         <text x={0} y={14} className="axis">Cumulative residual, crashes</text>
         {ticks.map((a) => <g key={a}><line x1={X(a)} x2={X(a)} y1={P.t} y2={H - P.b} className="gl" /><text x={X(a)} y={H - P.b + 20} className="tick" textAnchor="middle">{fmtK(a)}</text></g>)}
         <line x1={P.l} x2={W - P.r} y1={Y(0)} y2={Y(0)} className="zero" />

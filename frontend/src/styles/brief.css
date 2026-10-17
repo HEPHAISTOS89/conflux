@@ -20,7 +20,7 @@
 @keyframes row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .site-l { color: inherit; }
 .bar-h { min-width: 150px; }
-.bar-c { position: relative; display: flex; align-items: center; gap: 8px; }
+.bar-w { display: flex; align-items: center; gap: 8px; }
 .bar-c .bar { display: block; height: 10px; width: calc(var(--w) * 0.7); min-width: 2px; border-radius: var(--r-s); background: var(--sev-a); transform-origin: left; animation: bar-in 600ms var(--ease-out) backwards; animation-delay: calc(260ms + var(--i, 0) * 28ms); }
 @keyframes bar-in { from { transform: scaleX(0); } to { transform: none; } }
 .sheet-page [data-hi] { color: var(--sev-a); font-weight: var(--w-strong); }

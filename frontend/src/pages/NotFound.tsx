@@ -19,18 +19,25 @@ export default function NotFound() {
   const { pathname } = useLocation();
   return (
     <div className="page">
-      <PageHeader icon="help" title="Page not found" lede={<>Nothing is published at <code className="measure">{pathname}</code>.</>} />
-      <ul className="nf-links">
-        {LINKS.map(([to, t, d, ic]) => (
-          <li key={to}>
-            <Link to={to} className="nf-link">
-              <Icon name={ic} size={20} weight="duotone" />
-              <span title={d}><b>{t}</b></span>
-              <Icon name="arrow" size={16} />
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <PageHeader icon="help" title="Page not found" />
+      <div className="nf">
+        <p className="nf-path">Nothing is published at <code className="measure">{pathname}</code></p>
+        <div>
+          <p className="nf-h">Published sheets · <kbd>⌘K</kbd> jumps to any segment, corridor or intersection</p>
+          <ul className="nf-links">
+            {LINKS.map(([to, t, d, ic]) => (
+              <li key={to}>
+                <Link to={to} className="nf-link">
+                  <Icon name={ic} size={16} />
+                  <b>{t}</b>
+                  <small>{d}</small>
+                  <Icon name="arrow" size={16} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </div>
   );
 }

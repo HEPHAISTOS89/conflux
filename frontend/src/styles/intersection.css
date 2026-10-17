@@ -392,3 +392,44 @@
 /* The gesture hint shows once, then gets out of the way. */
 .plan-hint { animation: plan-hint-out 500ms var(--ease-out) 4s forwards; }
 @keyframes plan-hint-out { to { opacity: 0; visibility: hidden; } }
+
+/* Queues and delay: queue length against time over the inferred NS phase, bound to the page clock */
+.queue { padding: var(--s4); display: grid; gap: var(--s3); }
+.queue-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s5); }
+.queue-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s5); margin: 0; }
+.queue-legend dt { font-size: var(--t-label); color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+.queue-legend dt i, .queue-sw { display: inline-block; width: 10px; height: 10px; border-radius: var(--r-s); }
+.queue-sw { margin-right: 8px; vertical-align: -1px; }
+.queue-legend dd { margin: 0; font-size: var(--t-h2); font-weight: 500; }
+.queue-legend dd small { font-family: var(--f-ui); font-size: var(--t-micro); color: var(--ink-3); margin-left: 4px; font-weight: 400; }
+.queue-phase-key { display: flex; gap: var(--s3); }
+.queue-phase-key dt i[data-lamp='green'] { background: var(--go); opacity: 0.55; }
+.queue-phase-key dt i[data-lamp='red'] { background: var(--stop); opacity: 0.55; }
+.queue-est { margin-left: auto; color: var(--caution-ink); }
+.queue-fig { min-width: 0; }
+.queue-fig svg { width: 100%; height: auto; display: block; max-height: 300px; cursor: col-resize; touch-action: none; }
+.queue-band[data-lamp='green'] { fill: var(--go); opacity: 0.14; }
+.queue-band[data-lamp='red'] { fill: var(--stop); opacity: 0.1; }
+.queue-band[data-lamp='yellow'] { fill: var(--caution); opacity: 0.22; }
+.queue-grid { stroke: var(--rule); stroke-width: 1; opacity: 0.6; }
+.queue-axis { stroke: var(--ink-3); stroke-width: 1; }
+.queue-tick { font: var(--t-micro) var(--f-measure); fill: var(--ink-3); }
+.queue-axis-t { font: var(--t-label) var(--f-ui); fill: var(--ink-2); }
+.queue-cursor { stroke: var(--accent); stroke-width: 1.5; }
+.queue-tlab { font: 500 var(--t-micro) var(--f-measure); fill: var(--accent); }
+.queue-tablewrap { overflow-x: auto; }
+.queue-table { min-width: 560px; }
+.queue-table td small { font-family: var(--f-ui); font-size: var(--t-micro); color: var(--ink-3); }
+.queue-los { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 24px; padding: 0 8px; border-radius: var(--r-s); font-weight: var(--w-strong); font-size: var(--t-ui); background: var(--raise); color: var(--ink); }
+.queue-los[data-los='A'], .queue-los[data-los='B'] { color: var(--go); }
+.queue-los[data-los='D'], .queue-los[data-los='E'] { color: var(--caution-ink); }
+.queue-los[data-los='F'] { color: var(--stop); }
+@media (max-width: 720px) { .queue-est { margin-left: 0; } }
+
+/* Scrubber phase strip: inferred NS phase, 4 px under the range input */
+.player-phase { position: absolute; left: 8px; right: 8px; bottom: -13px; height: 4px; border-radius: var(--r-s); overflow: hidden; pointer-events: none; }
+.player-phase span { position: absolute; top: 0; height: 100%; }
+.player-phase span[data-lamp='green'] { background: var(--go); opacity: 0.55; }
+.player-phase span[data-lamp='red'] { background: var(--stop); opacity: 0.55; }
+.player-phase span[data-lamp='yellow'] { background: var(--caution); opacity: 0.7; }
+.player-track:has(.player-phase) { padding-bottom: 14px; }

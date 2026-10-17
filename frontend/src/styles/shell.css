@@ -76,8 +76,9 @@
 .rail-about.mi-pop { position: fixed; top: auto; left: calc(var(--rail-w) + 8px); bottom: 12px; z-index: 50; }
 .status-bad { color: var(--stop); }
 
-.main { min-width: 0; outline: none; }
-.colophon { margin-top: var(--s8); padding: var(--s6) clamp(16px, 4vw, 48px); display: grid; gap: var(--s2); font-size: var(--t-ui); color: var(--ink-2); background: var(--sheet); }
+.main { min-width: 0; outline: none; min-height: 100svh; display: flex; flex-direction: column; }
+.outlet { flex: 1 0 auto; }
+.colophon { margin-top: auto; padding-top: var(--s8); padding: var(--s6) clamp(16px, 4vw, 48px); display: grid; gap: var(--s2); font-size: var(--t-ui); color: var(--ink-2); background: var(--sheet); }
 .page-loading { min-height: 60svh; }
 
 /* Page scaffolding shared by every sheet. Gutter 16 (≤ 640), 32 (≤ 1100), 48 above. */

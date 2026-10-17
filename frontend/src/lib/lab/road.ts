@@ -9,10 +9,13 @@
  *   (NGSIM assigns no lane inside the intersection); the cross street runs through it.
  * - Stop bars sit at the queue head of stopped vehicles (`stopLine`), held to the box edge.
  * - Markings follow MUTCD dimensions: 4 in lane lines, 10 ft dash / 30 ft gap, double yellow
- *   centre line, 24 in stop bars. Cross-street lanes and crosswalks are not observable in
- *   NGSIM and are not drawn.
+ *   centre line, 24 in stop bars.
+ * - The cross street is derived from the EB/WB through tracks (`crossBand`): a least-squares axis
+ *   (so a skewed intersection stays skewed), carriageway edges at the 2nd–98th percentile of lateral
+ *   offsets, lane lines between the density peaks of each direction's offsets, the centre line between
+ *   the innermost peaks. Crosswalks are not observable in NGSIM and are not derived.
  */
-import type { IntersectionT, LaneGeom } from '../traj';
+import type { IntersectionT, LaneGeom, TrackT } from '../traj';
 import { percentile, stopLine } from './metrics';
 
 export type XY = [number, number];
@@ -28,6 +31,27 @@ export interface RoadGeom {
   cross: { x0: number; x1: number; y0: number; y1: number } | null;
   lines: RoadLine[];
   stops: { dir: 'NB' | 'SB'; a: XY; b: XY; n: number }[];
+  /** Left and right carriageway edges of every arm (south arm first), for kerbs that stop at the cross street. */
+  armEdges: { left: XY[]; right: XY[] }[];
+  /** Cross street derived from the EB/WB tracks, or null when too few are observed. */
+  crossBand: CrossBand | null;
+}
+
+/** The cross street as a band about the axis y = m·x + b; offsets are perpendicular distances from the axis (m, +toward +y). */
+export interface CrossBand {
+  m: number; b: number;
+  /** Carriageway edge offsets (low, high). */
+  edges: [number, number];
+  /** Centre line offset (between the innermost EB and WB lanes). */
+  centre: number;
+  /** Lane-line offsets between same-direction lanes. */
+  laneLines: number[];
+  /** Lane centre offsets per direction. */
+  lanes: { dir: 'EB' | 'WB'; off: number }[];
+  /** Skew of the axis from the corridor normal, degrees (positive: axis rises with x). */
+  skewDeg: number;
+  /** Through tracks used. */
+  n: number;
 }
 
 export const MUTCD = { line: 0.1016, dash: 3.048, gap: 9.144, bar: 0.6096, yellowGap: 0.1016 } as const;
@@ -91,6 +115,7 @@ export function roadGeometry(data: Pick<IntersectionT, 'lanes_geom' | 'tracks' |
   };
   type At = { dir: string; lane: number; x: number };
   const arms: XY[][] = [];
+  const armEdges: RoadGeom['armEdges'] = [];
   const stops: RoadGeom['stops'] = [];
   let xBox0 = Infinity, xBox1 = -Infinity;
   const ranges: [number, number, 'S' | 'N' | null][] = box ? [[by0, box.y0, 'S'], [box.y1, by1, 'N']] : [[by0, by1, null]];
@@ -145,7 +170,7 @@ export function roadGeometry(data: Pick<IntersectionT, 'lanes_geom' | 'tracks' |
         push(`${a.dir}${a.lane}|${b.dir}${b.lane}`, kind, [(a.x + b.x) / 2, y]);
       }
     });
-    if (left.length > 1) arms.push([...left, ...right.reverse()]);
+    if (left.length > 1) { armEdges.push({ left: [...left], right: [...right] }); arms.push([...left, ...right.reverse()]); }
     for (const l of lines.values()) if (l.pts.length > 1) done.push({ kind: l.kind, pts: l.pts });
     lines.clear();
     if (!side) continue;
@@ -166,8 +191,96 @@ export function roadGeometry(data: Pick<IntersectionT, 'lanes_geom' | 'tracks' |
   }
 
   return {
-    laneW, box, arms, lines: done, stops,
+    laneW, box, arms, armEdges, lines: done, stops,
     cross: box && Number.isFinite(xBox0) ? { x0: xBox0, x1: xBox1, y0: box.y0, y1: box.y1 } : null,
+    crossBand: box ? crossBand(data.tracks) : null,
+  };
+}
+
+/** Point on the band axis at x, shifted by a perpendicular offset. */
+export function bandPoint(c: CrossBand, x: number, off: number): XY {
+  const k = Math.sqrt(1 + c.m * c.m);
+  // unit normal of the axis (−m, 1)/k; moving by `off` along it changes x too
+  return [x - (c.m * off) / k, c.m * x + c.b + off / k];
+}
+
+/** Polyline of a band offset from xa to xb (two points: the axis is straight). */
+export const bandLine = (c: CrossBand, off: number, xa: number, xb: number): XY[] => [bandPoint(c, xa, off), bandPoint(c, xb, off)];
+
+/** Carriageway polygon of the band between xa and xb. */
+export function bandPolygon(c: CrossBand, xa: number, xb: number): XY[] {
+  return [bandPoint(c, xa, c.edges[0]), bandPoint(c, xb, c.edges[0]), bandPoint(c, xb, c.edges[1]), bandPoint(c, xa, c.edges[1])];
+}
+
+/** y of the band's low/high edge at x (for trimming corridor kerbs at the cross street). */
+export const bandEdgeY = (c: CrossBand, x: number, which: 0 | 1): number => bandPoint(c, x, c.edges[which])[1];
+
+/** Markings of the band on one side of the corridor (x from xa to xb): edges, centre line and lane lines. */
+export function bandLines(c: CrossBand, xa: number, xb: number): RoadLine[] {
+  const out: RoadLine[] = [
+    { kind: 'edge', pts: bandLine(c, c.edges[0] + 0.25, xa, xb) },
+    { kind: 'edge', pts: bandLine(c, c.edges[1] - 0.25, xa, xb) },
+    { kind: 'centre', pts: bandLine(c, c.centre, xa, xb) },
+  ];
+  for (const off of c.laneLines) out.push({ kind: 'lane', pts: bandLine(c, off, xa, xb) });
+  return out;
+}
+
+/** Density peaks of 1-D values: 0.5 m bins, 3-bin smoothing, local maxima ≥ `minShare` of the top peak, ≥ `sep` apart. */
+export function densityPeaks(values: number[], sep = 2.6, minShare = 0.35, bin = 0.5): number[] {
+  if (values.length < 10) return [];
+  const lo = Math.floor(Math.min(...values) / bin), hi = Math.ceil(Math.max(...values) / bin);
+  const n = hi - lo + 1, h = new Array<number>(n).fill(0);
+  for (const v of values) h[Math.min(n - 1, Math.max(0, Math.round(v / bin) - lo))]++;
+  const sm = h.map((_, i) => (h[i - 1] ?? 0) + h[i] + (h[i + 1] ?? 0));
+  const top = Math.max(...sm);
+  const cands: { x: number; w: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    if (!(sm[i] >= (sm[i - 1] ?? 0) && sm[i] >= (sm[i + 1] ?? 0) && h[i] >= (h[i - 1] ?? 0) && h[i] >= (h[i + 1] ?? 0) && sm[i] >= top * minShare && h[i] > 0)) continue;
+    // centroid of the three bins, so a peak sits on the data rather than on the bin grid
+    let sw = 0, sx = 0;
+    for (let j = Math.max(0, i - 1); j <= Math.min(n - 1, i + 1); j++) { sw += h[j]; sx += h[j] * (j + lo) * bin; }
+    cands.push({ x: sx / sw, w: sm[i] });
+  }
+  cands.sort((a, b) => b.w - a.w);
+  const out: number[] = [];
+  for (const c of cands) if (out.every((x) => Math.abs(x - c.x) >= sep)) out.push(c.x);
+  return out.sort((a, b) => a - b);
+}
+
+/**
+ * Cross street from the EB/WB through tracks: tracks whose net displacement is mostly across the corridor
+ * (|Δx| > 2|Δy|, which drops mislabelled corridor tracks), moving samples only (> 1 m/s).
+ */
+export function crossBand(tracks: TrackT[], minTracks = 6): CrossBand | null {
+  const xs: number[] = [], ys: number[] = [], dirs: ('EB' | 'WB')[] = [];
+  let n = 0;
+  for (const tr of tracks) {
+    if ((tr.dir !== 'EB' && tr.dir !== 'WB') || (tr.move && tr.move !== 'through') || tr.pts.length < 2) continue;
+    const p = tr.pts, dx = p[p.length - 1][1] - p[0][1], dy = p[p.length - 1][2] - p[0][2];
+    if (Math.abs(dx) < 2 * Math.abs(dy)) continue;
+    n++;
+    for (const q of p) if (q[3] > 1) { xs.push(q[1]); ys.push(q[2]); dirs.push(tr.dir); }
+  }
+  if (n < minTracks || xs.length < 50) return null;
+  const mx = xs.reduce((s, v) => s + v, 0) / xs.length, my = ys.reduce((s, v) => s + v, 0) / ys.length;
+  let sxx = 0, sxy = 0;
+  for (let i = 0; i < xs.length; i++) { sxx += (xs[i] - mx) ** 2; sxy += (xs[i] - mx) * (ys[i] - my); }
+  const m = sxx > 0 ? sxy / sxx : 0, b = my - m * mx, k = Math.sqrt(1 + m * m);
+  const off = xs.map((x, i) => (ys[i] - m * x - b) / k);
+  const eb = off.filter((_, i) => dirs[i] === 'EB'), wb = off.filter((_, i) => dirs[i] === 'WB');
+  const all = [...eb, ...wb];
+  const edges: [number, number] = [percentile(all, 2)! - 1.3, percentile(all, 98)! + 1.3];
+  const pe = densityPeaks(eb), pw = densityPeaks(wb);
+  const laneLines: number[] = [];
+  for (const peaks of [pe, pw]) for (let i = 1; i < peaks.length; i++) laneLines.push((peaks[i - 1] + peaks[i]) / 2);
+  // centre line between the innermost lanes (EB keeps the low side, WB the high side on a right-hand road)
+  const ebMax = pe.length ? Math.max(...pe) : percentile(eb, 90)!, wbMin = pw.length ? Math.min(...pw) : percentile(wb, 10)!;
+  const centre = wbMin > ebMax ? (ebMax + wbMin) / 2 : (percentile(eb, 98)! + percentile(wb, 2)!) / 2;
+  return {
+    m, b, edges, centre, laneLines: laneLines.filter((o) => Math.abs(o - centre) > 1.2),
+    lanes: [...pe.map((o) => ({ dir: 'EB' as const, off: o })), ...pw.map((o) => ({ dir: 'WB' as const, off: o }))],
+    skewDeg: (Math.atan(m) * 180) / Math.PI, n,
   };
 }
 

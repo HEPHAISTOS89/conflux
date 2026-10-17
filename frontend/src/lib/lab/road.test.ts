@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LaneGeom, Pt, TrackT } from '../traj';
-import { cleanCentre, dashes, MUTCD, offset, ribbon, roadGeometry, xAt } from './road';
+import { bandLines, bandPoint, bandPolygon, cleanCentre, crossBand, dashes, densityPeaks, MUTCD, offset, ribbon, roadGeometry, xAt, type CrossBand } from './road';
 import { renderPose } from './metrics';
 
 /** Lane centreline every 5 m from y0 to y1 at lateral x, skipping the box (|y| < gap). */
@@ -95,5 +95,46 @@ describe('render pose', () => {
     const T: TrackT = { id: 2, cls: 'car', len_m: 4.5, w_m: 1.9, pts: turn };
     let prev = renderPose(T, 1.0)!.h;
     for (let t = 1.0; t <= 3.0; t += 0.02) { const h = renderPose(T, t)!.h; expect(Math.abs(Math.atan2(Math.sin(h - prev), Math.cos(h - prev)))).toBeLessThan(0.05); prev = h; }
+  });
+});
+
+describe('crossBand', () => {
+  const across = (id: number, dir: 'EB' | 'WB', y: number, skew = 0): TrackT => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 40; i++) { const x = dir === 'EB' ? -20 + i : 20 - i; pts.push([i / 10, x, y + skew * x, 8, 0, 1]); }
+    return { id, cls: 'car', len_m: 4.8, w_m: 1.9, dir, move: 'through', pts };
+  };
+  it('returns null without enough cross-street tracks', () => {
+    expect(crossBand([across(1, 'EB', -4)])).toBeNull();
+  });
+  it('derives axis, skew, edges, lanes and the centre line from EB/WB through tracks', () => {
+    const tracks: TrackT[] = [];
+    let id = 1;
+    for (let r = 0; r < 4; r++) { tracks.push(across(id++, 'EB', -8.5, 0.05), across(id++, 'EB', -5, 0.05), across(id++, 'WB', -1, 0.05), across(id++, 'WB', 2.5, 0.05)); }
+    const c = crossBand(tracks)!;
+    expect(c).not.toBeNull();
+    expect(c.m).toBeCloseTo(0.05, 3);
+    expect(c.skewDeg).toBeCloseTo(2.86, 1);
+    expect(c.lanes.map((l) => l.dir)).toEqual(['EB', 'EB', 'WB', 'WB']);
+    // offsets are measured from the fitted axis (through the mean, y ≈ −3 at x = 0)
+    expect(c.lanes.map((l) => l.off)).toEqual([expect.closeTo(-5.5, 0), expect.closeTo(-2, 0), expect.closeTo(2, 0), expect.closeTo(5.5, 0)]);
+    expect(c.centre).toBeCloseTo(0, 0);
+    expect(c.laneLines.length).toBe(2);
+    expect(c.edges[0]).toBeLessThan(-6.5); expect(c.edges[1]).toBeGreaterThan(6.5);
+    expect(bandPoint(c, 0, c.centre)[1]).toBeCloseTo(-3, 0);
+    // a mislabelled corridor track (moving along y) is ignored
+    const bad: TrackT = { id: 99, cls: 'car', len_m: 4.8, w_m: 1.9, dir: 'WB', move: 'through', pts: Array.from({ length: 41 }, (_, i) => [i / 10, 0, 90 - i, 10, 0, 1] as Pt) };
+    expect(crossBand([...tracks, bad])!.n).toBe(16);
+  });
+  it('band helpers follow the axis', () => {
+    const c: CrossBand = { m: 0, b: -3, edges: [-10, 10], centre: 0, laneLines: [-5, 5], lanes: [], skewDeg: 0, n: 8 };
+    expect(bandPoint(c, 4, 2)).toEqual([4, -1]);
+    expect(bandPolygon(c, -1, 1)).toEqual([[-1, -13], [1, -13], [1, 7], [-1, 7]]);
+    expect(bandLines(c, 0, 10).map((l) => l.kind)).toEqual(['edge', 'edge', 'centre', 'lane', 'lane']);
+  });
+  it('densityPeaks separates lanes 3 m apart and merges noise', () => {
+    const v: number[] = [];
+    for (let i = 0; i < 200; i++) { v.push(-3 + (i % 5) * 0.1 - 0.2, 0.5 + (i % 5) * 0.1 - 0.2); }
+    expect(densityPeaks(v)).toHaveLength(2);
   });
 });

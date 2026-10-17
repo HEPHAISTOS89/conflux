@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { conflictColor } from '../lib/format';
 import { nextRisk, stepFrame } from '../lib/lab/metrics';
+import type { PhaseInterval } from '../lib/lab/queue';
 import { selectConflict, useClock, useClockFrame, useSelection, type ConflictT } from '../lib/traj';
 import { Icon } from './Icon';
 import Select from './Select';
@@ -11,7 +12,9 @@ export const RATES = [0.25, 0.5, 1, 2, 4] as const;
  * Transport controls bound to the page clock: play, 10 Hz frame steps, previous/next risk event, rate 0.25–4×.
  * Conflicts appear as severity ticks on the scrubber; a chip shows when the near-miss slow-down is acting.
  */
-export default function Player({ label = 'Replay', conflicts }: { label?: string; conflicts?: ConflictT[] }) {
+const LAMP = ['red', 'yellow', 'green'] as const;
+
+export default function Player({ label = 'Replay', conflicts, phases }: { label?: string; conflicts?: ConflictT[]; /** Inferred NS signal phase, drawn as a thin strip under the scrubber. */ phases?: PhaseInterval[] }) {
   const c = useClock();
   const sel = useSelection();
   const [t, setT] = useState(c.now());
@@ -46,6 +49,11 @@ export default function Player({ label = 'Replay', conflicts }: { label?: string
           aria-label="Time in replay window (seconds)"
           aria-valuetext={`${t.toFixed(1)} seconds of ${c.duration.toFixed(0)}`}
         />
+        {phases && phases.length > 0 && (
+          <div className="player-phase" title="Signal phase, inferred from flow (NS group)" aria-hidden="true">
+            {phases.map((p, i) => <span key={i} data-lamp={LAMP[p.lamp]} style={{ left: `${(100 * p.from) / c.duration}%`, width: `${(100 * (p.to - p.from)) / c.duration}%` }} />)}
+          </div>
+        )}
         {conflicts && sel && (
           <div className="player-ticks" aria-hidden="true">
             {conflicts.map((k) => (

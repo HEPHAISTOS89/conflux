@@ -1,8 +1,11 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon, type IconName } from '../Icon';
 import Info from '../Info';
 import { ProvChip, type Provenance } from '../MetricInfo';
 import { useApi } from '../../lib/api';
+import { conflictIsGhostPair, trackQuality } from '../../lib/lab/quality';
+import type { IntersectionT } from '../../lib/traj';
 import { useReveal } from '../../lib/motion';
 import type { ConflictT } from '../../lib/traj';
 import { nf } from '../../lib/format';
@@ -16,6 +19,9 @@ export default function Verdict() {
   const scr = useApi<{ items: Seg[]; total: number }>('/screening?method=eb_excess&limit=1000');
   const vru = useApi<{ by_severity: Record<string, number>; years: number[]; on_system?: { total: number; ka: number } }>('/vru/summary');
   const cf = useApi<(ConflictT & { overlap?: boolean })[]>('/intersections/peachtree-10th/conflicts');
+  const ix = useApi<IntersectionT>('/intersections/peachtree-10th');
+  // duplicate / ID-switched tracks (lib/lab/quality.ts): a conflict between a ghost and its host is an artefact
+  const quality = useMemo(() => (ix.data ? trackQuality(ix.data.tracks, ix.data.hz) : null), [ix.data]);
 
   // project-wide rule: flagged = EB excess > 0; confirmed = flagged and critical rate ratio > 1
   const items = scr.data?.items ?? [];
@@ -25,7 +31,9 @@ export default function Verdict() {
   // state roads = on-system crashes only (the screened network); all-roads KA would overstate the claim
   const ka = vru.data?.on_system ? vru.data.on_system.ka : null;
   const yrs = vru.data?.years.join('–') ?? '2021–2023';
-  const crit = (cf.data ?? []).filter((c) => c.severity === 'critical' && !c.overlap).length;
+  const critAll = (cf.data ?? []).filter((c) => c.severity === 'critical' && !c.overlap);
+  const ghostCrit = quality ? critAll.filter((c) => conflictIsGhostPair(quality, c.a, c.b, c.t)).length : 0;
+  const crit = critAll.length - ghostCrit;
   const total = scr.data?.total ?? items.length;
 
   const figs: Fig[] = [
@@ -35,8 +43,8 @@ export default function Verdict() {
       basis: t ? `${t.name}, DFO ${nf(t.dfo_from, 1)}–${nf(t.dfo_to, 1)}: ${nf(t.eb_excess, 2)} excess expected crashes per year at AADT ${nf(t.aadt)} (${t.site_type ?? 'site-type'} SPF, TxDOT AADT).` : 'Rank 1 by EB excess.', prov: 'derived' },
     { icon: 'pedestrian', value: ka == null ? null : String(ka), unit: 'K + A', label: 'Walking and cycling deaths, serious injuries', to: '/vru',
       basis: `Pedestrians and cyclists killed (K) or seriously injured (A), Lubbock County state roads, ${yrs}; TxDOT CRIS crash reports, on-system, KABCO.`, prov: 'observed' },
-    { icon: 'intersection', value: cf.data ? String(crit) : null, unit: 'in 90 s', label: 'Critical conflicts at one intersection', to: '/intersections/peachtree-10th',
-      basis: 'Critical SSAM conflicts at Peachtree St & 10th St in 90 s of NGSIM trajectories (FHWA SSAM thresholds); position-overlap flags excluded as likely data error.', prov: 'derived' },
+    { icon: 'intersection', value: cf.data && quality ? String(crit) : null, unit: 'in 90 s', label: 'Critical conflicts at one intersection', to: '/intersections/peachtree-10th',
+      basis: `Critical SSAM conflicts at Peachtree St & 10th St in 90 s of NGSIM trajectories (FHWA SSAM thresholds); ${critAll.length} flagged, minus ${ghostCrit} between a duplicate or ID-switched track and the vehicle it duplicates (Coifman & Li 2017), position-overlap flags excluded as likely data error.`, prov: 'derived' },
   ];
 
   return (
