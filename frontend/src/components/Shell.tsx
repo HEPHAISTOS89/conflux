@@ -208,7 +208,7 @@ export default function Shell() {
             Roadway, traffic and crash data © TxDOT, informational use; not an official TxDOT product.
             FARS: NHTSA, public domain. NGSIM: FHWA, CC BY-SA 3.0.
           </p>
-          <p><a href="https://github.com/HEPHAISTOS89/roadscope-ai">Source on GitHub</a></p>
+          <p><a href="https://github.com/HEPHAISTOS89/conflux">Source on GitHub</a></p>
         </footer>
       </main>
     </div>

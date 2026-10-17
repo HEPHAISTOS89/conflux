@@ -694,7 +694,7 @@ export function createWorld(o: WorldOpts): World {
 
 function mergeGeo(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
   // tiny local merge (positions + normals) so street-light poles stay one geometry without a second import
-  const geos = parts.map((p) => p.toNonIndexed());
+  const geos = parts.map((p) => (p.index ? p.toNonIndexed() : p));
   const pos: number[] = [], nor: number[] = [];
   for (const g of geos) { pos.push(...Array.from(g.attributes.position.array as Float32Array)); nor.push(...Array.from(g.attributes.normal.array as Float32Array)); }
   const out = new THREE.BufferGeometry();

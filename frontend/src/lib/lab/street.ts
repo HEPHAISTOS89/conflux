@@ -81,7 +81,7 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
     quad(far.w, cross.y0, cross.x0 + 0.5, cross.y1);
     quad(cross.x1 - 0.5, cross.y0, far.e, cross.y1);
   }
-  const asphalt = asphaltGeos.length ? mergeGeometries(asphaltGeos.map((g) => g.toNonIndexed())) : null;
+  const asphalt = asphaltGeos.length ? mergeGeometries(asphaltGeos.map((g) => (g.index ? g.toNonIndexed() : g))) : null;
   asphaltGeos.forEach((g) => g.dispose());
 
   /* ---------- markings ---------- */
@@ -257,7 +257,7 @@ export function buildSignals(road: RoadGeom, street: Street): Signals {
     mk('ew', [xE, c.y0 - 1.3], [xE, yCm - 0.6], [[xE, c.y0 + (yCm - c.y0) * 0.35], [xE, c.y0 + (yCm - c.y0) * 0.78]], -Math.PI / 2);
     mk('ew', [xW, c.y1 + 1.3], [xW, yCm + 0.6], [[xW, c.y1 - (yCm - c.y1) * 0.35], [xW, c.y1 - (yCm - c.y1) * 0.78]], Math.PI / 2);
   }
-  const structure = parts.length ? mergeGeometries(parts.map((p) => p.toNonIndexed())) : null;
+  const structure = parts.length ? mergeGeometries(parts.map((p) => (p.index ? p.toNonIndexed() : p))) : null;
   parts.forEach((p) => p.dispose());
   return { structure, heads, lampCount: heads.length * 3 };
 }

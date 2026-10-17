@@ -82,7 +82,7 @@
 .page-loading { min-height: 60svh; }
 
 /* Page scaffolding shared by every sheet. Gutter 16 (≤ 640), 32 (≤ 1100), 48 above. */
-.page { --gutter: 48px; padding: clamp(20px, 3vw, 40px) var(--gutter) 0; display: grid; gap: var(--s7); }
+.page { --gutter: 48px; padding: clamp(20px, 3vw, 40px) var(--gutter) var(--s8); display: grid; gap: var(--s7); }
 @media (max-width: 1100px) { .page { --gutter: 32px; } }
 @media (max-width: 640px) { .page { --gutter: 16px; } }
 .page-head { display: grid; gap: var(--s3); max-width: 920px; }

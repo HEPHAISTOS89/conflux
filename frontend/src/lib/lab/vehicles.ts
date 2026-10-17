@@ -71,7 +71,7 @@ export function vehicleGeometry(kind: VehicleKind): VehicleGeometry {
     const [x0, x1] = p.cabinX;
     bodyParts.push(new THREE.BoxGeometry(x1 - x0 + 0.1, 0.06, 0.9).translate((x0 + x1) / 2, p.roofY - 0.03, 0));
   }
-  const body = mergeGeometries(bodyParts.map((g) => g.toNonIndexed()))!;
+  const body = mergeGeometries(bodyParts.map((g) => (g.index ? g.toNonIndexed() : g)))!;
   bodyParts.forEach((g) => g.dispose());
   const glass = p.cabin ? ex(p.cabin, 1 - p.glassInset * 2, 0.02) : new THREE.BufferGeometry();
   // normalise x to unit length; z is already unit width
@@ -91,7 +91,7 @@ export function wheelGeometry(): THREE.BufferGeometry {
     g.setAttribute('color', new THREE.BufferAttribute(a, 3));
   };
   paint(tyre, new THREE.Color('#121312')); paint(hub, new THREE.Color('#8e918f'));
-  const g = mergeGeometries([tyre.toNonIndexed(), hub.toNonIndexed()])!;
+  const g = mergeGeometries([(tyre.index ? tyre.toNonIndexed() : tyre), (hub.index ? hub.toNonIndexed() : hub)])!;
   g.rotateX(Math.PI / 2); // cylinder axis y → z (across the vehicle)
   tyre.dispose(); hub.dispose();
   return g;

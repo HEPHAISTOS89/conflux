@@ -62,7 +62,7 @@ On every boot the worker pulls `jobs/pipeline.tar.gz`, rebuilds the NGSIM trajec
 API=https://tkk01bgzfb.execute-api.us-east-2.amazonaws.com
 curl -s $API/api/v1/health
 curl -s "$API/api/v1/docs" -o /dev/null -w '%{http_code}\n'
-curl -s https://roadscope-ai-demo.vercel.app/api/v1/health    # through the Vercel rewrite
+curl -s https://conflux-safety.vercel.app/api/v1/health    # through the Vercel rewrite
 ```
 
 Check that the deployed data match the current screening definition (ped/bike crashes 2021-2023, Y = 3, 114 on-system crashes, site-type SPFs):
@@ -80,7 +80,7 @@ Then open the CloudWatch dashboard `RoadScope` and confirm that the `roadscope-a
 - Root directory: `frontend`. The framework (Vite), build command, output directory (`dist`) and install command are all set in `frontend/vercel.json`.
 - Rewrites in `frontend/vercel.json`: `/api/:path*` goes to the API Gateway endpoint, and every other non-asset path goes to `/index.html` (SPA routing). Assets get an immutable one-year cache.
 - If the API endpoint changes (for example after switching to `edge=cloudfront`), update the rewrite destination and `CORS_ORIGINS` in the stack, then redeploy both.
-- Production URL: https://roadscope-ai-demo.vercel.app
+- Production URL: https://conflux-safety.vercel.app
 
 ## 9. Teardown
 

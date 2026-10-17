@@ -276,10 +276,9 @@ export default function Platform() {
       </section>
 
       <div className="pf-lower" ref={lowerRef}>
-        <section className="section pf-wide" aria-labelledby="pf-runs" data-r="1">
+        {!(d && runs.length === 0) && <section className="section pf-wide" aria-labelledby="pf-runs" data-r="1">
           <div className="pf-h"><h2 id="pf-runs">Pipeline runs</h2><Info label="About pipeline runs"><p>One S3 run record per job, failures included; the ten most recent.</p></Info></div>
           {st.loading && !d && <div className="skel-table pf-skel" aria-hidden="true"><i /><i /><i /><i /><i /></div>}
-          {d && runs.length === 0 && <p className="pf-empty"><Icon name="info" size={16} />{d.on_aws ? 'No run records yet.' : 'No run records in local mode (S3 only).'}</p>}
           {runs.length > 0 && (
             <div className="pf-scroll" data-ui role="region" aria-label="Pipeline runs table" tabIndex={0}>
               <table className="data">
@@ -304,7 +303,7 @@ export default function Platform() {
               </table>
             </div>
           )}
-        </section>
+        </section>}
 
         <section className="section" aria-labelledby="pf-fresh" data-r="2">
           <div className="pf-h"><h2 id="pf-fresh">Data freshness</h2><Info label="About data freshness"><p>Records per source in the curated manifest; licence on hover.{d?.manifest?.generated_at ? <> Manifest written <span className="measure">{String(d.manifest.generated_at).replace('T', ' ').slice(0, 16)}</span> UTC ({ago(d.manifest.generated_at)}).</> : null}</p></Info></div>
@@ -342,7 +341,6 @@ export default function Platform() {
               <li key={l.item} title={l.basis}><span>{l.item}</span><span className="measure">{l.usd < 0.01 && l.usd > 0 ? '< 0.01' : l.usd.toFixed(2)}</span></li>
             ))}
           </ul>
-          {!live.cost.metered && <p className="pf-empty"><Icon name="info" size={16} />Fixed costs only (local mode).</p>}
         </section>
 
         <section className="section" aria-labelledby="pf-guard" data-r="4">
