@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
+
+const ThreeRoadView=lazy(()=>import('./ThreeRoadView'));
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://6zwr3ongsqiy22oiefyn3wwtva0gunpt.lambda-url.us-east-2.on.aws';
 const FALLBACK = {
@@ -38,7 +40,9 @@ function normalizedPoint(vehicle,time,all){const pts=vehicle.trajectory||[]; if(
 
 function App(){
   const {scenario,summary,source}=useScenario();
-  const [selected,setSelected]=useState('V-02'),[playing,setPlaying]=useState(true),[time,setTime]=useState(4.2),[filter,setFilter]=useState('all'),[tab,setTab]=useState('Replay');
+  const [selected,setSelected]=useState('V-02'),[playing,setPlaying]=useState(true),[time,setTime]=useState(4.2),[filter,setFilter]=useState('all'),[tab,setTab]=useState('Replay'),[viewMode,setViewMode]=useState('3d');
+  const selectVehicle=useCallback((vehicleId)=>setSelected(vehicleId),[]);
+  useEffect(()=>{if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)setPlaying(false)},[]);
   useEffect(()=>{if(!playing)return;const id=setInterval(()=>setTime(v=>v>=scenario.duration_s?0:+(v+.1).toFixed(1)),100);return()=>clearInterval(id)},[playing,scenario.duration_s]);
   useEffect(()=>{if(!scenario.vehicles.some(v=>v.id===selected))setSelected(scenario.vehicles[0]?.id)},[scenario]);
   const active=scenario.vehicles.find(v=>v.id===selected)||scenario.vehicles[0];
@@ -64,14 +68,14 @@ function App(){
       </section>
       <section className="workbench">
         <div className="canvas-panel" id="replay">
-          <div className="section-head"><div><p className="section-label">Spatial replay</p><h2>{scenario.location}</h2></div><div className="segmented" aria-label="Vehicle display filter">{[['all','All'],['risk','At risk'],['selected','Selected']].map(([v,l])=><button key={v} onClick={()=>setFilter(v)} className={filter===v?'active':''}>{l}</button>)}</div></div>
-          <div className="road-view" aria-label="Top-down trajectory visualization">
+          <div className="section-head"><div><p className="section-label">Spatial replay</p><h2>{scenario.location}</h2></div><div className="replay-options"><div className="segmented view-toggle" aria-label="Replay view">{[['2d','2D'],['3d','3D']].map(([v,l])=><button key={v} onClick={()=>setViewMode(v)} className={viewMode===v?'active':''} aria-pressed={viewMode===v}>{l}</button>)}</div><div className="segmented" aria-label="Vehicle display filter">{[['all','All'],['risk','At risk'],['selected','Selected']].map(([v,l])=><button key={v} onClick={()=>setFilter(v)} className={filter===v?'active':''}>{l}</button>)}</div></div></div>
+          {viewMode==='3d'?<Suspense fallback={<div className="three-loading" role="status">Preparing 3D replay...</div>}><ThreeRoadView vehicles={visible} events={scenario.events} time={time} selected={selected} onSelect={selectVehicle}/></Suspense>:<div className="road-view" aria-label="Top-down trajectory visualization">
             <div className="road-meta"><span>Westbound</span><span>Road-aligned synthetic layout</span><span>Eastbound</span></div>
             <div className="lane-line one"/><div className="lane-line two"/><div className="lane-line three"/>
             {visible.map(v=>{const p=normalizedPoint(v,time,scenario.vehicles);return <button key={v.id} className={`vehicle ${selected===v.id?'selected':''}`} style={{left:`${p.x}%`,top:`${p.y}%`}} onClick={()=>setSelected(v.id)} aria-label={`Inspect ${v.id}`}><span className="vehicle-body" style={{borderColor:v.color}}/><span className="vehicle-id">{v.id}</span></button>})}
             {scenario.events.filter(e=>Math.abs(e.t-time)<.8).map(e=>{const v=scenario.vehicles.find(x=>x.id===e.vehicle_ids[0]);const p=v?normalizedPoint(v,e.t,scenario.vehicles):{x:50,y:50};return <span key={e.id} className={`risk-marker ${e.severity}`} style={{left:`${p.x}%`,top:`${p.y}%`}} aria-label={`${severityLabel[e.severity]} event`}/>} )}
             <div className="scale">20 m</div>
-          </div>
+          </div>}
           <div className="transport">
             <button className="play-button" onClick={()=>setPlaying(!playing)}>{playing?'Pause':'Play'}</button>
             <span className="timecode">{time.toFixed(1)}s</span>
