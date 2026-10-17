@@ -14,9 +14,12 @@ export function useFloatFit(ref: RefObject<HTMLElement | null>, open: boolean, m
       el.removeAttribute('data-up');
       const r = el.getBoundingClientRect();
       const vw = document.documentElement.clientWidth, vh = window.innerHeight;
+      // Keep clear of the fixed side rail: the usable area starts at the main column, not the viewport edge.
+      const main = document.getElementById('main')?.getBoundingClientRect();
+      const minL = Math.max(margin, (main?.left ?? 0) + margin);
       let dx = 0;
       if (r.right > vw - margin) dx = vw - margin - r.right;
-      if (r.left + dx < margin) dx = margin - r.left;
+      if (r.left + dx < minL) dx = minL - r.left;
       el.style.setProperty('--dx', `${Math.round(dx)}px`);
       const anchor = el.parentElement?.getBoundingClientRect();
       if (r.bottom > vh - margin && anchor && anchor.top - r.height - 8 > margin) el.setAttribute('data-up', '');

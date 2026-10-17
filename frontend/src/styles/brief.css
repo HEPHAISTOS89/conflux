@@ -120,7 +120,7 @@
     background: #fff; padding: 0; max-width: none; border-radius: 0; gap: 14px; font-size: 10pt;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  .ph { grid-template-columns: 1fr !important; gap: 10px; }
+  .ph { grid-template-columns: 1fr !important; grid-template-areas: 'title' 'figs' !important; gap: 10px; }
   .ph-side { justify-items: start !important; }
   .ph-fig { padding: 6px 12px; min-width: 0; }
   .ph-fig dd .num { font-size: 18pt; }
@@ -175,7 +175,7 @@
 .nowrap { white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .bar-c .bar, .sheet-diag > li, .sheet-page table.data tbody tr, .appendix[data-open] .app-body { animation: none; } .app-toggle > .icon:last-child { transition: none; } }
 .sheet-page > *, .sheet-two > div { min-width: 0; }
-@media (max-width: 1100px) { .sheet-ph .ph { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1100px) { .sheet-ph .ph { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'title' 'figs' 'actions'; } .sheet-ph .ph-actions { justify-content: flex-start; } }
 .appendix > *, .app-grid > * { min-width: 0; }
 @media (max-width: 640px) { .app-lic { min-width: 220px; } }
 @media screen and (max-width: 1180px) { .sheet-page .site-c { display: none; } .app-grid { grid-template-columns: 1fr; } }
