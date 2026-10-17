@@ -31,27 +31,25 @@ export const MPS_TO_MPH = 2.236936;
 
 export const DIR_COLOR: Record<string, string> = { NB: '#14171a', SB: '#46617a', EB: '#7a5a2e', WB: '#5b6b4d' };
 
-/** Shared playback clock for a page: every diagram reads and scrubs the same t. */
-export interface Clock { t: number; playing: boolean; rate: number; duration: number; setT: (t: number) => void; toggle: () => void; play: () => void; pause: () => void; setRate: (r: number) => void; subscribe: (fn: (t: number) => void) => () => void; now: () => number }
+/** Shared playback clock for a page. `t` is not React state: read it with useClockFrame or now() so playback does not re-render the page. */
+export interface Clock { playing: boolean; rate: number; duration: number; setT: (t: number) => void; toggle: () => void; play: () => void; pause: () => void; setRate: (r: number) => void; subscribe: (fn: (t: number) => void) => () => void; now: () => number }
 
 export function useClockState(duration: number): Clock {
-  const [t, setTState] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [rate, setRate] = useState(1);
   const tRef = useRef(0);
   const subs = useRef(new Set<(t: number) => void>());
   const emit = (v: number) => { tRef.current = v; subs.current.forEach((f) => f(v)); };
-  const setT = useCallback((v: number) => { const c = Math.max(0, Math.min(duration, v)); emit(c); setTState(c); }, [duration]);
+  const setT = useCallback((v: number) => { const c = Math.max(0, Math.min(duration, v)); emit(c); }, [duration]);
 
   useEffect(() => {
     if (!playing) return;
-    let raf = 0, last = performance.now(), lastState = 0;
+    let raf = 0, last = performance.now();
     const loop = (now: number) => {
       const dt = (now - last) / 1000; last = now;
       let v = tRef.current + dt * rate;
       if (v >= duration) v = 0;
       emit(v);
-      if (now - lastState > 120) { setTState(v); lastState = now; }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -59,7 +57,7 @@ export function useClockState(duration: number): Clock {
   }, [playing, rate, duration]);
 
   return {
-    t, playing, rate, duration, setT, setRate,
+    playing, rate, duration, setT, setRate,
     toggle: () => setPlaying((p) => !p),
     play: () => setPlaying(true),
     pause: () => setPlaying(false),

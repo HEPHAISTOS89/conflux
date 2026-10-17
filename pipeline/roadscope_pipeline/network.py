@@ -23,8 +23,8 @@ Crash data — what ``SUM_CRASH_`` is, and why it is NOT used as the crash count
   values track 3-year totals, not annual means).
 * Therefore the screening outcome is the integer count of on-system active-transportation
   crashes (all KABCO severities) located on each segment: every on-system CRIS point of the
-  layer lies ≤ 2 m from a segment polyline (snap tolerance ``AT_SNAP_M``) and off-system points
-  are ≥ 2 m away and excluded; study period Y = the layer's crash years (2021–2023 → 3).
+  layer lies ≤ 5 m from a segment polyline (snap tolerance ``AT_SNAP_M``) and off-system points
+  are > 5 m away and excluded; study period Y = the layer's crash years (2021–2023 → 3).
   SUM_CRASH_ is kept as ``satp_crash_score`` for reference only. This makes RoadScope's network
   screening a *pedestrian/cyclist* crash screening; all-severity all-mode CRIS counts are not
   published as an open feature service.
@@ -584,12 +584,17 @@ def screen(segs, fitted=None):
         r = apply(model, s)
         if r is None:  # missing covariate for the site model
             model, used, r = fallback, "fallback", apply(fallback, s)
+        if r is None:  # stored fallback also needs a missing covariate: leave unscored (rank None)
+            continue
         mu_yr, ks = r
         e = S.eb_expected(mu_yr * Y, s["crashes_total"], ks) / Y
         s["_mu"], s["_eb"], s["_k"], s["_w"], s["_p"] = mu_yr, e, ks, 1 / (1 + ks * mu_yr * Y), model["n_params"]
         s["spf_model"] = used
         s["rate_100mvmt"], s["crit_rate"], s["crit_ratio"] = round(s["_rate"], 1), round(s["_crit"], 1), round(s["_ratio"], 2)
         s["spf_pred"], s["eb_expected"], s["eb_excess"] = round(mu_yr, 2), round(e, 2), round(e - mu_yr, 2)
+    ok = [s for s in ok if "_mu" in s]
+    by_site = {t: [x for x in ss if "_mu" in x] for t, ss in by_site.items()}
+    site_names = [t for t in site_names if by_site[t]]
     for i, s in enumerate(sorted(ok, key=lambda x: (-(x["_eb"] - x["_mu"]), -x["_ratio"])), 1):
         s["rank"] = i
 

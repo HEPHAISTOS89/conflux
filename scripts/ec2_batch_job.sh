@@ -6,6 +6,8 @@
 # (EBS only, ~$1/mo) until EventBridge Scheduler starts it again.
 # __DATA_BUCKET__ is substituted by CDK at synth time.
 set -euxo pipefail
+# If first-boot setup fails, power off rather than idle at full price.
+trap 'shutdown -h now' ERR
 dnf install -y python3.12 python3.12-pip tar gzip
 cat > /usr/local/bin/roadscope-job.sh <<'JOB'
 #!/bin/bash

@@ -13,6 +13,7 @@ from . import queries, store
 
 log = logging.getLogger("roadscope.ask")
 MAX_TOOL_ROUNDS = 4
+BEDROCK_DEADLINE_S = 10.0  # Lambda timeout is 15 s: leave room for the deterministic fallback
 MAX_QUESTION_CHARS = 500
 FALLBACK_MODEL = "deterministic-fallback"
 
@@ -88,12 +89,20 @@ def t_vru_count(mode: str | None = None, severity: str | None = None, light: str
             "by_severity": {k: sum(r.get("severity") == k for r in hit) for k in "KABCO"}}
 
 
+def _pick_intersection(intersection_id: str | None) -> tuple[str | None, list[str], dict[str, Any] | None]:
+    ids = store.intersection_ids()
+    if not ids:
+        return None, ids, {"error": "no intersections available", "available": ids}
+    if intersection_id and intersection_id not in ids:
+        return None, ids, {"error": f"unknown intersection '{intersection_id}'", "available": ids}
+    return intersection_id or ids[0], ids, None
+
+
 def t_intersection_conflicts(intersection_id: str | None = None, type: str | None = None,
                              max_ttc: float | None = None) -> dict[str, Any]:
-    ids = store.intersection_ids()
-    iid = intersection_id if intersection_id in ids else (ids[0] if ids else None)
-    if iid is None:
-        return {"error": "no intersections available"}
+    iid, ids, err = _pick_intersection(intersection_id)
+    if err:
+        return err
     rows = queries.conflicts(iid, type, max_ttc)
     by_type: dict[str, int] = {}
     for r in rows:
@@ -139,10 +148,9 @@ METHODS = ("linear", "kf_ca", "kf_ca_path")
 
 def t_get_repair(intersection_id: str | None = None) -> dict[str, Any]:
     """Occlusion-repair RMSE by protocol (uniform / occluder) x truth (smoothed / raw), overall and by gap length."""
-    ids = store.intersection_ids()
-    iid = intersection_id if intersection_id in ids else (ids[0] if ids else None)
-    if iid is None:
-        return {"error": "no intersections available"}
+    iid, ids, err = _pick_intersection(intersection_id)
+    if err:
+        return err
     s = store.load(f"intersections/{iid}_repair.json").get("summary", {})
     out: dict[str, Any] = {"intersection_id": iid, "available": ids,
                            "methods": {"linear": "linear interpolation", "kf_ca": "constant-acceleration Kalman + RTS",
@@ -222,8 +230,10 @@ def run_tool(name: str, args: dict[str, Any]) -> tuple[dict[str, Any], bool]:
 # ---------- Bedrock ----------
 def _bedrock() -> Any:
     import boto3
+    from botocore.config import Config
 
-    return boto3.client("bedrock-runtime")
+    return boto3.client("bedrock-runtime", config=Config(read_timeout=4, connect_timeout=2,
+                                                         retries={"max_attempts": 1}))
 
 
 def ask_bedrock(question: str) -> dict[str, Any]:
@@ -233,7 +243,10 @@ def ask_bedrock(question: str) -> dict[str, Any]:
     client = _bedrock()
     messages: list[dict[str, Any]] = [{"role": "user", "content": [{"text": question}]}]
     calls: list[dict[str, Any]] = []
+    deadline = time.monotonic() + BEDROCK_DEADLINE_S
     for round_no in range(MAX_TOOL_ROUNDS + 1):
+        if time.monotonic() > deadline:
+            raise TimeoutError(f"Bedrock deadline {BEDROCK_DEADLINE_S:.0f} s exceeded")
         resp = client.converse(modelId=model_id, system=[{"text": SYSTEM_PROMPT}], messages=messages,
                                toolConfig={"tools": TOOL_SPECS}, inferenceConfig={"maxTokens": 900, "temperature": 0.2})
         msg = resp["output"]["message"]
@@ -281,8 +294,10 @@ def _route(q: str) -> list[tuple[str, dict[str, Any]]]:
         if re.search(r"\bpedestrian|\bped\b|\bpeds\b", ql): f["mode"] = "ped"
         elif re.search(r"bike|bicycl|cyclist", ql): f["mode"] = "bike"
         elif "scooter" in ql: f["mode"] = "scooter"
-        m = re.search(r"\b(ka|k\+a|kabco [a-z,]+|fatal|serious)\b", ql)
-        if m: f["severity"] = "K" if m.group(1) == "fatal" else "A" if m.group(1) == "serious" else "K,A"
+        sev = ({"K"} if re.search(r"\b(fatal\w*|deaths?|killed)\b", ql) else set()) | \
+              ({"A"} if re.search(r"\bserious", ql) else set()) | \
+              ({"K", "A"} if re.search(r"\b(ka|k\+a)\b", ql) else set())
+        if sev: f["severity"] = ",".join(k for k in "KA" if k in sev)
         lt = next((v for k, v in LIGHT.items() if k in ql), None)
         if lt: f["light"] = lt
         y = re.search(r"\b(20[12]\d)\b", ql)
@@ -418,7 +433,7 @@ def answer(question: str) -> dict[str, Any]:
 class TokenBucket:
     """Per-key token bucket: `capacity` requests, refilled continuously over `per_seconds`."""
 
-    def __init__(self, capacity: int = 10, per_seconds: float = 60.0) -> None:
+    def __init__(self, capacity: int = 30, per_seconds: float = 60.0) -> None:
         self.capacity, self.rate = capacity, capacity / per_seconds
         self._state: dict[str, tuple[float, float]] = {}
         self._lock = threading.Lock()

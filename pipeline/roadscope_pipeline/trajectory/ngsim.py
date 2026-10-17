@@ -53,7 +53,7 @@ def densest_window(location: str, int_id: int, seconds: float, cache_dir: Path) 
     s_index = np.arange(per_s.index.min(), per_s.index.max() + 1)
     best, best_t = -1, int(s_index[0])
     w = int(seconds)
-    for s0 in s_index[: max(1, len(s_index) - w)]:
+    for s0 in s_index[: max(1, len(s_index) - w + 1)]:
         ids = set()
         for s in range(s0, s0 + w):
             if s in per_s.index:

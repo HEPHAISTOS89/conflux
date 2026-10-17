@@ -199,8 +199,33 @@ def test_ask_validation_and_rate_limit(client: TestClient, no_bedrock: None) -> 
     assert client.post(f"{API}/ask", json={"question": "x" * 501}).status_code == 422
     assert client.post(f"{API}/ask", json={"question": "  "}).status_code == 422
     assert client.post(f"{API}/ask", json={}).status_code == 422
-    codes = [client.post(f"{API}/ask", json={"question": "top segments"}).status_code for _ in range(11)]
-    assert codes[:10] == [200] * 10 and codes[10] == 429
+    n = ask.bucket.capacity
+    codes = [client.post(f"{API}/ask", json={"question": "top segments"}).status_code for _ in range(n + 1)]
+    assert n == 30 and codes[:n] == [200] * n and codes[n] == 429
+
+
+@pytest.mark.parametrize("question,severity", [("How many fatal or serious pedestrian crashes?", "K,A"),
+                                               ("How many pedestrian fatalities?", "K")])
+def test_ask_fallback_severity(question: str, severity: str) -> None:
+    assert ("vru_count", {"mode": "ped", "severity": severity}) in ask._route(question)
+
+
+def test_unknown_intersection_tool_error() -> None:
+    d = ask.t_intersection_conflicts("nowhere")
+    assert "nowhere" in d["error"] and d["available"] == store.intersection_ids()
+
+
+def test_s3_missing_key_404(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from botocore.exceptions import ClientError
+
+    class S3:
+        def get_object(self, **_: object) -> None:
+            raise ClientError({"Error": {"Code": "NoSuchKey", "Message": "gone"}}, "GetObject")
+
+    monkeypatch.setenv("DATA_BUCKET", "b")
+    monkeypatch.setattr(store, "_s3", lambda: S3())
+    r = client.get(f"{API}/spf")
+    assert r.status_code == 404 and "spf.json" in r.json()["detail"]
 
 
 def test_cors(client: TestClient) -> None:

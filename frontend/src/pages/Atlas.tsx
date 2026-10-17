@@ -74,6 +74,8 @@ export default function Atlas() {
         </p>
       </header>
 
+      {[net, fatal, vru, ix, cf].some((r) => r.error) && <div className="error-box">Some data could not be loaded: {[net, fatal, vru, ix, cf].map((r) => r.error).filter(Boolean).join(' · ')}</div>}
+
       <section className="atlas-grid" aria-label="County overview">
         <div className="atlas-map panel">
           <MapView

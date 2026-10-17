@@ -76,8 +76,6 @@ export default function TimeSpace({ data, conflicts, dir, selected, label, compa
       ctx.fillStyle = k.severity === 'critical' ? '#b3261e' : '#c98a00';
       ctx.beginPath(); ctx.moveTo(X(k.t), Y(p.y) - 6); ctx.lineTo(X(k.t) + 5, Y(p.y)); ctx.lineTo(X(k.t), Y(p.y) + 6); ctx.lineTo(X(k.t) - 5, Y(p.y)); ctx.closePath(); ctx.fill();
     }
-    ctx.save(); ctx.translate(12, PAD.t + 4); ctx.fillStyle = '#5a636b';
-    ctx.restore();
   };
 
   useEffect(() => {
@@ -99,6 +97,8 @@ export default function TimeSpace({ data, conflicts, dir, selected, label, compa
     ctx.beginPath(); ctx.moveTo(X(t), PAD.t); ctx.lineTo(X(t), H - PAD.b); ctx.stroke();
     ctx.fillStyle = '#14171a'; ctx.font = '600 11px "Overpass Mono", monospace';
     ctx.fillText(`t = ${t.toFixed(1)} s`, Math.min(X(t) + 6, W - 70), PAD.t + 12);
+    c.setAttribute('aria-valuenow', String(Math.round(t * 10) / 10));
+    c.setAttribute('aria-valuetext', `${t.toFixed(1)} seconds`);
   }, [data, reveal]);
 
   const scrub = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -119,8 +119,6 @@ export default function TimeSpace({ data, conflicts, dir, selected, label, compa
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={T}
-        aria-valuenow={Math.round(clock.t * 10) / 10}
-        aria-valuetext={`${clock.t.toFixed(1)} seconds`}
         onPointerDown={scrub}
         onPointerMove={scrub}
         onKeyDown={(e) => {

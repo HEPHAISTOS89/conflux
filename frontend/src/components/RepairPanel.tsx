@@ -8,7 +8,7 @@ interface M { gaps: number; gap_frames: number; rmse_m: number; speed_rmse: numb
 interface RSummary {
   tracks_occluded: number; tracks_eligible: number; gaps: number; seed: number; gap_s: [number, number]; context_s?: number; selected_method?: string;
   params?: Record<string, Record<string, number>>; methods?: Record<string, M>; by_gap?: ({ gap_s: [number, number] } & Record<string, M | [number, number]>)[];
-  validation?: { tracks: number; rmse_m: Record<string, number>; selected: string; grid?: { q: number[]; r: number[] }; q_curve?: { q: number; rmse_m: number }[] };
+  validation?: { tracks: number; rmse_m: Record<string, number>; selected: string; grid?: { q: number[]; r: number[] }; q_curve?: ({ q: number; rmse_m: number } | [number, number])[] };
   better_than_linear_share?: Record<string, number>; truth?: string;
   protocols?: Record<string, { description: string; occlusion?: { gaps: number; occluded_share: number; gap_len_mean_s: number }; truth_variants: Record<string, Variant> }>;
   notes?: string[];
@@ -26,7 +26,7 @@ export default function RepairPanel({ id }: { id: string }) {
   const pv = base?.protocols?.[proto];
   const v = pv?.truth_variants?.[truth];
   // the table reads the selected protocol × truth; fall back to legacy top-level summary
-  const s = base && v ? { ...base, methods: v.methods, by_gap: v.by_gap, selected_method: v.selected_method, params: v.params ?? base.params, better_than_linear_share: v.better_than_linear_share } : base;
+  const s = base && v ? { ...base, methods: v.methods, by_gap: v.by_gap, selected_method: v.selected_method, params: v.params ?? base.params, better_than_linear_share: v.better_than_linear_share, validation: (v as any).validation ?? base.validation } : base;
   const shown = tracks.filter((t) => !t.protocol || t.protocol === proto);
   const tr = shown[Math.min(pick, shown.length - 1)];
   const methods = s?.methods ? Object.keys(s.methods) : [];
@@ -153,7 +153,8 @@ function ErrPlot({ t }: { t: RTrack }) {
   );
 }
 
-function QCurve({ c, chosen }: { c: { q: number; rmse_m: number }[]; chosen?: number }) {
+function QCurve({ c: raw, chosen }: { c: ({ q: number; rmse_m: number } | [number, number])[]; chosen?: number }) {
+  const c = raw.map((p) => (Array.isArray(p) ? { q: p[0], rmse_m: p[1] } : p));
   const W = 320, H = 110, L = 34, B = 22;
   const lq = c.map((p) => Math.log10(p.q)), mn = Math.min(...lq), mx = Math.max(...lq);
   const ym = Math.max(...c.map((p) => p.rmse_m)), yn = Math.min(...c.map((p) => p.rmse_m));

@@ -33,6 +33,7 @@ export default function Brief() {
         <Link to="/screening" className="btn ghost">Back to the screening</Link>
         <button className="btn" onClick={() => window.print()}>Print or save as PDF</button>
       </div>
+      {[scr, vru, meta].some((r) => r.error) && <div className="error-box">Some data could not be loaded: {[scr, vru, meta].map((r) => r.error).filter(Boolean).join(' · ')}</div>}
       <article className="sheet-page" aria-labelledby="brief-h">
         <header className="sheet-head">
           <div>

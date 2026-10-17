@@ -176,3 +176,22 @@ def test_output_schema():
     ids = {s["id"] for s in man["sources"]}
     assert {"segment_crash", "aadt", "roadway_inventory", "speed_2024", "active_transportation_crashes", "fars_2018"} <= ids
     assert all(len(s["sha256"]) == 64 for s in man["sources"] if s["id"] in ids and "sha256" in s)
+
+
+def test_stored_spf_missing_covariate_leaves_segment_unscored():
+    from roadscope_pipeline.network import screen
+    model = {"coef": {"const": -6.0, "ln_aadt": 0.5, "speed": 0.01}, "k": 0.5, "n_params": 4,
+             "k_convention": "per mile (k_seg = k/L)"}
+    fitted = {"b0": -6.0, "b1": 0.5, "k": 0.5, "se_b0": 0.1, "se_b1": 0.1, "n": 2, "crashes": 3, "aic": 1.0,
+              "loglik": -1.0, "site_types": {}, "fallback": model}
+
+    def seg(i, speed):
+        return {"seg_id": i, "aadt": 10_000, "site_type": "Urban minor arterial", "fc_group": "Minor arterial",
+                "len_mi": 1.0, "crashes_total": 2, "crash_years": 3, "crashes_per_yr": 2 / 3, "speed_limit": speed,
+                "satp_crash_score": 0}
+
+    segs = [seg(1, 45), seg(2, None)]
+    out = screen(segs, fitted=fitted)
+    assert segs[0]["rank"] == 1 and segs[0]["spf_pred"] is not None
+    assert segs[1]["rank"] is None and segs[1]["spf_pred"] is None
+    assert [p["seg_id"] for p in out["points"]] == [1]

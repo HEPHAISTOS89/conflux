@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { LayerSpecification, Map as MLMap, StyleSpecification, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -13,7 +13,7 @@ const KEEP = /^(background|water|park|landuse_residential|building|highway_|road
 
 function baseStyle(): Promise<StyleSpecification> {
   styleCache ??= fetch('https://tiles.openfreemap.org/styles/positron')
-    .then((r) => r.json())
+    .then((r) => { if (!r.ok) throw new Error(`basemap ${r.status}`); return r.json(); })
     .then((s: StyleSpecification) => {
       const layers = s.layers.filter((l) => KEEP.test(l.id)).map((l) => {
         const L = structuredClone(l) as any;
@@ -27,7 +27,8 @@ function baseStyle(): Promise<StyleSpecification> {
         return L as LayerSpecification;
       });
       return { ...s, layers };
-    });
+    })
+    .catch((e) => { styleCache = null; throw e; });
   return styleCache;
 }
 
@@ -54,6 +55,7 @@ export default function MapView({ sources, center = LUBBOCK, zoom = 10.3, bounds
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MLMap | null>(null);
   const ready = useRef(false);
+  const [failed, setFailed] = useState(false);
   const cb = useRef({ onClick, onHover });
   const latest = useRef({ sources, bounds });
   latest.current = { sources, bounds };
@@ -76,7 +78,7 @@ export default function MapView({ sources, center = LUBBOCK, zoom = 10.3, bounds
           m.on('mouseleave', id, () => { m.getCanvas().style.cursor = ''; cb.current.onHover?.(null); });
         }
       });
-    });
+    }).catch(() => !disposed && setFailed(true));
     return () => { disposed = true; map.current?.remove(); map.current = null; ready.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -95,7 +97,9 @@ export default function MapView({ sources, center = LUBBOCK, zoom = 10.3, bounds
     if (m && ready.current && bounds) m.fitBounds(bounds, { padding: 48, duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200, essential: false });
   }, [bounds?.flat().join(',')]);
 
-  return <div ref={el} className={`mapview ${className ?? ''}`} role="region" aria-label={label} />;
+  return <div ref={el} className={`mapview ${className ?? ''}`} role="region" aria-label={label}>
+    {failed && <div className="error-box" style={{ position: 'absolute', top: 12, left: 12, right: 12 }}>Map could not load. Reload to retry.</div>}
+  </div>;
 }
 
 function sync(m: MLMap, sources: MapLayer[]) {

@@ -14,7 +14,7 @@ const METHODS = [
 ] as const;
 type MethodId = (typeof METHODS)[number]['id'];
 const FIELD: Record<MethodId, keyof SegmentProps> = { eb_excess: 'eb_excess', critical_ratio: 'crit_ratio', rate: 'rate_100mvmt', frequency: 'crashes_total' };
-const GROUPS = ['All', 'Interstate/freeway', 'Principal arterial', 'Minor arterial', 'Collector/local'];
+const GROUPS = ['All', 'Interstate/Freeway', 'Principal arterial', 'Minor arterial', 'Collector/Local'];
 
 interface Screening { method: string; total: number; items: (SegmentProps & { fc_group?: string; crashes_per_yr?: number; score?: number; screen_rank?: number; dfo_from?: number; dfo_to?: number })[] }
 
@@ -84,7 +84,7 @@ export default function ScreeningPage() {
             <tbody>
               {scr.loading && !scr.data && Array.from({ length: 10 }, (_, i) => <tr key={i}><td colSpan={6}><div className="skeleton" style={{ height: 18 }} /></td></tr>)}
               {top.map((r, i) => (
-                <tr key={r.seg_id} data-active={focus === r.seg_id} onMouseEnter={() => set('seg', r.seg_id)} onClick={() => set('seg', r.seg_id)} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && set('seg', r.seg_id)}>
+                <tr key={r.seg_id} data-active={focus === r.seg_id} onClick={() => set('seg', r.seg_id)} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && set('seg', r.seg_id)}>
                   <td className="r num">{i + 1}</td>
                   <td>
                     <div className="seg-name">{r.name}</div>
@@ -124,7 +124,7 @@ export default function ScreeningPage() {
 }
 
 function SegmentCard({ s, rank }: { s: SegmentProps & { fc_group?: string; crashes_per_yr?: number; speed_all?: number }; rank?: number }) {
-  const corridor = { US0084: 'us-84', US0062: 'us-62-82', US0082: 'us-62-82', SL0289: 'loop-289', IH0027: 'i-27', SH0114: 'sh-114', FM2255: 'fm-2255', FM1264: 'fm-1264' }[s.route?.slice(0, 6) ?? ''];
+  const corridor = { US0084: 'us-84', US0062: 'us-62-82', US0082: 'us-62-82', SL0289: 'loop-289', IH0027: 'i-27', SH0114: 'sh-114', FM2255: 'fm-2255', FM0835: 'fm-835' }[s.route?.slice(0, 6) ?? ''];
   return (
     <div className="seg-card">
       <div className="seg-card-h"><strong>{s.name}</strong><span className="num muted">{rank ? `rank ${rank}` : 'unranked'}</span></div>

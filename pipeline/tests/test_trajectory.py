@@ -170,3 +170,18 @@ def test_kalman_batch_matches_scalar():
     for i, (r, q) in enumerate(((0.05, 2.0), (0.2, 50.0))):
         p, v = repair.kalman_rts(z, obs, r=r, q=q)
         assert np.allclose(pb[i], p) and np.allclose(vb[i], v)
+
+
+def test_lane_change_gap_subtracts_leader_length():
+    # 4.5 m car cuts into lane 2 at t=1 s, front 19 m ahead of a 15 m truck closing at 2 m/s.
+    # Bumper gap = 19 - 4.5 = 14.5 m (not 19 - 15 = 4 m) -> TTC stays >= 3.85 s over the 3 s horizon.
+    t = np.arange(0, 4.5, 0.1)
+    truck = track(1, t, np.zeros_like(t), 12 * t, np.full_like(t, 12.0), lane=2, length=15.0)
+    car = track(2, t, np.zeros_like(t), 31 + 10 * (t - 1), np.full_like(t, 10.0), lane=2)
+    car["lane"] = np.where(t < 1 - 1e-9, 1, 2)
+    series = ssm.lane_change_series([truck, car])
+    assert len(series) == 1
+    kind, fol, lea, ks, ttc, drac, ok, _ = series[0]
+    assert (fol, lea) == (1, 2)
+    assert ttc.min() >= 3.85
+    assert ssm.lane_change([truck, car], ttc_max=1.5) == []

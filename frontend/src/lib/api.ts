@@ -33,15 +33,16 @@ export async function postJSON<T>(path: string, body: unknown): Promise<T> {
 export type Loadable<T> = { data?: T; error?: string; loading: boolean };
 
 export function useApi<T>(path: string | null): Loadable<T> {
-  const [state, setState] = useState<Loadable<T>>({ loading: !!path });
+  // state is tagged with its path so a new path never renders the previous path's data
+  const [state, setState] = useState<Loadable<T> & { path?: string | null }>({ loading: !!path, path });
   useEffect(() => {
     if (!path) return;
     let alive = true;
-    setState((s) => ({ data: s.data, loading: true }));
+    setState({ loading: true, path });
     getJSON<T>(path)
-      .then((data) => alive && setState({ data, loading: false }))
-      .catch((e: Error) => alive && setState({ error: e.message, loading: false }));
+      .then((data) => alive && setState({ data, loading: false, path }))
+      .catch((e: Error) => alive && setState({ error: e.message, loading: false, path }));
     return () => { alive = false; };
   }, [path]);
-  return state;
+  return state.path === path ? state : { loading: !!path };
 }

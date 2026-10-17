@@ -102,11 +102,13 @@ export default function PlanView({ data, conflicts, selected, onSelect, occlusio
   };
 
   useClockFrame(draw, [data, conflicts, selected, occlusion]);
+  const drawRef = useRef(draw);
+  drawRef.current = draw;
   useEffect(() => {
-    const ro = new ResizeObserver(() => draw(Number(ref.current?.dataset.t ?? 0)));
+    const ro = new ResizeObserver(() => drawRef.current(Number(ref.current?.dataset.t ?? 0)));
     if (ref.current) ro.observe(ref.current);
     return () => ro.disconnect();
-  });
+  }, []);
 
   const pick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect();

@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import os
 from typing import Any
 
 from . import store
 
+log = logging.getLogger("roadscope.platform")
 METRICS = (("invocations", "Invocations", "Sum"), ("errors", "Errors", "Sum"), ("duration_p95_ms", "Duration", "p95"))
 
 
@@ -66,13 +68,15 @@ def status() -> dict[str, Any]:
     try:
         runs = store.list_runs()
     except Exception as exc:  # noqa: BLE001 - surfaced to the client as a status message
+        log.warning("runs listing failed: %s: %s", type(exc).__name__, exc)
         errors.append(f"runs listing failed: {type(exc).__name__}")
     metrics = None
     if on_aws():
         try:
             metrics = lambda_metrics()
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"CloudWatch metrics unavailable: {type(exc).__name__}: {exc}")
+        except Exception as exc:  # noqa: BLE001 - only the exception type is public; full text goes to logs
+            log.warning("CloudWatch metrics failed: %s: %s", type(exc).__name__, exc)
+            errors.append(f"CloudWatch metrics unavailable: {type(exc).__name__}")
     return {"on_aws": on_aws(), "data_source": data_source(), "manifest": manifest, "runs": runs,
             "metrics": metrics, "errors": errors}
 

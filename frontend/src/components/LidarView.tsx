@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { poseAt, useClockFrame, type ConflictT, type IntersectionT } from '../lib/traj';
+import { poseAt, useClock, useClockFrame, type ConflictT, type IntersectionT } from '../lib/traj';
 
 interface Props { data: IntersectionT; conflicts: ConflictT[]; selected: string | null; label: string }
 
@@ -27,6 +27,7 @@ function vehicleCloud(len: number, wid: number, hgt: number, n = 900): Float32Ar
 export default function LidarView({ data, conflicts, selected, label }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const api = useRef<{ update: (t: number) => void } | null>(null);
+  const clock = useClock();
 
   useEffect(() => {
     const el = host.current!;
@@ -115,7 +116,7 @@ export default function LidarView({ data, conflicts, selected, label }: Props) {
       }
     };
     api.current = { update: (t) => update(t) };
-    (api.current as any).select = (id: string | null) => { selectedId = id; };
+    (api.current as any).select = (id: string | null) => { selectedId = id; update(clock.now()); };
 
     let raf = 0;
     const loop = () => { controls.update(); renderer.render(scene, cam); raf = requestAnimationFrame(loop); };
@@ -124,7 +125,8 @@ export default function LidarView({ data, conflicts, selected, label }: Props) {
     return () => {
       cancelAnimationFrame(raf); ro.disconnect(); controls.dispose();
       scene.traverse((o: any) => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
-      renderer.dispose(); el.removeChild(renderer.domElement);
+      Object.values(mats).forEach((m) => m.dispose()); laneMat.dispose();
+      renderer.forceContextLoss(); renderer.dispose(); el.removeChild(renderer.domElement);
     };
   }, [data, conflicts]);
 

@@ -60,11 +60,15 @@ def load(name: str) -> Any:
     def loader() -> Any:
         bucket = _bucket()
         if bucket:
-            client = _s3()
+            from botocore.exceptions import ClientError
+
             try:
-                body = client.get_object(Bucket=bucket, Key=PREFIX + name)["Body"].read()
-            except client.exceptions.NoSuchKey as exc:
-                raise MissingData(name) from exc
+                body = _s3().get_object(Bucket=bucket, Key=PREFIX + name)["Body"].read()
+            except ClientError as exc:
+                # Without s3:ListBucket a missing key surfaces as AccessDenied rather than NoSuchKey.
+                if exc.response.get("Error", {}).get("Code") in ("NoSuchKey", "AccessDenied"):
+                    raise MissingData(name) from exc
+                raise
             return json.loads(body)
         path = curated_dir() / name
         if not path.is_file():

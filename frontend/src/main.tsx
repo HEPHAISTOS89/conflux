@@ -18,9 +18,18 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 
 const wrap = (el: React.ReactElement) => <Suspense fallback={<div className="page-loading" aria-busy="true" />}>{el}</Suspense>;
 
+// Render crashes and stale lazy chunks (404 after a deploy) land here; a reload fetches the current build.
+const RouteError = () => (
+  <div className="page" role="alert">
+    <div className="error-box">This page failed to load, possibly because the site was updated while it was open.</div>
+    <p><button className="btn" onClick={() => location.reload()}>Reload</button></p>
+  </div>
+);
+
 const router = createBrowserRouter([
   {
     element: <Shell />,
+    errorElement: <RouteError />,
     children: [
       { path: '/', element: <Atlas /> },
       { path: '/screening', element: wrap(<Screening />) },

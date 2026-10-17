@@ -11,6 +11,7 @@ from aws_cdk import (
     aws_cloudfront as cf,
     aws_cloudfront_origins as origins,
     aws_cloudwatch as cw,
+    aws_cloudwatch_actions as cw_actions,
     aws_ec2 as ec2,
     aws_events as events,
     aws_events_targets as targets,
@@ -43,7 +44,7 @@ class RoadScopeStack(Stack):
             versioned=True,
             removal_policy=RemovalPolicy.RETAIN,
             lifecycle_rules=[s3.LifecycleRule(
-                id="raw-noncurrent-30d", prefix="raw/",
+                id="noncurrent-30d",
                 noncurrent_version_expiration=Duration.days(30),
             )],
         )
@@ -136,7 +137,7 @@ class RoadScopeStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_13,
             architecture=lambda_.Architecture.ARM_64,
             memory_size=1024,
-            timeout=Duration.minutes(5),
+            timeout=Duration.minutes(15),
             code=lambda_.Code.from_asset(str(BUILD / "ingest.zip")),
             handler="roadscope_pipeline.lambda_ingest.handler",
             layers=[lambda_.LayerVersion.from_layer_version_arn(self, "PandasLayer", PANDAS_LAYER)],
@@ -184,6 +185,15 @@ class RoadScopeStack(Stack):
             block_devices=[ec2.BlockDevice(device_name="/dev/xvda", volume=ec2.BlockDeviceVolume.ebs(
                 12, volume_type=ec2.EbsDeviceVolumeType.GP3, encrypted=True, delete_on_termination=True))],
         )
+        # Backstop for a worker that never reaches its own shutdown: stop it after an idle hour.
+        cw.Alarm(
+            self, "WorkerIdle",
+            metric=cw.Metric(namespace="AWS/EC2", metric_name="CPUUtilization",
+                             dimensions_map={"InstanceId": worker.instance_id}, statistic="Maximum",
+                             period=Duration.minutes(15)),
+            threshold=5, comparison_operator=cw.ComparisonOperator.LESS_THAN_THRESHOLD,
+            evaluation_periods=4, treat_missing_data=cw.TreatMissingData.NOT_BREACHING,
+        ).add_alarm_action(cw_actions.Ec2Action(cw_actions.Ec2InstanceAction.STOP))
         sched_role = iam.Role(self, "SchedulerRole",
                               assumed_by=iam.ServicePrincipal("scheduler.amazonaws.com",
                                   conditions={"StringEquals": {"aws:SourceAccount": self.account}}))

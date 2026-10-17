@@ -50,7 +50,7 @@ export default function IntersectionPage() {
         ))}
       </nav>
 
-      {ix.error && <div className="error-box">{ix.error}</div>}
+      {(ix.error || cf.error) && <div className="error-box">{ix.error ?? cf.error}</div>}
       {!ready ? <div className="skeleton" style={{ height: 520 }} /> : (
         <ClockCtx.Provider value={clock}>
           <section className="ix-stage">

@@ -286,7 +286,8 @@ def lane_change_series(tracks, horizon_s: float = 3.0, reach_m: float = 60.0):
                 if along[0] > 0:  # b ahead of a -> a is follower
                     ttc, drac = ttc_drac(gap, va, vb, MIN_GAP, MIN_SPEED)
                     fol, lea, ok = a["id"], b["id"], _consistent(gap, va, vb)
-                else:
+                else:  # b follows: gap must subtract the leader's (a's) length
+                    gap, vb, va, _ = _pair_series(b, a, common)
                     ttc, drac = ttc_drac(gap, vb, va, MIN_GAP, MIN_SPEED)
                     fol, lea, ok = b["id"], a["id"], _consistent(gap, vb, va)
                 series.append(("lane_change", fol, lea, common, ttc, drac, ok, False))
