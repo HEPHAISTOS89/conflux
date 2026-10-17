@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApi } from '../lib/api';
 import { nf } from '../lib/format';
+import { useReveal } from '../lib/motion';
+import Term from '../components/Term';
 import type { Manifest, SegmentProps } from '../lib/types';
 import '../styles/brief.css';
 
@@ -11,72 +14,97 @@ interface VruSum { total: number; years: number[]; by_severity: Record<string, n
 /** Diagnostic prompts derived from segment attributes; they point to what to examine, not to a CMF value. */
 function prompts(r: Row): string[] {
   const out: string[] = [];
-  if (r.speed_limit && r.speed_all && r.speed_all < r.speed_limit - 15) out.push('Operating speed far below the limit: check signal spacing, access density and queue spillback.');
-  if (r.speed_limit && r.speed_all && r.speed_all > r.speed_limit + 3) out.push('Operating speed above the posted limit: review speed management and sight distance.');
-  if ((r.lanes ?? 0) >= 6 && (r.fc_group ?? '').includes('arterial')) out.push('Multilane arterial: examine access management and pedestrian crossing exposure.');
-  if ((r.truck_pct ?? 0) >= 12) out.push('High heavy-vehicle share: review lane widths, shoulders and turning radii.');
-  if ((r.crit_ratio ?? 0) > 1) out.push('Observed rate exceeds the critical rate at 95% confidence.');
-  return out.length ? out : ['No attribute flag; pull CRIS crash-level records (all crash types) for collision-type diagnosis.'];
+  if (r.speed_limit && r.speed_all && r.speed_all < r.speed_limit - 15) out.push('Speed well below the limit: signal spacing, access density, queue spillback');
+  if (r.speed_limit && r.speed_all && r.speed_all > r.speed_limit + 3) out.push('Speed above the limit: speed management, sight distance');
+  if ((r.lanes ?? 0) >= 6 && (r.fc_group ?? '').includes('arterial')) out.push('Multilane arterial: access management, crossing exposure');
+  if ((r.truck_pct ?? 0) >= 12) out.push('Trucks 12% or more: lane widths, shoulders, turning radii');
+  if ((r.crit_ratio ?? 0) > 1) out.push('Rate above the critical rate at 95% confidence');
+  return out.length ? out : ['No attribute flag: pull CRIS crash-level records for collision types'];
+}
+
+function useCopyLink() {
+  const [state, setState] = useState<'idle' | 'ok' | 'fail'>('idle');
+  useEffect(() => { if (state === 'idle') return; const t = setTimeout(() => setState('idle'), 1600); return () => clearTimeout(t); }, [state]);
+  const copy = () => {
+    const url = window.location.href;
+    // execCommand fallback covers browsers that deny the async clipboard to an unfocused document
+    const legacy = () => {
+      const t = Object.assign(document.createElement('textarea'), { value: url });
+      t.style.cssText = 'position:fixed;opacity:0';
+      document.body.append(t); t.select();
+      const ok = document.execCommand('copy'); t.remove();
+      setState(ok ? 'ok' : 'fail');
+    };
+    if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => setState('ok'), legacy); else legacy();
+  };
+  return [state === 'ok' ? 'Link copied' : state === 'fail' ? 'Copy blocked' : 'Copy link', copy] as const;
 }
 
 export default function Brief() {
+  const [linkLabel, copyLink] = useCopyLink();
   const scr = useApi<Screening>('/screening?method=eb_excess&limit=10');
   const vru = useApi<VruSum>('/vru/summary');
   const meta = useApi<Manifest>('/meta');
   const date = meta.data?.generated_at?.slice(0, 10);
   const ka = vru.data ? (vru.data.by_severity.K ?? 0) + (vru.data.by_severity.A ?? 0) : null;
   const ftyCount = vru.data?.by_pbcat?.['Pedestrian Failed To Yield'];
+  const reveal = useReveal<HTMLDivElement>();
 
   return (
-    <div className="page brief">
-      <div className="brief-actions no-print">
-        <Link to="/screening" className="btn ghost">Back to the screening</Link>
-        <button className="btn" onClick={() => window.print()}>Print or save as PDF</button>
-      </div>
+    <div className="page brief" ref={reveal}>
       {[scr, vru, meta].some((r) => r.error) && <div className="error-box">Some data could not be loaded: {[scr, vru, meta].map((r) => r.error).filter(Boolean).join(' · ')}</div>}
       <article className="sheet-page" aria-labelledby="brief-h">
-        <header className="sheet-head">
+        <header className="sheet-head" data-r="1">
           <div>
-            <h1 id="brief-h">Lubbock County state system: sites for detailed pedestrian and cyclist safety diagnosis</h1>
-            <p className="muted">On-system ped/bike crashes, TxDOT CRIS 2021–2023, one-mile segments. Data build {date ?? '…'}.</p>
+            <h1 id="brief-h">Sites for ped/bike safety diagnosis</h1>
+            <p>Lubbock County state system · TxDOT CRIS 2021–2023 · one-mile segments · <span className="nowrap">build {date ?? '…'}</span></p>
           </div>
-          <dl className="sheet-tb num">
-            <div><dt>District</dt><dd>Lubbock (05)</dd></div>
-            <div><dt>County</dt><dd>152 Lubbock</dd></div>
-            <div><dt>Method</dt><dd>HSM Part B, EB</dd></div>
-            <div><dt>Outcome</dt><dd>Ped/bike 2021–23</dd></div>
-            <div><dt>Sheet</dt><dd>1 of 1</dd></div>
-          </dl>
+          <div className="sheet-side">
+            <div className="brief-actions no-print">
+              <Link to="/screening" className="btn ghost">Screening</Link>
+              <button type="button" className="btn ghost" onClick={copyLink} aria-live="polite">{linkLabel}</button>
+              <button type="button" className="btn" onClick={() => window.print()}>Print / PDF</button>
+            </div>
+            <dl className="sheet-tb num">
+              <div><dt>District</dt><dd>Lubbock (05)</dd></div>
+              <div><dt>County</dt><dd>152 Lubbock</dd></div>
+              <div><dt>Method</dt><dd>HSM Part B, EB</dd></div>
+            </dl>
+          </div>
         </header>
 
-        <section>
-          <h2>Ranked by excess expected average ped/bike crash frequency (crashes / yr, 2021–2023)</h2>
+        <section data-r="2">
+          <h2>Ranked by excess expected ped/bike crashes per year</h2>
+          <div className="sheet-table">
           <table className="data">
-            <thead><tr><th className="r">Rank</th><th>Route · DFO</th><th>Facility</th><th className="r">AADT</th><th className="r">Obs./yr</th><th className="r">SPF/yr</th><th className="r">EB/yr</th><th className="r">Excess</th><th className="r">R/Rc</th></tr></thead>
+            <thead><tr><th className="r">Rank</th><th>Route · DFO</th><th className="opt">Facility</th><th className="r opt"><Term k="AADT" /></th><th className="r">Obs./yr</th><th className="r opt"><Term k="SPF">SPF/yr</Term></th><th className="r opt"><Term k="EB">EB/yr</Term></th><th className="r"><Term k="EB excess">Excess</Term></th><th className="r"><Term k="Critical ratio">R/Rc</Term></th></tr></thead>
             <tbody>
+              {scr.loading && Array.from({ length: 10 }, (_, i) => <tr key={i} aria-hidden="true"><td colSpan={9}><div className="skeleton" style={{ height: 18 }} /></td></tr>)}
+              {scr.data && !scr.data.items.length && <tr><td colSpan={9} className="muted">No ranked segments.</td></tr>}
               {(scr.data?.items ?? []).map((r, i) => (
-                <tr key={r.seg_id}>
+                <tr key={r.seg_id} style={{ '--i': i } as React.CSSProperties}>
                   <td className="r num">{i + 1}</td>
                   <td><b>{r.name}</b> <span className="num muted">{nf(r.dfo_from, 2)}–{nf(r.dfo_to, 2)}</span></td>
-                  <td>{r.site_type ?? r.fc_group} · {nf(r.lanes)} ln · {nf(r.speed_limit)} mph</td>
-                  <td className="r num">{nf(r.aadt)}</td>
+                  <td className="opt">{r.site_type ?? r.fc_group} · {nf(r.lanes)} ln · {nf(r.speed_limit)} mph</td>
+                  <td className="r num opt">{nf(r.aadt)}</td>
                   <td className="r num">{nf(r.crashes_per_yr, 2)}</td>
-                  <td className="r num">{nf(r.spf_pred, 2)}</td>
-                  <td className="r num">{nf(r.eb_expected, 2)}</td>
+                  <td className="r num opt">{nf(r.spf_pred, 2)}</td>
+                  <td className="r num opt">{nf(r.eb_expected, 2)}</td>
                   <td className="r num"><b>{nf(r.eb_excess, 2)}</b></td>
                   <td className="r num">{nf(r.crit_ratio, 2)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </section>
 
-        <section className="sheet-two">
+        <section className="sheet-two" data-r="3">
           <div>
             <h2>What to examine first</h2>
             <ol className="sheet-diag">
-              {(scr.data?.items ?? []).slice(0, 5).map((r) => (
-                <li key={r.seg_id}><b>{r.name}, DFO {nf(r.dfo_from, 1)}</b><ul>{prompts(r).map((t) => <li key={t}>{t}</li>)}</ul></li>
+              {(scr.data?.items ?? []).slice(0, 5).map((r, i) => (
+                <li key={r.seg_id} style={{ '--i': i } as React.CSSProperties}><b>{r.name}, DFO {nf(r.dfo_from, 1)}</b><ul>{prompts(r).map((t) => <li key={t}>{t}</li>)}</ul></li>
               ))}
             </ol>
           </div>
@@ -96,8 +124,8 @@ export default function Brief() {
           </div>
         </section>
 
-        <footer className="sheet-foot muted">
-          Sources: TxDOT Roadway Inventory 2024, AADT, Statewide Speed 2024, SATP segments, CRIS. Informational use only; not an official TxDOT product. Flags sites for investigation, not cause.
+        <footer className="sheet-foot" data-r="4">
+          Sources: TxDOT Roadway Inventory 2024, AADT, Statewide Speed 2024, SATP segments, CRIS. Flags sites for investigation, not cause; not an official TxDOT product.
         </footer>
       </article>
     </div>

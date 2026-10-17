@@ -9,32 +9,37 @@ maplibregl.setWorkerUrl(workerUrl);
 
 export const LUBBOCK: [number, number] = [-101.855, 33.578];
 
-let styleCache: Promise<StyleSpecification> | null = null;
+const styleCache: Record<string, Promise<StyleSpecification> | undefined> = {};
 const KEEP = /^(background|water|park|landuse_residential|building|highway_|road_|tunnel_motorway|railway$|boundary_|label_(city|town|village)|highway-name-major)/;
+const PAINT = {
+  dark: { bg: '#121312', water: '#1b2226', park: '#161a16', res: '#151615', bld: '#1a1b1a', road: '#2c2d2b', major: '#3a3b39', label: '#8b8d88' },
+  light: { bg: '#ecece8', water: '#d3dde2', park: '#e2e6dd', res: '#e8e8e3', bld: '#e0e0da', road: '#ffffff', major: '#ffffff', label: '#5f615b' },
+};
 
 function baseStyle(): Promise<StyleSpecification> {
-  styleCache ??= fetch('https://tiles.openfreemap.org/styles/positron')
+  const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+  const c = PAINT[theme];
+  styleCache[theme] ??= fetch('https://tiles.openfreemap.org/styles/positron')
     .then((r) => { if (!r.ok) throw new Error(`basemap ${r.status}`); return r.json(); })
     .then((s: StyleSpecification) => {
       const layers = s.layers.filter((l) => KEEP.test(l.id)).map((l) => {
         const L = structuredClone(l) as any;
         L.paint ??= {};
-        // Charcoal restyle of the OpenFreeMap positron layers
-        if (l.id === 'background') L.paint['background-color'] = '#121312';
-        if (l.id === 'water') L.paint['fill-color'] = '#1b2226';
-        if (l.id === 'park') L.paint['fill-color'] = '#161a16';
-        if (l.id === 'landuse_residential') L.paint['fill-color'] = '#151615';
-        if (l.id === 'building') { L.paint['fill-color'] = '#1a1b1a'; L.paint['fill-outline-color'] = '#1a1b1a'; }
-        if (l.type === 'line' && (l.id.startsWith('highway') || l.id.startsWith('road_') || l.id.startsWith('tunnel_'))) L.paint['line-color'] = l.id.includes('casing') ? '#2c2d2b' : /motorway|major|trunk|primary/.test(l.id) ? '#3a3b39' : '#2c2d2b';
-        if (l.type === 'line' && l.id.startsWith('railway')) L.paint['line-color'] = '#2c2d2b';
-        if (l.type === 'line' && l.id.startsWith('boundary_')) L.paint['line-color'] = '#3a3b39';
-        if (l.type === 'symbol') { L.paint['text-color'] = '#8b8d88'; L.paint['text-halo-color'] = '#121312'; }
+        // Theme restyle of the OpenFreeMap positron layers
+        if (l.id === 'background') L.paint['background-color'] = c.bg;
+        if (l.id === 'water') L.paint['fill-color'] = c.water;
+        if (l.id === 'park') L.paint['fill-color'] = c.park;
+        if (l.id === 'landuse_residential') L.paint['fill-color'] = c.res;
+        if (l.id === 'building') { L.paint['fill-color'] = c.bld; L.paint['fill-outline-color'] = c.bld; }
+        if (l.type === 'line' && (l.id.startsWith('highway') || l.id.startsWith('road_') || l.id.startsWith('tunnel_'))) L.paint['line-color'] = l.id.includes('casing') ? (theme === 'light' ? '#d3d3cd' : c.road) : /motorway|major|trunk|primary/.test(l.id) ? c.major : c.road;
+        if (l.type === 'line' && (l.id.startsWith('railway') || l.id.startsWith('boundary_'))) L.paint['line-color'] = theme === 'light' ? '#c9c9c3' : c.major;
+        if (l.type === 'symbol') { L.paint['text-color'] = c.label; L.paint['text-halo-color'] = c.bg; }
         return L as LayerSpecification;
       });
       return { ...s, layers };
     })
-    .catch((e) => { styleCache = null; throw e; });
-  return styleCache;
+    .catch((e) => { styleCache[theme] = undefined; throw e; });
+  return styleCache[theme]!;
 }
 
 export interface MapLayer {
@@ -62,8 +67,8 @@ export default function MapView({ sources, center = LUBBOCK, zoom = 10.3, bounds
   const ready = useRef(false);
   const [failed, setFailed] = useState(false);
   const cb = useRef({ onClick, onHover });
-  const latest = useRef({ sources, bounds });
-  latest.current = { sources, bounds };
+  const latest = useRef({ sources, bounds, highlight });
+  latest.current = { sources, bounds, highlight };
   cb.current = { onClick, onHover };
 
   useEffect(() => {
@@ -76,6 +81,8 @@ export default function MapView({ sources, center = LUBBOCK, zoom = 10.3, bounds
       m.on('load', () => {
         ready.current = true;
         sync(m, latest.current.sources);
+        const h = latest.current.highlight;
+        if (h && m.getLayer(`${h.source}-hl`)) m.setFilter(`${h.source}-hl`, ['==', ['to-string', ['get', h.key]], h.value ?? '__none__']);
         if (latest.current.bounds) m.fitBounds(latest.current.bounds, { padding: 32, duration: 0 });
         for (const id of interactiveLayers) {
           m.on('click', id, (e: MapLayerMouseEvent) => e.features?.[0] && cb.current.onClick?.(id, e.features[0]));

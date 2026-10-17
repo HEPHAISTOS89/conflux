@@ -1,25 +1,72 @@
-.ask-form { padding: var(--s4); display: grid; gap: var(--s2); max-width: 860px; }
-.ask-label { font-weight: 500; font-size: 14px; }
-.ask-form textarea { width: 100%; resize: vertical; min-height: 84px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit; font-size: 15px; }
-.ask-form textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ask { gap: clamp(40px, 5vw, 72px); max-width: 1040px; }
+.ask-head { gap: var(--s4); }
+.ask-head h1 { font-size: clamp(2.75rem, 1rem + 5.4vw, 6.5rem); letter-spacing: -0.045em; line-height: 0.95; }
+.ask-head p { font-size: 18px; color: var(--ink-2); max-width: 52ch; }
+
+/* The input is the page: a large field on one tone step, the action inside it. */
+.ask-form { display: grid; gap: var(--s3); background: var(--sheet); border-radius: 16px; padding: clamp(20px, 2.6vw, 32px); transition: background-color 200ms var(--ease-out); }
+.ask-form:focus-within { background: color-mix(in srgb, var(--ink) 4%, var(--sheet)); }
+.ask-form textarea {
+  width: 100%; resize: none; min-height: 3.6em; padding: 0; border: 0; background: transparent; color: var(--ink);
+  font: 500 clamp(22px, 1rem + 1.2vw, 32px)/1.3 var(--f-ui); letter-spacing: -0.02em; caret-color: var(--accent); field-sizing: content; max-height: 12em;
+}
+.ask-form textarea::placeholder { color: var(--ink-3); }
+.ask-form textarea:focus-visible { outline: none; }
+.ask-form:has(textarea:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
 .ask-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); flex-wrap: wrap; }
-.ask-hint { font-size: 13px; }
+.ask-hint { font-size: 14px; color: var(--ink-3); }
+.ask-hint kbd { font: 500 13px var(--f-ui); padding: 1px 6px; border-radius: 4px; background: var(--raise); color: var(--ink-2); }
+.ask-go { min-height: 48px; padding: 0 20px; font-size: 17px; border-radius: 10px; gap: 10px; }
+.ask-form[data-busy] .ask-go { animation: ask-breathe 1.2s ease-in-out infinite alternate; }
+@keyframes ask-breathe { from { opacity: 1; } to { opacity: 0.6; } }
 
-.ask-sugg { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: var(--s2); max-width: 1100px; }
-.ask-sq { width: 100%; text-align: left; padding: 10px 12px; border: 0; border-radius: 6px; background: var(--sheet); color: var(--ink-2); font-size: 14px; line-height: 1.4; transition: background-color 140ms var(--ease-out), color 140ms; }
-.ask-sq:hover:not(:disabled) { background: var(--raise); color: var(--ink); }
-.ask-sq:disabled { opacity: 0.5; cursor: not-allowed; }
+.ask-try { gap: var(--s3); }
+.ask-try h2 { font-size: 18px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink-3); }
+.ask-sugg { list-style: none; margin: 0; padding: 0; display: grid; }
+.ask-sq {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s4); text-align: left;
+  padding: 12px 14px; margin: 0 -14px; width: calc(100% + 28px); border: 0; border-radius: 10px; background: transparent;
+  color: var(--ink-2); font-size: 18px; line-height: 1.4; letter-spacing: -0.01em;
+}
+.ask-sq .icon { flex: none; opacity: 0; transform: translateX(-6px); transition: opacity 180ms, transform 240ms var(--ease-out); color: var(--accent); }
+.ask-sq:hover:not(:disabled), .ask-sq:focus-visible { background: var(--sheet); color: var(--ink); }
+.ask-sq:hover:not(:disabled) .icon, .ask-sq:focus-visible .icon { opacity: 1; transform: none; }
+.ask-sq:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.ask-turns { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s4); max-width: 860px; }
-.ask-turn { padding: var(--s4); display: grid; gap: var(--s3); }
-.ask-q { font-weight: 500; font-family: var(--f-head); font-size: 16px; margin: 0; }
-.ask-skel { height: 72px; }
-.ask-fallback { margin: 0; padding: var(--s2) var(--s3); background: var(--raise); color: var(--ink-2); border-radius: 6px; font-size: 14px; }
-.ask-answer p { margin: 0 0 var(--s2); white-space: pre-line; max-width: 72ch; }
-.ask-cites { display: flex; flex-wrap: wrap; gap: 6px; }
-.ask-tools summary { cursor: pointer; font-size: 14px; color: var(--ink-2); }
-.ask-tools ol { margin: var(--s2) 0 0; padding-left: 1.2em; display: grid; gap: var(--s2); font-size: 13.5px; }
-.ask-tools code, .ask-tools pre { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
-.ask-tools pre { margin: 4px 0 0; padding: 8px 10px; background: var(--paper-2); color: var(--ink-2); border-radius: 4px; overflow-x: auto; font-size: 13px; white-space: pre-wrap; }
+.ask-turns { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s7); }
+.ask-turn { display: grid; gap: var(--s4); animation: ask-in 560ms var(--ease-out) both; }
+@keyframes ask-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.ask-q { font-weight: 500; font-size: clamp(20px, 1rem + 0.6vw, 24px); letter-spacing: -0.02em; line-height: 1.3; }
+.ask-wait { display: grid; gap: 10px; }
+.ask-wait i { display: block; height: 14px; border-radius: 4px; }
+.ask-wait i:nth-child(2) { width: 88%; }
+.ask-wait i:nth-child(3) { width: 62%; }
+.ask-fallback { padding: 10px 14px; background: var(--sheet); color: var(--ink-2); border-radius: 8px; font-size: 15px; justify-self: start; }
+.ask-answer { display: grid; gap: var(--s3); }
+.ask-answer p { font-size: 17px; line-height: 1.6; white-space: pre-line; max-width: 68ch; color: var(--ink); }
+.ask-meta { font-size: 15px; color: var(--ink-3); }
+.ask-tools summary { cursor: pointer; font-size: 15px; color: var(--ink-2); width: fit-content; padding: 4px 0; transition: color 140ms; }
+.ask-tools summary:hover { color: var(--ink); }
+.ask-tools ol { margin: var(--s2) 0 0; padding-left: 1.2em; display: grid; gap: var(--s3); font-size: 14px; }
+.ask-tools pre { margin: 6px 0 0; padding: 10px 12px; background: var(--paper-2); color: var(--ink-2); border-radius: 6px; overflow-x: auto; font-size: 13px; white-space: pre-wrap; }
 .ask-bad { color: var(--stop); font-weight: 500; }
-.ask-model { font-size: 13px; margin: 0; }
+
+@media (max-width: 600px) {
+  .ask-sq { font-size: 17px; }
+  .ask-hint { display: none; }
+  .ask-actions { justify-content: flex-end; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ask-turn, .ask-form[data-busy] .ask-go { animation: none; }
+}
+
+/* Suggestions arrive one after another under the field. */
+.ask[data-armed] .ask-sugg li { opacity: 0; transform: translateY(12px); transition: opacity 520ms var(--ease-out), transform 620ms var(--ease-out); }
+.ask[data-armed][data-in] .ask-sugg li { opacity: 1; transform: none; }
+.ask[data-in] .ask-sugg li:nth-child(1) { transition-delay: 360ms; }
+.ask[data-in] .ask-sugg li:nth-child(2) { transition-delay: 420ms; }
+.ask[data-in] .ask-sugg li:nth-child(3) { transition-delay: 480ms; }
+.ask[data-in] .ask-sugg li:nth-child(4) { transition-delay: 540ms; }
+.ask[data-in] .ask-sugg li:nth-child(5) { transition-delay: 600ms; }
+.ask[data-in] .ask-sugg li:nth-child(6) { transition-delay: 660ms; }
+@media (prefers-reduced-motion: reduce) { .ask[data-armed] .ask-sugg li { opacity: 1; transform: none; } }

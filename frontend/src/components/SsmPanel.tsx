@@ -1,5 +1,7 @@
+import { useEffect, useRef, useState } from 'react';
 import { useApi } from '../lib/api';
 import { CHART } from '../lib/format';
+import { useReveal } from '../lib/motion';
 
 interface Rule { rule?: string; citation?: string; note?: string; threshold_mps2?: number }
 interface Ssm {
@@ -11,24 +13,27 @@ interface Ssm {
 }
 
 const FT = 3.281;
+/** Typeset comparison operators from the API's plain-text rules. */
+const ops = (t?: string) => t?.replace(/<=/g, '≤').replace(/>=/g, '≥');
 
 export default function SsmPanel({ id }: { id: string }) {
   const r = useApi<Ssm>(`/intersections/${id}/ssm`);
   const s = r.data;
+  const ref = useReveal<HTMLElement>();
   return (
-    <section className="section" aria-labelledby="ssm-h">
-      <div className="section-head">
+    <section ref={ref} className="section ssm" aria-labelledby="ssm-h">
+      <div className="section-head" data-r="1">
         <h2 id="ssm-h">Detection rules and threshold sensitivity</h2>
         <p>{s ? `${s.counts.total} events · ${s.counts.drac_flag} with DRAC ≥ 11.2 ft/s² · ${s.counts.overlap} simultaneous-occupancy flags` : ''}</p>
       </div>
       {r.error && <div className="error-box">{r.error}</div>}
       {s && (
-        <div className="ssm-grid">
+        <div className="ssm-grid" data-r="2">
           <div className="panel ssm-rules">
             <dl>
-              <dt>Detection</dt><dd>{s.rules.detection.rule}<cite>{s.rules.detection.citation}</cite></dd>
-              <dt>TTC severity</dt><dd>{s.rules.severity_ttc.rule}<cite>{s.rules.severity_ttc.note}</cite></dd>
-              <dt>PET severity</dt><dd>{s.rules.severity_pet.rule}<cite>{s.rules.severity_pet.note}</cite></dd>
+              <dt>Detection</dt><dd>{ops(s.rules.detection.rule)}<cite>{ops(s.rules.detection.citation)}</cite></dd>
+              <dt>TTC severity</dt><dd>{ops(s.rules.severity_ttc.rule)}<cite>{ops(s.rules.severity_ttc.note)}</cite></dd>
+              <dt>PET severity</dt><dd>{ops(s.rules.severity_pet.rule)}<cite>{ops(s.rules.severity_pet.note)}</cite></dd>
               <dt>DRAC flag</dt><dd>DRAC ≥ 11.2 ft/s² (3.4 m/s²), reported with TTC events, not used for detection.<cite>{s.rules.drac.citation}</cite></dd>
             </dl>
             <h3>Counts at alternative thresholds</h3>
@@ -57,13 +62,23 @@ export default function SsmPanel({ id }: { id: string }) {
 }
 
 function Scatter({ pts, note }: { pts: Ssm['scatter']; note?: string }) {
-  const W = 560, H = 360, P = { l: 54, r: 14, t: 14, b: 42 };
+  // drawn at the rendered width so tick and label text stays at its CSS size on every screen
+  const box = useRef<HTMLElement>(null);
+  const [W, setW] = useState(560);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(280, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const H = Math.round(Math.min(380, Math.max(280, W * 0.62))), P = { l: 54, r: 14, t: 14, b: 42 };
   const yMax = 40; // ft/s²; larger values are NGSIM position errors and are clipped to the top edge
   const X = (t: number) => P.l + (t / 3) * (W - P.l - P.r);
   const Y = (d: number) => H - P.b - (Math.min(d, yMax) / yMax) * (H - P.t - P.b);
   const col: Record<string, string> = { critical: CHART.critical, serious: CHART.serious, moderate: CHART.moderate };
   return (
-    <figure className="ssm-fig">
+    <figure className="ssm-fig" ref={box}>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Minimum TTC against maximum DRAC for each rear-end and lane-change event">
         {[0, 0.5, 1, 1.5, 2, 2.5, 3].map((t) => <g key={t}><line x1={X(t)} x2={X(t)} y1={P.t} y2={H - P.b} className="gl" /><text x={X(t)} y={H - P.b + 16} className="tick" textAnchor="middle">{t}</text></g>)}
         {[0, 10, 20, 30, 40].map((d) => <g key={d}><line x1={P.l} x2={W - P.r} y1={Y(d)} y2={Y(d)} className="gl" /><text x={P.l - 8} y={Y(d) + 4} className="tick" textAnchor="end">{d}{d === 40 ? '+' : ''}</text></g>)}
@@ -82,7 +97,7 @@ function Scatter({ pts, note }: { pts: Ssm['scatter']; note?: string }) {
         <text x={(W + P.l) / 2} y={H - 6} className="axis" textAnchor="middle">minimum TTC (s)</text>
         <text transform={`translate(14 ${(H - P.b) / 2}) rotate(-90)`} className="axis" textAnchor="middle">maximum DRAC (ft/s²)</text>
       </svg>
-      <figcaption className="muted">Filled: detected, by TTC severity · hollow: TTC 1.5–3.0 s, below detection. {note}</figcaption>
+      <figcaption className="muted">Filled: detected, by TTC severity · hollow: TTC 1.5–3.0 s, below detection. {ops(note)}</figcaption>
     </figure>
   );
 }

@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApi } from '../lib/api';
+import { useReveal } from '../lib/motion';
 import { nf } from '../lib/format';
 import type { Manifest } from '../lib/types';
 import '../styles/methods.css';
@@ -61,28 +63,28 @@ export default function Methods() {
   const sl = useApi<SsmData>('/intersections/lankershim-main/ssm');
   const repairs = [rp, rl];
   const ssm = [{ name: SITES[0][1], d: sp.data, err: sp.error }, { name: SITES[1][1], d: sl.data, err: sl.error }];
+  const headRef = useReveal<HTMLElement>();
+  const active = useSpy();
 
   return (
     <div className="page methods">
-      <header className="page-head">
-        <h1>Methods</h1>
-        <p>
-          How every number is produced, from source provenance to screening, SPFs, surrogate measures and track repair, with limitations where they bind.
-        </p>
+      <header className="page-head m-head" ref={headRef}>
+        <h1 data-r="1">Methods</h1>
+        <p data-r="2">How every number is produced, and where each method stops.</p>
       </header>
 
       <div className="methods-layout">
         <nav className="methods-toc" aria-label="On this page">
-          <ol>{TOC.map(([id, t]) => <li key={id}><a href={`#${id}`}>{t}</a></li>)}</ol>
+          <ol>{TOC.map(([id, t]) => <li key={id}><a href={`#${id}`} aria-current={active === id ? 'location' : undefined}>{t}</a></li>)}</ol>
         </nav>
 
         <article className="methods-body">
-          <section id="m-data" className="section" aria-labelledby="m-data-h">
-            <div className="section-head"><h2 id="m-data-h">Data sources</h2>{meta.data && <p>Manifest generated <span className="num">{date(meta.data.generated_at)}</span></p>}</div>
+          <Sec id="m-data">
+            <h2 id="m-data-h">Data sources</h2>
             {meta.error && <div className="error-box">{meta.error}</div>}
             {meta.loading && <div className="skeleton m-skel" />}
             {meta.data && (
-              <div className="m-scroll">
+              <div className="m-scroll" data-ui>
                 <table className="data">
                   <thead><tr><th>Source</th><th>Licence</th><th className="r">Records</th><th>Fetched</th><th>SHA-256</th></tr></thead>
                   <tbody>
@@ -99,15 +101,16 @@ export default function Methods() {
                 </table>
               </div>
             )}
-          </section>
+            {meta.data && <p className="m-small">Manifest generated <span className="num">{date(meta.data.generated_at)}</span>; SHA-256 truncated, full hash on hover.</p>}
+          </Sec>
 
-          <section id="m-screen" className="section" aria-labelledby="m-screen-h">
-            <div className="section-head"><h2 id="m-screen-h">Network screening</h2></div>
-            <p>Lubbock County state-system roadway is split by DFO into <span className="num">443</span> segments of about one mile.
+          <Sec id="m-screen">
+            <h2 id="m-screen-h">Network screening</h2>
+            <p>Lubbock County state-system roadway, split by DFO into <span className="num">443</span> segments of about one mile.
               Outcome: <strong>{spf.data?.outcome ?? 'on-system pedestrian, cyclist and e-scooter crashes (TxDOT CRIS via the Active Transportation Crashes layer), all KABCO severities'}</strong>,
               <span className="num"> {spf.data?.crash_period ?? '2021–2023'}</span> (<i>Y</i> = <span className="num">{spf.data?.crash_years ?? 3}</span> years).
-              Crashes snap (≤ 5 m) to the nearest segment; each segment takes length-weighted AADT and its Roadway Inventory site type
-              (urban/rural × functional class). Vehicle-only crashes are not in the outcome. Three HSM (2010) Part B measures follow.</p>
+              Crashes snap (≤ 5 m) to the nearest segment, which carries length-weighted AADT and a Roadway Inventory site type
+              (urban/rural × functional class). Three HSM (2010) Part B measures follow.</p>
             <h3>Crash rate</h3>
             <Eq label="Crash rate per 100 million vehicle-miles">
               <math display="block">
@@ -124,22 +127,17 @@ export default function Methods() {
             <p><i>R<sub>a</sub></i>: exposure-weighted site-type average; <i>M</i>: exposure (100 MVMT); <i>k</i> = 1.645 (95 %). <i>R</i>/<i>R<sub>c</sub></i> &gt; 1 flags a segment.</p>
             <h3>Empirical Bayes expected crashes</h3>
             <Eq label="Empirical Bayes weight and expected crashes">
-              <math display="block">
-                <mrow><msub><mi>k</mi><mi>seg</mi></msub><mo>=</mo><mfrac><mi>k</mi><mi>L</mi></mfrac>
-                  <mspace width="1.5em" />
-                  <mi>w</mi><mo>=</mo><mfrac><mn>1</mn><mrow><mn>1</mn><mo>+</mo><msub><mi>k</mi><mi>seg</mi></msub><mo>·</mo><msub><mi>μ</mi><mi>Y</mi></msub></mrow></mfrac>
-                  <mspace width="1.5em" />
-                  <mi>E</mi><mo>=</mo><mi>w</mi><mo>·</mo><msub><mi>μ</mi><mi>Y</mi></msub><mo>+</mo><mo>(</mo><mn>1</mn><mo>−</mo><mi>w</mi><mo>)</mo><mo>·</mo><mi>N</mi></mrow>
-              </math>
+              <math><mrow><msub><mi>k</mi><mi>seg</mi></msub><mo>=</mo><mfrac><mi>k</mi><mi>L</mi></mfrac></mrow></math>
+              <math><mrow><mi>w</mi><mo>=</mo><mfrac><mn>1</mn><mrow><mn>1</mn><mo>+</mo><msub><mi>k</mi><mi>seg</mi></msub><mo>·</mo><msub><mi>μ</mi><mi>Y</mi></msub></mrow></mfrac></mrow></math>
+              <math><mrow><mi>E</mi><mo>=</mo><mi>w</mi><mo>·</mo><msub><mi>μ</mi><mi>Y</mi></msub><mo>+</mo><mo>(</mo><mn>1</mn><mo>−</mo><mi>w</mi><mo>)</mo><mo>·</mo><mi>N</mi></mrow></math>
             </Eq>
             <p><i>μ</i><sub>Y</sub>: site-type SPF prediction over the same <i>Y</i> years; <i>k</i>: NB overdispersion per mile,
               <i> k</i><sub>seg</sub> = <i>k</i>/<i>L</i> (HSM Part C). Ranking is by excess expected crashes,
-              (<i>E</i> − <i>μ</i><sub>Y</sub>)/<i>Y</i>, per year (Hauer 1997; Hauer et al. 2002; HSM 2010, Ch. 4).
-              EPDO is not computed (no sourced Texas severity weights), so <code>epdo</code> is null.</p>
-          </section>
+              (<i>E</i> − <i>μ</i><sub>Y</sub>)/<i>Y</i>, per year (Hauer 1997; Hauer et al. 2002; HSM 2010, Ch. 4).</p>
+          </Sec>
 
-          <section id="m-spf" className="section" aria-labelledby="m-spf-h">
-            <div className="section-head"><h2 id="m-spf-h">Safety performance functions</h2></div>
+          <Sec id="m-spf">
+            <h2 id="m-spf-h">Safety performance functions</h2>
             <Eq label="Site-type SPF with length and period offset">
               <math display="block">
                 <mrow><mi>ln</mi><msub><mi>μ</mi><mi>Y</mi></msub><mo>=</mo><msub><mi>β</mi><mn>0</mn></msub><mo>+</mo><msub><mi>β</mi><mn>1</mn></msub><mi>ln</mi><mi>AADT</mi><mo>+</mo><mo>∑</mo><msub><mi>β</mi><mi>j</mi></msub><msub><mi>x</mi><mi>j</mi></msub><mo>+</mo><mi>ln</mi><mi>L</mi><mo>+</mo><mi>ln</mi><mi>Y</mi></mrow>
@@ -155,11 +153,11 @@ export default function Methods() {
             <p className="muted m-small">Coefficients on ln μ; speed in posted mph. With 24–56 crashes per site type, standard errors are wide
               and the urban minor arterial ln AADT term is not distinguishable from zero: screening baselines, not causal models.
               Fallback GOF (0–2 crashes) is not informative.</p>
-          </section>
+          </Sec>
 
-          <section id="m-ssm" className="section" aria-labelledby="m-ssm-h">
-            <div className="section-head"><h2 id="m-ssm-h">Surrogate safety measures</h2></div>
-            <p>10 Hz trajectories, FHWA SSAM conventions and default thresholds (Gettman et al. 2008). A <em>traffic conflict</em> is an
+          <Sec id="m-ssm">
+            <h2 id="m-ssm-h">Surrogate safety measures</h2>
+            <p>10 Hz trajectories with FHWA SSAM conventions and default thresholds (Gettman et al. 2008). A <em>traffic conflict</em> is an
               interaction below threshold, not an observed crash.</p>
             <dl className="m-defs">
               <dt>Time to collision (TTC)</dt>
@@ -184,10 +182,10 @@ export default function Methods() {
               </dd>
             </dl>
             <SsmRules sites={ssm} />
-          </section>
+          </Sec>
 
-          <section id="m-repair" className="section" aria-labelledby="m-repair-h">
-            <div className="section-head"><h2 id="m-repair-h">Trajectory repair</h2></div>
+          <Sec id="m-repair">
+            <h2 id="m-repair-h">Trajectory repair</h2>
             <p>Gaps are cut into complete NGSIM tracks and repairs scored on the held-out points, under two gap protocols and two truths.</p>
             <ol className="m-steps">
               <li><strong>Uniform:</strong> seeded random gaps of 0.5–5.0 s, one or two per track, ≥ 1.0 s from the ends.</li>
@@ -204,10 +202,10 @@ export default function Methods() {
             <RepairNotes notes={repairs.map((r) => r.data?.summary).find((s) => s?.notes)?.notes} />
             <p className="muted m-small">Follows Punzo, Borzacchiello and Ciuffo (2011) and Montanino and Punzo (2015); a generic baseline,
               not a comparison with Luo et al. (2025).</p>
-          </section>
+          </Sec>
 
-          <section id="m-limits" className="section" aria-labelledby="m-limits-h">
-            <div className="section-head"><h2 id="m-limits-h">Limitations</h2></div>
+          <Sec id="m-limits">
+            <h2 id="m-limits-h">Limitations</h2>
             <ul className="m-list">
               <li>The TxDOT segment field <code>SUM_CRASH_</code> is undocumented and behaves as an injury-weighted ped/bike score for 2021–2023
                 (r = <span className="num">{nf(spf.data?.diagnostics?.crash_field?.evidence?.corr_with_matched_crashes ?? 0.945, 3)}</span> with
@@ -221,10 +219,10 @@ export default function Methods() {
               <li>Screening ranks identify sites for investigation; they do not establish cause or countermeasure need.</li>
               <li>TxDOT data are informational, without warranty; crash records are protected under 23 U.S.C. §407.</li>
             </ul>
-          </section>
+          </Sec>
 
-          <section id="m-refs" className="section" aria-labelledby="m-refs-h">
-            <div className="section-head"><h2 id="m-refs-h">References</h2></div>
+          <Sec id="m-refs">
+            <h2 id="m-refs-h">References</h2>
             <ol className="m-refs">
               <li>AASHTO (2010). <i>Highway Safety Manual</i>, 1st ed. American Association of State Highway and Transportation Officials, Washington, DC.</li>
               <li>Hauer, E., Bamfo, J. (1997). Two tools for finding what function links the dependent variable to the explanatory variables. <i>Proceedings of the ICTCT 1997 Workshop</i>, Lund, Sweden.</li>
@@ -241,11 +239,32 @@ export default function Methods() {
               <li>U.S. DOT Federal Highway Administration (2016). Next Generation Simulation (NGSIM) Vehicle Trajectories and Supporting Data. ITS DataHub, CC BY-SA 3.0. <a href="https://doi.org/10.21949/1504477">doi:10.21949/1504477</a></li>
             </ol>
             <p className="m-small"><Link to="/platform">How the data are refreshed</Link></p>
-          </section>
+          </Sec>
         </article>
       </div>
     </div>
   );
+}
+
+/** A section whose direct children rise in sequence as it enters the viewport. */
+function Sec({ id, children }: { id: string; children: React.ReactNode }) {
+  const ref = useReveal<HTMLElement>();
+  return <section id={id} ref={ref} className="section m-sec" aria-labelledby={`${id}-h`}>{children}</section>;
+}
+
+/** Id of the section currently under the upper third of the viewport. */
+function useSpy() {
+  const [active, setActive] = useState(TOC[0][0]);
+  useEffect(() => {
+    const els = TOC.map(([id]) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+    const io = new IntersectionObserver((es) => {
+      const hit = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (hit) setActive(hit.target.id);
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+  return active;
 }
 
 function Eq({ label, children }: { label: string; children: React.ReactNode }) {
@@ -271,9 +290,9 @@ function SpfTable({ s }: { s: SpfData }) {
   if (!st.length) return null;
   const g = s.pooled_gof, sys = s.system_gof;
   return (
-    <div className="m-scroll">
+    <div className="m-scroll" data-ui>
       <table className="data">
-        <caption className="m-small" style={{ textAlign: 'left', captionSide: 'top', paddingBottom: 6 }}>
+        <caption className="m-cap">
           NB2 SPFs by site type, outcome {s.crash_period ?? '2021–2023'} ped/bike crashes; k per mile (k<sub>seg</sub> = k/L).
         </caption>
         <thead>
@@ -343,13 +362,13 @@ function SsmRules({ sites }: { sites: { name: string; d?: SsmData; err?: string 
   return (
     <>
       <h3>Matching rules as run</h3>
-      <div className="m-scroll">
-        <table className="data">
+      <div className="m-scroll" data-ui>
+        <table className="data m-rules">
           <thead><tr><th>Rule</th><th>Definition</th><th>Source / note</th></tr></thead>
           <tbody>{rows.map(([k, v, c]) => <tr key={k}><td>{k}</td><td className="m-small">{v}</td><td className="m-small muted">{c ?? '—'}</td></tr>)}</tbody>
         </table>
       </div>
-      <div className="m-scroll">
+      <div className="m-scroll" data-ui>
         <table className="data">
           <thead><tr><th>Site</th><th className="r">Conflicts</th><th className="r">Rear-end</th><th className="r">Lane change</th><th className="r">Crossing</th><th className="r">of which overlap</th><th className="r">DRAC flag</th></tr></thead>
           <tbody>
@@ -392,7 +411,7 @@ function RepairCard({ name, r, err }: { name: string; r?: RepairSum; err?: strin
     return Math.sqrt(sel.reduce((a, b) => a + (b[m].gap_frames ?? 0) * b[m].rmse_m ** 2, 0) / f);
   };
   return (
-    <div className="panel m-repair">
+    <div className="m-repair">
       <h3>{name}</h3>
       {occ && (
         <p className="muted m-small">
@@ -401,6 +420,7 @@ function RepairCard({ name, r, err }: { name: string; r?: RepairSum; err?: strin
           mean <span className="num">{nf(occ.gap_len_mean_s, 2)}</span> s
         </p>
       )}
+      <div className="m-scroll" data-ui>
       <table className="data">
         <thead>
           <tr><th>Protocol · truth</th><th className="r">Gaps</th><th className="r">Linear</th><th className="r">Kalman RTS</th><th className="r">Path-constr.</th><th className="r">&lt; 2 s lin / KF</th><th className="r">≥ 2 s lin / KF</th></tr>
@@ -428,6 +448,7 @@ function RepairCard({ name, r, err }: { name: string; r?: RepairSum; err?: strin
           }))}
         </tbody>
       </table>
+      </div>
       <p className="muted m-small">Position RMSE in m on gap frames; bold is lowest, * the method selected on validation. Short/long columns pool the by-gap bins (frame-weighted).</p>
     </div>
   );

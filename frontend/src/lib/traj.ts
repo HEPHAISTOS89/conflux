@@ -98,3 +98,46 @@ export function fitCanvas(c: HTMLCanvasElement): CanvasRenderingContext2D {
   ctx.setTransform(d, 0, 0, d, 0, 0);
   return ctx;
 }
+
+/** Conflicts whose window (with a short lead-in and fade-out) contains t. */
+export const activeAt = (conflicts: ConflictT[], t: number) =>
+  conflicts.filter((k) => t >= (k.t0 ?? k.t - 0.6) - 0.4 && t <= (k.t1 ?? k.t + 0.6) + 0.8);
+
+/** Replay start for a conflict: 1.5 s before it opens. */
+export const leadIn = (c: ConflictT) => Math.max(0, (c.t0 ?? c.t) - 1.5);
+
+/**
+ * Shared selection for a page: plan view, 3D, time–space, timeline and tables read and write it.
+ * `selected` keeps insertion order (the first id is the primary road user); `conflict` is set when a
+ * conflict was picked, so links and readouts can name the event.
+ */
+export interface Selection {
+  selected: Set<string>;
+  hovered: string | null;
+  conflict: number | null;
+  select: (ids: (string | number)[] | null, opts?: { seek?: number; add?: boolean; conflict?: number }) => void;
+  hover: (id: string | number | null) => void;
+}
+
+export function useSelectionState(clock: Clock): Selection {
+  const [sel, setSel] = useState<{ ids: Set<string>; conflict: number | null }>({ ids: new Set(), conflict: null });
+  const [hovered, setHovered] = useState<string | null>(null);
+  const setT = clock.setT;
+  const select = useCallback<Selection['select']>((ids, opts = {}) => {
+    setSel((prev) => {
+      const next = new Set(opts.add ? prev.ids : []);
+      for (const raw of ids ?? []) { const id = String(raw); if (opts.add && next.has(id)) next.delete(id); else next.add(id); }
+      return { ids: next, conflict: opts.conflict ?? null };
+    });
+    if (opts.seek != null) setT(opts.seek);
+  }, [setT]);
+  const hover = useCallback((id: string | number | null) => setHovered(id == null ? null : String(id)), []);
+  return { selected: sel.ids, conflict: sel.conflict, hovered, select, hover };
+}
+
+export const SelectionCtx = createContext<Selection | null>(null);
+/** The page selection, or null where a view is used without one (selection features then stay off). */
+export const useSelection = () => useContext(SelectionCtx);
+
+/** Select both road users of a conflict and replay from just before it. */
+export const selectConflict = (s: Selection, c: ConflictT) => s.select([c.a, c.b], { seek: leadIn(c), conflict: c.id });

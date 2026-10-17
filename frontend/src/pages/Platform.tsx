@@ -1,36 +1,39 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useApi } from '../lib/api';
 import { nf } from '../lib/format';
+import { reducedMotion, useReveal } from '../lib/motion';
 import type { PlatformRun, PlatformStatus } from '../lib/types';
 import '../styles/platform.css';
 
-type N = { id: string; x: number; y: number; t: string; s: string };
-const W = 200, H = 100;
+type Lane = 'Ingest' | 'Batch' | 'Serve';
+type N = { id: string; x: number; y: number; t: string; s: string; lane: Lane };
+const W = 212, H = 104;
 const NODES: N[] = [
-  { id: 'sched', x: 20, y: 30, t: 'EventBridge rule', s: 'Weekly ingest schedule' },
-  { id: 'ingest', x: 270, y: 30, t: 'Lambda · ingest', s: 'ArcGIS + FARS pull, curate' },
-  { id: 'cw', x: 780, y: 30, t: 'CloudWatch', s: 'Dashboard, alarms, logs' },
-  { id: 'scheduler', x: 20, y: 200, t: 'EventBridge Scheduler', s: 'Monthly trajectory job' },
-  { id: 'ec2', x: 270, y: 200, t: 'EC2 batch worker', s: 'SSM-run, stops itself' },
-  { id: 's3', x: 525, y: 200, t: 'S3', s: 'raw/ and curated/ prefixes' },
-  { id: 'iam', x: 780, y: 200, t: 'IAM', s: 'One least-privilege role per job' },
-  { id: 'vercel', x: 20, y: 370, t: 'Vercel', s: 'Static frontend, /api proxy' },
-  { id: 'cf', x: 270, y: 370, t: 'API Gateway', s: 'HTTP API, 20 req/s throttle' },
-  { id: 'api', x: 525, y: 370, t: 'Lambda · API', s: 'FastAPI on Mangum' },
-  { id: 'bedrock', x: 780, y: 370, t: 'Bedrock', s: 'Ask: tool-using model' },
+  { id: 'sched', x: 0, y: 34, t: 'EventBridge rule', s: 'Weekly ingest schedule', lane: 'Ingest' },
+  { id: 'ingest', x: 262, y: 34, t: 'Lambda · ingest', s: 'ArcGIS + FARS pull, curate', lane: 'Ingest' },
+  { id: 'cw', x: 786, y: 34, t: 'CloudWatch', s: 'Dashboard, alarms, logs', lane: 'Ingest' },
+  { id: 'scheduler', x: 0, y: 204, t: 'EventBridge Scheduler', s: 'Monthly trajectory job', lane: 'Batch' },
+  { id: 'ec2', x: 262, y: 204, t: 'EC2 batch worker', s: 'SSM-run, stops itself', lane: 'Batch' },
+  { id: 's3', x: 524, y: 204, t: 'S3', s: 'raw/ and curated/ prefixes', lane: 'Batch' },
+  { id: 'iam', x: 786, y: 204, t: 'IAM', s: 'Least-privilege role per job', lane: 'Batch' },
+  { id: 'vercel', x: 0, y: 374, t: 'Vercel', s: 'Static frontend, /api proxy', lane: 'Serve' },
+  { id: 'cf', x: 262, y: 374, t: 'API Gateway', s: 'HTTP API, 20 req/s throttle', lane: 'Serve' },
+  { id: 'api', x: 524, y: 374, t: 'Lambda · API', s: 'FastAPI on Mangum', lane: 'Serve' },
+  { id: 'bedrock', x: 786, y: 374, t: 'Bedrock', s: 'Ask: tool-using model', lane: 'Serve' },
 ];
-const EDGES: { d: string; k?: 'mon' }[] = [
-  { d: 'M220 80 H270' },
-  { d: 'M470 105 H625 V200' },
-  { d: 'M470 55 H780', k: 'mon' },
-  { d: 'M220 250 H270' },
-  { d: 'M470 250 H525' },
-  { d: 'M220 420 H270' },
-  { d: 'M470 420 H525' },
-  { d: 'M625 370 V300' },
-  { d: 'M725 420 H780' },
-  { d: 'M690 370 V340 H880 V130', k: 'mon' },
+const EDGES: { d: string; a: string; b: string; k?: 'mon' }[] = [
+  { d: 'M212 86 H262', a: 'sched', b: 'ingest' },
+  { d: 'M474 112 H630 V204', a: 'ingest', b: 's3' },
+  { d: 'M474 58 H786', a: 'ingest', b: 'cw', k: 'mon' },
+  { d: 'M212 256 H262', a: 'scheduler', b: 'ec2' },
+  { d: 'M474 256 H524', a: 'ec2', b: 's3' },
+  { d: 'M212 426 H262', a: 'vercel', b: 'cf' },
+  { d: 'M474 426 H524', a: 'cf', b: 'api' },
+  { d: 'M630 374 V308', a: 'api', b: 's3' },
+  { d: 'M736 426 H786', a: 'api', b: 'bedrock' },
+  { d: 'M736 398 H761 V112 H786', a: 'api', b: 'cw', k: 'mon' },
 ];
+const LANES: [Lane, number][] = [['Ingest', 22], ['Batch', 192], ['Serve', 362]];
 
 const ago = (iso?: string) => {
   if (!iso) return '—';
@@ -63,41 +66,46 @@ export default function Platform() {
     api: fnLine('api') ?? (local ? 'Serving locally' : null),
     cw: d.metrics ? `${d.metrics.window_days}-day window` : null,
   } : {};
+  const idle = st.loading ? 'Checking…' : local ? 'No local signal' : 'No data';
 
+  // The data-flow pass runs once, when the diagram first comes into view.
   const figRef = useRef<HTMLDivElement>(null);
   const [flow, setFlow] = useState(false);
   useEffect(() => {
     const el = figRef.current;
-    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setFlow(true); io.disconnect(); } }, { threshold: 0.4 });
+    if (!el || reducedMotion()) { setFlow(true); return; }
+    el.dataset.armed = '';
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setFlow(true); io.disconnect(); } }, { threshold: 0.35 });
     io.observe(el);
     return () => io.disconnect();
   }, []);
+  const [hot, setHot] = useState<string | null>(null);
+  const linked = (id: string) => !hot || hot === id || EDGES.some((e) => (e.a === hot && e.b === id) || (e.b === hot && e.a === id));
 
+  const headRef = useReveal<HTMLElement>(), tablesRef = useReveal<HTMLDivElement>(), guardRef = useReveal<HTMLElement>();
   const sources = d?.manifest?.sources ?? [];
+  const showRuns = st.loading || (d?.runs.length ?? 0) > 0;
 
   return (
     <div className="page platform">
-      <header className="page-head">
-        <h1>The AWS system behind the data</h1>
-        <p>
-          Scheduled Lambda ingest into S3, an EC2 trajectory worker, and a FastAPI Lambda behind API Gateway, each on a scoped IAM role.
-        </p>
+      <header className="page-head pf-head" ref={headRef}>
+        <h1 data-r="1">The AWS system behind the data</h1>
+        <p data-r="2">Scheduled ingest into S3, a self-stopping EC2 trajectory worker, and a FastAPI Lambda behind API Gateway, each on its own IAM role.</p>
+        {local && (
+          <p className="pf-local" role="status" data-r="3">
+            Local mode, reading <span className="num">{d!.data_source.replace(/^local:.*\/(data\/curated)$/, 'local:$1')}</span>. CloudWatch metrics and S3 run history exist only on AWS.
+          </p>
+        )}
       </header>
 
       {st.error && <div className="error-box">Platform status unavailable: {st.error}</div>}
-      {local && (
-        <div className="panel pf-local" role="status">
-          <strong>Local mode.</strong> The API is running outside AWS ({d!.data_source.replace(/^local:.*\/(data\/curated)$/, 'local:$1')}),
-          so CloudWatch metrics and S3 run history are not available. Node status below shows what the local data can confirm.
-        </div>
-      )}
       {d?.errors.length ? <div className="error-box">{d.errors.join('; ')}</div> : null}
 
-      <section className="section" aria-labelledby="pf-arch">
-        <div className="section-head"><h2 id="pf-arch">Architecture</h2><p>Solid: data · dashed: metrics and logs</p></div>
-        <div className="panel pf-fig" ref={figRef}>
-          <svg viewBox="0 0 1000 490" role="img" aria-labelledby="pf-svg-t pf-svg-d" className={flow ? 'pf-flow' : ''}>
+      <section className="section pf-arch" aria-labelledby="pf-arch">
+        <h2 id="pf-arch" className="sr-only">Architecture</h2>
+        <div className="pf-fig" ref={figRef} data-flow={flow || undefined}>
+          <div className="pf-svg" data-ui>
+          <svg viewBox="-60 0 1060 500" role="img" aria-labelledby="pf-svg-t pf-svg-d" onMouseLeave={() => setHot(null)}>
             <title id="pf-svg-t">RoadScope AWS architecture</title>
             <desc id="pf-svg-d">
               An EventBridge rule triggers the ingest Lambda, which writes raw and curated objects to S3 and reports to CloudWatch.
@@ -105,64 +113,92 @@ export default function Platform() {
               an API Gateway HTTP API, which invokes the API Lambda; the API reads S3 and calls Bedrock for questions. IAM roles scope each component.
             </desc>
             <defs>
-              <marker id="pf-ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0 0 L8 4 L0 8 z" fill="var(--ink-2)" />
+              <marker id="pf-ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 0.5 L8 4 L0 7.5 z" fill="var(--ink-3)" />
               </marker>
             </defs>
-            <g className="pf-lane-labels">
-              <text x="20" y="20">Ingest</text><text x="20" y="190">Batch</text><text x="20" y="360">Serve</text>
-            </g>
-            {EDGES.map((e, i) => (
-              <g key={i}>
-                <path d={e.d} className={`pf-edge ${e.k === 'mon' ? 'mon' : ''}`} markerEnd="url(#pf-ah)" />
-                {e.k !== 'mon' && <path d={e.d} className="pf-dash" style={{ animationDelay: `${i * 90}ms` }} />}
-              </g>
-            ))}
-            {NODES.map((n) => {
+            {LANES.map(([l, y]) => <text key={l} x={-60} y={y} className="pf-lane">{l}</text>)}
+            {EDGES.map((e, i) => {
+              const on = !!hot && (e.a === hot || e.b === hot);
+              return (
+                <g key={i} className="pf-e" data-dim={(hot && !on) || undefined} data-on={on || undefined}>
+                  <path d={e.d} className={`pf-edge${e.k === 'mon' ? ' mon' : ''}`} markerEnd="url(#pf-ah)" />
+                  {e.k !== 'mon' && <path d={e.d} pathLength={1} className="pf-pulse" style={{ animationDelay: `${300 + i * 110}ms` }} />}
+                </g>
+              );
+            })}
+            {NODES.map((n, i) => {
               const s = status[n.id];
               return (
-                <g key={n.id} transform={`translate(${n.x} ${n.y})`} className="pf-node">
-                  <rect width={W} height={H} rx={3} />
-                  <text x={12} y={26} className="pf-t">{n.t}</text>
-                  <text x={12} y={46} className="pf-s">{n.s}</text>
-                  <circle cx={17} cy={80} r={4} className={s ? 'pf-ok' : 'pf-na'} />
-                  <text x={28} y={84} className={`pf-st ${s ? 'num' : ''}`}>{s ?? (st.loading ? 'Checking…' : local ? 'No local signal' : 'No data')}</text>
+                <g key={n.id} transform={`translate(${n.x} ${n.y})`}>
+                  <g className="pf-node" style={{ '--i': i } as CSSProperties} data-live={s ? '' : undefined} data-dim={!linked(n.id) || undefined}
+                    data-hot={hot === n.id || undefined} onMouseEnter={() => setHot(n.id)}>
+                    <rect width={W} height={H} rx={10} />
+                    <text x={16} y={30} className="pf-t">{n.t}</text>
+                    <text x={16} y={53} className="pf-s">{n.s}</text>
+                    <circle cx={21} cy={82} r={4} className="pf-dot" />
+                    {s && <circle cx={21} cy={82} r={4} className="pf-ring" />}
+                    <text x={34} y={87} className="pf-st num">{s ?? idle}</text>
+                  </g>
                 </g>
               );
             })}
           </svg>
+          </div>
+          <ol className="pf-list">
+            {LANES.map(([l]) => (
+              <li key={l}>
+                <p className="pf-lane-h">{l}</p>
+                <ul>
+                  {NODES.filter((n) => n.lane === l).map((n) => (
+                    <li key={n.id} data-live={status[n.id] ? '' : undefined}>
+                      <b>{n.t}</b>
+                      <span>{n.s}</span>
+                      <em className="num">{status[n.id] ?? idle}</em>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ol>
+          <div className="pf-key" aria-hidden="true">
+            <span><svg width="28" height="8"><path d="M1 4 H27" className="pf-edge" /></svg>Data</span>
+            <span><svg width="28" height="8"><path d="M2 4 H27" className="pf-edge mon" /></svg>Metrics and logs</span>
+            <span><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="var(--accent)" /></svg>Live signal</span>
+          </div>
         </div>
       </section>
 
-      <div className="pf-cols">
-        <section className="section" aria-labelledby="pf-runs">
-          <div className="section-head"><h2 id="pf-runs">Pipeline runs</h2></div>
-          {d && d.runs.length === 0 && <p className="muted">No run records{local ? ' in local mode.' : '.'}</p>}
-          {st.loading && <div className="skeleton pf-skel" />}
-          {d && d.runs.length > 0 && (
-            <div className="pf-scroll">
-              <table className="data">
-                <thead><tr><th>Run</th><th>Job</th><th>Status</th><th>Finished</th><th className="r">Seconds</th></tr></thead>
-                <tbody>
-                  {d.runs.map((r) => (
-                    <tr key={r.key}>
-                      <td className="num">{r.detail?.run_id ?? r.key.split('/').pop()}</td>
-                      <td>{job(r)}</td>
-                      <td className={r.detail?.status === 'failed' ? 'pf-bad' : ''}>{r.detail?.status ?? '—'}</td>
-                      <td className="num">{fin(r).replace('T', ' ').slice(0, 16)}</td>
-                      <td className="r num">{nf(r.detail?.seconds as number | undefined, 1)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+      <div className={`pf-cols${showRuns ? '' : ' one'}`} ref={tablesRef}>
+        {showRuns && (
+          <section className="section" aria-labelledby="pf-runs" data-r="1">
+            <h2 id="pf-runs">Pipeline runs</h2>
+            {st.loading && <div className="skeleton pf-skel" />}
+            {d && d.runs.length > 0 && (
+              <div className="pf-scroll" data-ui>
+                <table className="data">
+                  <thead><tr><th>Run</th><th>Job</th><th>Status</th><th>Finished</th><th className="r">Seconds</th></tr></thead>
+                  <tbody>
+                    {d.runs.map((r) => (
+                      <tr key={r.key}>
+                        <td className="num">{r.detail?.run_id ?? r.key.split('/').pop()}</td>
+                        <td>{job(r)}</td>
+                        <td className={r.detail?.status === 'failed' ? 'pf-bad' : ''}>{r.detail?.status ?? '—'}</td>
+                        <td className="num">{fin(r).replace('T', ' ').slice(0, 16)}</td>
+                        <td className="r num">{nf(r.detail?.seconds as number | undefined, 1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
 
-        <section className="section" aria-labelledby="pf-fresh">
-          <div className="section-head"><h2 id="pf-fresh">Data freshness</h2></div>
+        <section className="section" aria-labelledby="pf-fresh" data-r="2">
+          <h2 id="pf-fresh">Data freshness</h2>
           {sources.length > 0 && (
-            <div className="pf-scroll">
+            <div className="pf-scroll" data-ui>
               <table className="data">
                 <thead><tr><th>Source</th><th className="r">Records</th><th>Fetched</th><th className="r">Age</th></tr></thead>
                 <tbody>
@@ -181,9 +217,9 @@ export default function Platform() {
         </section>
       </div>
 
-      <section className="section" aria-labelledby="pf-cost">
-        <div className="section-head"><h2 id="pf-cost">Cost guardrails</h2></div>
-        <dl className="pf-guard">
+      <section className="section pf-cost" aria-labelledby="pf-cost" ref={guardRef}>
+        <h2 id="pf-cost" data-r="1">Cost guardrails</h2>
+        <dl className="pf-guard" data-r="2">
           <div><dt>Error alarms</dt><dd>CloudWatch alarms on API errors, ingest errors and dead-letter queue depth.</dd></div>
           <div><dt>Throttling and caching</dt><dd>HTTP API throttled at 20 requests/s (burst 40); GET responses carry ETags and a 300 s Cache-Control. A CloudFront edge (<code>-c edge=cloudfront</code>) replaces it once AWS verifies the account.</dd></div>
           <div><dt>Ask limits</dt><dd>10 per minute per client plus a daily budget; beyond either, 429.</dd></div>

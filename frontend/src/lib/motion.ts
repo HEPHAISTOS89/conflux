@@ -15,7 +15,7 @@ export function useReveal<T extends HTMLElement>() {
     el.dataset.armed = '';
     const io = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) { el.dataset.in = ''; io.disconnect(); }
-    }, { threshold: 0.18, rootMargin: '0px 0px -8% 0px' });
+    }, { threshold: 0.06, rootMargin: '0px 0px -6% 0px' });
     io.observe(el);
     return () => io.disconnect();
   }, []);

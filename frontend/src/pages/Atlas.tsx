@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import MapView, { type MapLayer } from '../components/MapView';
 import TimeSpace from '../components/TimeSpace';
 import { Icon } from '../components/Icon';
+import Term from '../components/Term';
 import { useApi } from '../lib/api';
 import { useReveal, useTween } from '../lib/motion';
 import { ClockCtx, useClockState, type ConflictT, type IntersectionT } from '../lib/traj';
@@ -20,12 +21,6 @@ const METRICS = [
   { id: 'crit_ratio', label: 'Critical ratio' },
   { id: 'rate', label: 'Rate' },
 ] as const;
-const PLACES = [
-  { src: '/photos/interstate-27-and-marsha-sharp.webp', w: 1600, h: 619, cap: 'I-27 at Marsha Sharp Freeway, Lubbock', credit: 'Fredlyfish4, CC BY-SA 3.0' },
-  { src: '/photos/marsha-sharp-freeway-lubbock-tx-img-0231.webp', w: 1600, h: 1200, cap: 'Marsha Sharp Freeway, US 62/82', credit: 'Billy Hathorn, CC BY-SA 3.0' },
-  { src: '/photos/lankershim-boulevard-los-angeles-16343272011.webp', w: 1600, h: 1068, cap: 'Lankershim Blvd, NGSIM site', credit: 'Matthew Nelson, CC BY 2.0' },
-  { src: '/photos/peachtree-street-in-midtown-atlanta.webp', w: 1600, h: 1077, cap: 'Peachtree St, NGSIM site', credit: 'Sinan, CC BY 2.0' },
-];
 
 export default function Atlas() {
   return (
@@ -34,7 +29,6 @@ export default function Atlas() {
       <ThresholdField />
       <NetworkField />
       <SegmentPlate />
-      <Places />
       <Close />
     </div>
   );
@@ -64,6 +58,7 @@ function Hero() {
 
 function ThresholdField() {
   const ref = useReveal<HTMLElement>();
+  const nav = useNavigate();
   const ix = useApi<IntersectionT>('/intersections/peachtree-10th');
   const cf = useApi<ConflictT[]>('/intersections/peachtree-10th/conflicts');
   const ssm = useApi<Ssm>('/intersections/peachtree-10th/ssm');
@@ -84,10 +79,10 @@ function ThresholdField() {
     <section ref={ref} className="field field-control" aria-labelledby="ttc-h">
       <div className="fc-copy">
         <h2 id="ttc-h" data-r="1"><span className="num">{Math.round(shown)}</span> rear-end conflicts in 90 seconds</h2>
-        <p data-r="2">Peachtree St at 10th St. SSAM detects at 1.5 s.</p>
+        <p data-r="2">Peachtree St at 10th St. SSAM detects at 1.5 s. Click a diamond to open it.</p>
       </div>
       <div className="ttc-control" role="radiogroup" aria-label="Time-to-collision threshold" data-ui data-r="3">
-        <span className="ttc-label">TTC ≤</span>
+        <span className="ttc-label"><Term k="TTC">TTC</Term> ≤</span>
         {TTC_STEPS.map((s) => (
           <button key={s} type="button" role="radio" aria-checked={step === s} onClick={() => setStep(s)}>{s}<small>s</small></button>
         ))}
@@ -95,7 +90,7 @@ function ThresholdField() {
       <div className="fc-ts" data-ui data-r="4">
         {ix.data && cf.data ? (
           <ClockCtx.Provider value={clock}>
-            <TimeSpace data={ix.data} conflicts={visible} label="Time–space diagram of Peachtree St trajectories with conflicts at the chosen threshold" compact />
+            <TimeSpace data={ix.data} conflicts={visible} onConflict={(c) => nav(`/intersections/peachtree-10th?conflict=${c.id}`)} label="Time–space diagram of Peachtree St trajectories; click a conflict to open it in the lab" compact />
           </ClockCtx.Provider>
         ) : <div className="skeleton" style={{ height: 300 }} />}
       </div>
@@ -172,7 +167,7 @@ function SegmentPlate() {
   const top = useApi<{ items: Seg[] }>('/screening?method=eb_excess&limit=1');
   const s = top.data?.items[0];
   const [focus, setFocus] = useState<string | null>(null);
-  const row = (key: string, label: string, value: string) => (
+  const row = (key: string, label: React.ReactNode, value: string) => (
     <div className="pl-row" data-on={focus === key ? '' : undefined}><span>{label}</span><b className="num">{value}</b></div>
   );
   return (
@@ -185,13 +180,13 @@ function SegmentPlate() {
         {s ? (<>
           <div className="pl-head"><b>{s.name}</b><span className="num">DFO {nf(s.dfo_from, 2)}–{nf(s.dfo_to, 2)}</span></div>
           <div className="pl-type">{s.site_type ?? s.fc_group} · {nf(s.lanes)} lanes</div>
-          {row('aadt', 'AADT', nf(s.aadt))}
+          {row('aadt', <Term k="AADT" />, nf(s.aadt))}
           {row('speed', 'Posted / operating', `${nf(s.speed_limit)} / ${nf(s.speed_all, 1)} mph`)}
           {row('obs', 'Observed', `${nf(s.crashes_per_yr, 2)} /yr`)}
-          {row('spf', 'SPF predicted', `${nf(s.spf_pred, 2)} /yr`)}
-          {row('eb', 'EB expected', `${nf(s.eb_expected, 2)} /yr`)}
-          {row('crit', 'Critical ratio', nf(s.crit_ratio, 2))}
-          <div className="pl-total"><span>Excess</span><b className="num">{nf(s.eb_excess, 2)} /yr</b></div>
+          {row('spf', <><Term k="SPF" /> predicted</>, `${nf(s.spf_pred, 2)} /yr`)}
+          {row('eb', <><Term k="EB" /> expected</>, `${nf(s.eb_expected, 2)} /yr`)}
+          {row('crit', <Term k="Critical ratio" />, nf(s.crit_ratio, 2))}
+          <div className="pl-total"><span><Term k="EB excess">Excess</Term></span><b className="num">{nf(s.eb_excess, 2)} /yr</b></div>
           <Link to={`/screening?seg=${encodeURIComponent(s.seg_id)}`} className="btn">Open in the screening</Link>
         </>) : <div className="skeleton" style={{ height: 420 }} />}
       </div>
@@ -210,24 +205,6 @@ function Note({ n, setFocus }: { n: (typeof NOTES)[number]; setFocus: (k: string
   );
 }
 
-function Places() {
-  const ref = useReveal<HTMLElement>();
-  return (
-    <section ref={ref} className="places" aria-labelledby="places-h">
-      <h2 id="places-h" data-r="1">Where the data comes from</h2>
-      <div className="places-grid">
-        {PLACES.map((p, i) => (
-          <figure key={p.src} data-r={String(Math.min(5, i + 2))}>
-            <img src={p.src} width={p.w} height={p.h} alt={p.cap} loading="lazy" />
-            <figcaption>{p.cap}</figcaption>
-          </figure>
-        ))}
-      </div>
-      <p className="sources" data-r="5">TxDOT Roadway Inventory · TxDOT AADT · TxDOT Statewide Speed · CRIS · NHTSA FARS · FHWA NGSIM</p>
-    </section>
-  );
-}
-
 function Close() {
   const ref = useReveal<HTMLElement>();
   const list = useApi<CorridorCard[]>('/corridors');
@@ -242,7 +219,7 @@ function Close() {
         </select>
         <button type="submit">now</button>
       </form>
-      <p className="credits" data-r="2">Photographs, Wikimedia Commons: Marsha Sharp Freeway light trails (Ihavenoidea49, CC0); {PLACES.map((p) => `${p.cap} (${p.credit})`).join('; ')}.</p>
+      <p className="sources" data-r="2">Data: TxDOT Roadway Inventory, AADT and Statewide Speed · CRIS · NHTSA FARS · FHWA NGSIM. Photograph: Marsha Sharp Freeway light trails, Ihavenoidea49, CC0, via Wikimedia Commons.</p>
     </section>
   );
 }

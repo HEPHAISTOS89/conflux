@@ -3,6 +3,8 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useApi } from '../lib/api';
 import type { Manifest } from '../lib/types';
 import { Icon, type IconName } from './Icon';
+import { useTheme } from '../lib/theme';
+import CommandPalette from './CommandPalette';
 
 const NAV: { to: string; label: string; hint: string; icon: IconName }[] = [
   { to: '/', label: 'Atlas', hint: 'County overview', icon: 'atlas' },
@@ -19,6 +21,12 @@ const NAV: { to: string; label: string; hint: string; icon: IconName }[] = [
 export default function Shell() {
   const meta = useApi<Manifest>('/meta');
   const [open, setOpen] = useState(false);
+  const [theme, toggleTheme] = useTheme();
+  const themeBtn = (
+    <button className="theme-btn" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`${theme === 'dark' ? 'Light' : 'Dark'} mode`}>
+      <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={17} />
+    </button>
+  );
   const loc = useLocation();
   useEffect(() => { setOpen(false); window.scrollTo(0, 0); }, [loc.pathname]);
 
@@ -31,9 +39,11 @@ export default function Shell() {
         <NavLink to="/" className="brand" aria-label="RoadScope home">
           <Mark /> <span>RoadScope</span>
         </NavLink>
+        <div className="topbar-act">{themeBtn}
         <button className="menu-btn" aria-expanded={open} aria-controls="rail" onClick={() => setOpen((o) => !o)}>
           <Icon name={open ? 'close' : 'menu'} /> <span className="sr-only">Menu</span>
         </button>
+        </div>
       </header>
 
       <nav id="rail" className="rail" aria-label="Sheets">
@@ -52,6 +62,10 @@ export default function Shell() {
             </li>
           ))}
         </ul>
+        <button className="cmdk-trigger" onClick={() => window.dispatchEvent(new Event('rs:palette'))}>
+          <span>Jump to…</span><kbd>⌘K</kbd>
+        </button>
+        <div className="rail-theme">{themeBtn}<span>{theme === 'dark' ? 'Dark' : 'Light'} mode</span></div>
         <dl className="titleblock">
           <div><dt>District</dt><dd>TxDOT Lubbock</dd></div>
           <div><dt>County</dt><dd className="num">152 · Lubbock</dd></div>
@@ -66,7 +80,8 @@ export default function Shell() {
       </nav>
 
       <main id="main" className="main" tabIndex={-1}>
-        <Outlet />
+        <div key={theme} className="outlet"><Outlet /></div>
+        <CommandPalette />
         <footer className="colophon">
           <p>
             Roadway, traffic and crash layers © Texas Department of Transportation, used for informational purposes; not an official TxDOT product.

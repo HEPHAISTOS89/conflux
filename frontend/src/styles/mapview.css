@@ -1,2 +1,3 @@
 .mapview { position: absolute; inset: 0; }
 .mapview canvas { outline: none; }
+.maplibregl-ctrl-attrib, .maplibregl-ctrl-attrib a { font-size: 13px !important; }
