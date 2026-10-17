@@ -28,7 +28,10 @@ export default function NetworkRank() {
   const M = MEASURES.find((m) => m.id === mk)!;
 
   const feats = net.data?.features ?? [];
-  const miles = feats.reduce((s, f) => s + (f.properties.len_mi ?? 0), 0);
+  // Screened = segments with a Roadway Inventory / AADT match (an SPF and exposure); the rest draw grey and are not ranked.
+  const screened = feats.filter((f) => f.properties.eb_excess != null);
+  const miles = screened.reduce((s, f) => s + (f.properties.len_mi ?? 0), 0);
+  const unmatched = feats.length - screened.length;
   const top = useMemo(() => [...feats].filter((f) => f.properties[mk] != null).sort((a, b) => (b.properties[mk] ?? 0) - (a.properties[mk] ?? 0)).slice(0, 5).map((f) => f.properties), [feats, mk]);
 
   const bounds = useMemo<[[number, number], [number, number]] | undefined>(() => {
@@ -64,7 +67,7 @@ export default function NetworkRank() {
     <section ref={ref} className="nr" aria-labelledby="nr-h">
       <div className="nr-side">
         <h2 id="nr-h" data-r="1">{miles ? `Network screening, ${nf(miles)} mi` : 'Network screening'}</h2>
-        <p data-r="2">{nf(feats.length)} Lubbock County state-system segments, screened for pedestrian and cyclist crashes (HSM Part B).</p>
+        <p data-r="2">{nf(screened.length)} Lubbock County state-system segments screened for pedestrian and cyclist crashes (HSM Part B){unmatched > 0 ? `; ${nf(unmatched)} more lack a Roadway Inventory / AADT match and are shown unranked in grey` : ''}.</p>
         <div className="nr-ctl" data-r="3">
           <div className="nr-switch" role="group" aria-label="Screening measure" data-ui>
             {MEASURES.map((m) => <button key={m.id} type="button" aria-pressed={mk === m.id} onClick={() => setMk(m.id)}>{m.label}</button>)}

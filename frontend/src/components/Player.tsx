@@ -3,6 +3,7 @@ import { conflictColor } from '../lib/format';
 import { nextRisk, stepFrame } from '../lib/lab/metrics';
 import { selectConflict, useClock, useClockFrame, useSelection, type ConflictT } from '../lib/traj';
 import { Icon } from './Icon';
+import Select from './Select';
 
 export const RATES = [0.25, 0.5, 1, 2, 4] as const;
 
@@ -20,16 +21,25 @@ export default function Player({ label = 'Replay', conflicts }: { label?: string
   const risk = (d: 1 | -1) => { const k = conflicts && nextRisk(conflicts, sel?.conflict != null ? conflicts.find((x) => x.id === sel.conflict)?.t ?? c.now() : c.now(), d); if (k && sel) selectConflict(sel, k); };
   return (
     <div className="player" role="group" aria-label={`${label} controls`}>
-      <div className="player-btns">
-        {conflicts && <button className="btn ghost ic" onClick={() => risk(-1)} title="Previous risk event ( [ )" aria-label="Previous risk event"><Icon name="stepBack" size={16} /></button>}
-        <button className="btn ghost ic" onClick={() => step(-1)} title="Back one frame, 0.1 s ( , )" aria-label="Back one frame"><Icon name="prev" size={16} /></button>
-        <button className="btn player-go" onClick={c.toggle} aria-pressed={c.playing} title="Play / pause (Space)">
-          <span className="player-ic" key={c.playing ? 'pause' : 'play'}><Icon name={c.playing ? 'pause' : 'play'} size={16} /></span> {c.playing ? 'Pause' : 'Play'}
-        </button>
-        <button className="btn ghost ic" onClick={() => step(1)} title="Forward one frame, 0.1 s ( . )" aria-label="Forward one frame"><Icon name="next" size={16} /></button>
-        {conflicts && <button className="btn ghost ic" onClick={() => risk(1)} title="Next risk event ( ] )" aria-label="Next risk event"><Icon name="stepFwd" size={16} /></button>}
+      <div className="player-ctl">
+        <div className="player-btns">
+          {conflicts && <button className="btn ghost ic" onClick={() => risk(-1)} title="Previous risk event ( [ )" aria-label="Previous risk event"><Icon name="stepBack" size={16} /></button>}
+          <button className="btn ghost ic" onClick={() => step(-1)} title="Back one frame, 0.1 s ( , )" aria-label="Back one frame"><Icon name="prev" size={16} /></button>
+          <button className="btn player-go" onClick={c.toggle} aria-pressed={c.playing} title="Play / pause (Space)">
+            <span className="player-ic" key={c.playing ? 'pause' : 'play'}><Icon name={c.playing ? 'pause' : 'play'} size={16} /></span> {c.playing ? 'Pause' : 'Play'}
+          </button>
+          <button className="btn ghost ic" onClick={() => step(1)} title="Forward one frame, 0.1 s ( . )" aria-label="Forward one frame"><Icon name="next" size={16} /></button>
+          {conflicts && <button className="btn ghost ic" onClick={() => risk(1)} title="Next risk event ( ] )" aria-label="Next risk event"><Icon name="stepFwd" size={16} /></button>}
+        </div>
+        <Select<string> compact label="Playback rate" value={String(c.rate)} onChange={(v) => c.setRate(Number(v))}
+          options={RATES.map((r) => ({ value: String(r), label: `${r === 0.25 ? '¼' : r === 0.5 ? '½' : r}× speed` }))} />
+        <span className="player-warp" data-on={(c.playing && warp < 0.99) || undefined} aria-live="polite" title="Playback slows to 0.35× within ±0.6 s of the selected conflict">
+          {c.playing && warp < 0.99 ? <><Icon name="alert" size={14} /> near-miss <span className="measure">{(c.rate * warp).toFixed(2)}×</span></> : null}
+        </span>
       </div>
       <div className="player-track">
+        <span className="measure player-t" aria-hidden="true">{t.toFixed(1)}<span className="player-of"> / {c.duration.toFixed(0)} s</span></span>
+        <div className="player-rail">
         <input
           type="range" min={0} max={c.duration} step={0.1} value={t}
           onChange={(e) => c.setT(Number(e.target.value))}
@@ -49,16 +59,8 @@ export default function Player({ label = 'Replay', conflicts }: { label?: string
             ))}
           </div>
         )}
+        </div>
       </div>
-      <span className="measure player-t">{t.toFixed(1)} / {c.duration.toFixed(0)} s</span>
-      <div className="seg player-rate" role="group" aria-label="Playback rate">
-        {RATES.map((r) => (
-          <button key={r} aria-pressed={c.rate === r} onClick={() => c.setRate(r)}>{r === 0.25 ? '¼' : r === 0.5 ? '½' : r}×</button>
-        ))}
-      </div>
-      <span className="player-warp" data-on={(c.playing && warp < 0.99) || undefined} aria-live="polite" title="Playback slows to 0.35× within ±0.6 s of the selected conflict">
-        {c.playing && warp < 0.99 ? <><Icon name="alert" size={14} /> near-miss <span className="measure">{(c.rate * warp).toFixed(2)}×</span></> : null}
-      </span>
     </div>
   );
 }

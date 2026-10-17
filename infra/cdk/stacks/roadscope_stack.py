@@ -149,6 +149,10 @@ class RoadScopeStack(Stack):
         )
         bucket.grant_read_write(ingest, "raw/*")
         bucket.grant_read_write(ingest, "curated/*")
+        # "Run ingest" on the Platform page: the API may start this one function asynchronously and keep
+        # its cooldown lock under ops/ (POST /api/v1/ops/ingest). Nothing else is invocable from the API.
+        api.add_to_role_policy(iam.PolicyStatement(actions=["lambda:InvokeFunction"], resources=[ingest.function_arn]))
+        bucket.grant_read_write(api, "ops/*")
         events.Rule(
             self, "WeeklyIngest",
             schedule=events.Schedule.cron(minute="0", hour="8", week_day="MON"),

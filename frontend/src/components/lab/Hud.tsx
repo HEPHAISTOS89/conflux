@@ -16,10 +16,10 @@ const LIVE_TTC: MetricSpec = {
 const PAIR_PET: MetricSpec = {
   name: 'Pair PET',
   provenance: 'derived',
-  formula: 't(second road user enters the 1.5 m zone at the closest path point) − t(first leaves it)',
+  formula: 'Screened: t(second vehicle front enters the shared swept-footprint zone) − t(first vehicle rear leaves it), as in the conflict table. Otherwise ≈ the same over a 1.5 m zone at the closest path point',
   threshold: 'SSAM screens PET ≤ 5.0 s; negative = both inside at once',
-  citation: 'Allen, Shin & Cooper (1978) TRR 667',
-  note: 'From the full trajectories. Paths that run together (heading difference < 20°) are a following situation, where PET does not apply.',
+  citation: 'Allen, Shin & Cooper (1978) TRR 667; FHWA SSAM (2008)',
+  note: 'A pair with a screened crossing event shows that event\'s PET; any other pair shows the closest-approach approximation, marked ≈. Paths that run together (heading difference < 20°) are a following situation, where PET does not apply.',
 };
 
 interface Row { id: string; tr: TrackT; k: Kin | null; c: Confidence | null }
@@ -33,6 +33,12 @@ export default function Hud({ data, conflicts }: { data: IntersectionT; conflict
   const [t, setT] = useState(0);
   const lastKey = useRef('');
   const pet = useMemo(() => (trs.length === 2 ? petPair(trs[0], trs[1]) : null), [trs]);
+  // the screened PET of this pair (backend swept-footprint method) wins over the closest-approach approximation
+  const screened = useMemo(() => {
+    if (trs.length !== 2) return null;
+    const a = String(trs[0].id), b = String(trs[1].id);
+    return conflicts?.filter((k) => k.pet != null && ((String(k.a) === a && String(k.b) === b) || (String(k.a) === b && String(k.b) === a))).sort((x, y) => x.pet! - y.pet!)[0] ?? null;
+  }, [trs, conflicts]);
   const focusT = useMemo(() => {
     if (trs.length !== 2) return null;
     const a = String(trs[0].id), b = String(trs[1].id);
@@ -101,9 +107,11 @@ export default function Hud({ data, conflicts }: { data: IntersectionT; conflict
           </div>
           <div>
             <dt>PET <MetricInfo spec={PAIR_PET} align="right" /></dt>
-            <dd className="measure">{pet?.kind === 'crossing' && pet.pet != null
-              ? <>{pet.pet.toFixed(1)}<small>s{pet.tEnter != null && t < pet.tEnter ? ' · ahead' : ''}</small></>
-              : <span className="hud-txt">{pet?.kind === 'same_path' ? 'n/a, following' : 'paths do not cross'}</span>}</dd>
+            <dd className="measure" data-crit={screened && screened.pet! <= 1 || undefined}>{screened
+              ? <>{screened.pet!.toFixed(2)}<small>s · screened{t < screened.t ? ', ahead' : ''}</small></>
+              : pet?.kind === 'crossing' && pet.pet != null
+                ? <>≈{pet.pet.toFixed(1)}<small>s{pet.tEnter != null && t < pet.tEnter ? ' · ahead' : ''}</small></>
+                : <span className="hud-txt">{pet?.kind === 'same_path' ? 'n/a, following' : 'paths do not cross'}</span>}</dd>
           </div>
         </dl>
       )}

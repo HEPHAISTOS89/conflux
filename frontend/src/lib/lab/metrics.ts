@@ -321,3 +321,54 @@ export function stepFrame(t: number, n: number, duration: number, hz = 10): numb
 }
 
 export const easeInOutCubic = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+
+/* ---------- rendering pose ---------- */
+
+export interface RenderPose extends Kin {
+  /** 0–1 opacity: 0.5 s fade where a track starts or ends inside the replay window (detection acquired / lost). */
+  fade: number;
+  /** 0–1 brake-lamp intensity: ramps from 2 to 4.6 ft/s² (0.6–1.4 m/s²) of deceleration; on while stopped (v < 0.3 m/s). */
+  brake: number;
+}
+
+const wrapPi = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+
+/**
+ * Heading at sample i for drawing: vehicles do not rotate while stopped, so below 0.6 m/s (1.3 mph) the heading is
+ * held from the last sample that was moving (or the next one, before the first move). Removes the heading
+ * noise of creeping and queued vehicles, where ±0.3 s of displacement is mostly position error.
+ */
+function headingNear(p: Pt[], i: number): number | null {
+  for (let k = i; k >= 0; k--) if (p[k][3] > 0.6) { const h = headingAt(p, k); if (h != null) return h; }
+  for (let k = i + 1; k < p.length; k++) if (p[k][3] > 0.6) { const h = headingAt(p, k); if (h != null) return h; }
+  return headingAt(p, i);
+}
+
+/**
+ * Pose for drawing at any time t between 10 Hz samples: Catmull–Rom position (C¹, no kinks at samples),
+ * heading interpolated along the shorter arc between the smoothed (±0.3 s) velocity headings of the two
+ * bracketing samples, speed and acceleration linear. Metrics keep using `kinAt`.
+ */
+export function renderPose(tr: TrackT, t: number, hz = 10, window: [number, number] = [0, Infinity], fadeS = 0.5): RenderPose | null {
+  const p = tr.pts;
+  if (!p.length || t < p[0][0] - 1e-9 || t > p[p.length - 1][0] + 1e-9) return null;
+  const f = Math.max(0, (t - p[0][0]) * hz);
+  const i = Math.min(p.length - 1, Math.floor(f + 1e-9)), j = Math.min(p.length - 1, i + 1);
+  const u = j === i ? 0 : Math.min(1, f - i);
+  const a = p[Math.max(0, i - 1)], b = p[i], c = p[j], d = p[Math.min(p.length - 1, j + 1)];
+  // a frame gap breaks the uniform-spacing assumption of the spline: fall back to linear
+  const uniform = c[0] - b[0] < 1.5 / hz && b[0] - a[0] < 1.5 / hz && d[0] - c[0] < 1.5 / hz;
+  const cr = (k: number) => {
+    if (!uniform) return b[k] + (c[k] - b[k]) * u;
+    const u2 = u * u, u3 = u2 * u;
+    return 0.5 * (2 * b[k] + (c[k] - a[k]) * u + (2 * a[k] - 5 * b[k] + 4 * c[k] - d[k]) * u2 + (3 * b[k] - a[k] - 3 * c[k] + d[k]) * u3);
+  };
+  const h0 = headingNear(p, i), h1 = j === i ? h0 : headingNear(p, j);
+  const h = h0 == null ? (h1 ?? Math.PI / 2) : h1 == null ? h0 : h0 + wrapPi(h1 - h0) * u;
+  const v = b[3] + (c[3] - b[3]) * u, acc = b[4] + (c[4] - b[4]) * u;
+  const t0 = p[0][0], t1 = p[p.length - 1][0];
+  const fin = t0 <= window[0] + 0.05 ? 1 : Math.min(1, (t - t0) / fadeS);
+  const fout = t1 >= window[1] - 0.05 ? 1 : Math.min(1, (t1 - t) / fadeS);
+  const brake = v < 0.3 ? 1 : Math.min(1, Math.max(0, (-acc - 0.6) / 0.8));
+  return { x: cr(1), y: cr(2), v, a: acc, h: wrapPi(h), fade: Math.max(0, Math.min(fin, fout)), brake };
+}

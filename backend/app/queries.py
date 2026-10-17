@@ -31,13 +31,24 @@ def network(metric: str | None = None) -> dict[str, Any]:
 
 
 def screening(method: str = "eb_excess", limit: int = 25, f_system: int | None = None) -> dict[str, Any]:
+    """Rank the screened population under one HSM Part B measure.
+
+    The population is the same for every measure: segments the pipeline could score (``rank`` set,
+    i.e. AADT and a site type joined). Unscored segments (no inventory/AADT match) are reported in
+    ``unscreened`` instead of being ranked last, so counts and "of N" figures agree across measures
+    and pages. Ties keep the EB rank order (stable sort on the EB-ranked list).
+    """
     field = METHOD_FIELD[method]
-    rows = [f["properties"] for f in store.load("network.geojson")["features"]]
+    allrows = [f["properties"] for f in store.load("network.geojson")["features"]]
     if f_system is not None:
-        rows = [r for r in rows if r.get("f_system") == f_system]
+        allrows = [r for r in allrows if r.get("f_system") == f_system]
+    rows = sorted((r for r in allrows if r.get("rank") is not None), key=lambda r: r["rank"])
+    out = [r for r in allrows if r.get("rank") is None]
     rows = sorted(rows, key=lambda r: _num(r.get(field)), reverse=True)
     items = [{**r, "screen_rank": i + 1, "score": r.get(field)} for i, r in enumerate(rows[:limit])]
-    return {"method": method, "field": field, "f_system": f_system, "total": len(rows), "items": items}
+    return {"method": method, "field": field, "f_system": f_system, "total": len(rows), "items": items,
+            "unscreened": {"segments": len(out), "crashes": sum(int(r.get("crashes_total") or 0) for r in out),
+                           "reason": "no Roadway Inventory / AADT match (no site type or exposure)"}}
 
 
 def corridor(corridor_id: str) -> dict[str, Any] | None:
@@ -79,8 +90,38 @@ def vru_summary() -> dict[str, Any]:
         "by_pbcat": dict(Counter(p.get("pbcat") for p in props if p.get("pbcat")).most_common(10)),
         "top_streets": dict(Counter(p.get("street") for p in props if p.get("street")).most_common(10)),
         "ka_total": sum(1 for p in props if p.get("severity") in ("K", "A")),
+        # on-system subset = the crashes the network screening uses
+        "on_system": {"total": sum(1 for p in props if p.get("on_system")),
+                      "ka": sum(1 for p in props if p.get("on_system") and p.get("severity") in ("K", "A"))},
         "hour_dow": heat,
+        "severity_by_condition": severity_by_condition(props),
     }
+
+
+def _light(p: dict[str, Any]) -> str:
+    s = (p.get("light") or "").upper()
+    return "day" if "DAYLIGHT" in s else "dark_unlit" if "NOT LIGHTED" in s else "dark_lit" if "DARK, LIGHTED" in s else \
+        "dark_unknown" if "DARK" in s else "other"
+
+
+# Groups a lighting / speed-management programme acts on; KA = K + A crash severity (CRIS, as recorded).
+CONDITIONS: tuple[tuple[str, str, Any], ...] = (
+    ("dark_unlit", "Dark, not lighted", lambda p: _light(p) == "dark_unlit"),
+    ("dark_lit", "Dark, lighted", lambda p: _light(p) == "dark_lit"),
+    ("day", "Daylight", lambda p: _light(p) == "day"),
+    ("speed_ge50", "Posted 50 mph or more", lambda p: (p.get("speed_limit") or 0) >= 50),
+    ("speed_le35", "Posted 35 mph or less", lambda p: 0 < (p.get("speed_limit") or 0) <= 35),
+    ("dark_ge50", "Dark and posted 50 mph or more", lambda p: _light(p).startswith("dark") and (p.get("speed_limit") or 0) >= 50),
+    ("day_le45", "Daylight and posted under 50 mph", lambda p: _light(p) == "day" and 0 < (p.get("speed_limit") or 0) < 50),
+)
+
+
+def severity_by_condition(props: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out = []
+    for key, label, test in CONDITIONS:
+        hit = [p for p in props if test(p)]
+        out.append({"key": key, "label": label, "n": len(hit), "ka": sum(1 for p in hit if p.get("severity") in ("K", "A"))})
+    return out
 
 
 def intersection(iid: str) -> dict[str, Any]:

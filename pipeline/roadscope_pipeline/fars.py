@@ -1,6 +1,7 @@
 """FARS fatal crashes, Lubbock County (STATE=48, COUNTY=303)."""
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import io
 import zipfile
@@ -9,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-from .sources import FARS_LICENCE, FARS_URL, FARS_YEARS, now_iso
+from .sources import FARS_LICENCE, FARS_URL, FARS_YEARS
 
 
 def download(raw_dir: Path, years=FARS_YEARS, refresh=False) -> list[dict]:
@@ -22,7 +23,9 @@ def download(raw_dir: Path, years=FARS_YEARS, refresh=False) -> list[dict]:
             r = requests.get(FARS_URL.format(y=y), timeout=300)
             r.raise_for_status()
             p.write_bytes(r.content)
-        entries.append({"year": y, "path": p, "url": FARS_URL.format(y=y),
+        # fetched_at = when the zip was downloaded (its mtime), not when this build ran
+        fetched = dt.datetime.fromtimestamp(p.stat().st_mtime, dt.timezone.utc).isoformat(timespec="seconds")
+        entries.append({"year": y, "path": p, "url": FARS_URL.format(y=y), "fetched_at": fetched,
                         "sha256": hashlib.sha256(p.read_bytes()).hexdigest()})
     return entries
 
@@ -60,5 +63,5 @@ def build(raw_dir: Path, refresh=False):
                                          "peds": int(r["PEDS"]) if "PEDS" in r and not pd.isna(r["PEDS"]) else None,
                                          "func_sys": _name(r, "FUNC_SYS")}})
         sources.append({"id": f"fars_{e['year']}", "url": e["url"], "licence": FARS_LICENCE,
-                        "records": int(len(sub)), "fetched_at": now_iso(), "sha256": e["sha256"]})
+                        "records": int(len(sub)), "fetched_at": e["fetched_at"], "sha256": e["sha256"]})
     return {"type": "FeatureCollection", "features": feats}, sources

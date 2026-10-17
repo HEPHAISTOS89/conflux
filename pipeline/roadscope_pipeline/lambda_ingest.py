@@ -42,24 +42,38 @@ def _gate(prev: dict, new: dict, metrics: dict):
         raise RuntimeError("sanity gate failed: " + "; ".join(bad))
 
 
+def _now():
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _put_run(s3, bucket, run_id, record):
+    s3.put_object(Bucket=bucket, Key=f"curated/runs/{run_id}.json", ContentType="application/json",
+                  Body=json.dumps({"run_id": run_id, "job": "ingest", **record}, default=str).encode())
+
+
 def handler(event, ctx):
+    """One run record per invocation, written at start ("running") and rewritten in place when it ends."""
     bucket = os.environ["DATA_BUCKET"]
     s3 = boto3.client("s3")
     t0 = time.time()
+    event = event if isinstance(event, dict) else {}
+    manual = event.get("trigger") == "manual"
+    meta = {"trigger": "manual" if manual else "schedule", "started_at": _now(),
+            **({"requested_at": event.get("requested_at")} if manual and event.get("requested_at") else {}),
+            "request_id": getattr(ctx, "aws_request_id", None)}
+    run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    _put_run(s3, bucket, run_id, {"status": "running", **meta})
     try:
-        return _run(bucket, s3, ctx, t0)
+        return _run(bucket, s3, ctx, t0, run_id, meta)
     except Exception as e:
-        run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-        s3.put_object(Bucket=bucket, Key=f"curated/runs/{run_id}.json", ContentType="application/json",
-                      Body=json.dumps({"run_id": run_id, "job": "ingest", "status": "failed",
-                                       "error": type(e).__name__,
-                                       "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                                       "seconds": round(time.time() - t0, 1)}).encode())
+        _put_run(s3, bucket, run_id, {"status": "failed", **meta, "error": type(e).__name__,
+                                      "message": str(e)[:300], "finished_at": _now(),
+                                      "seconds": round(time.time() - t0, 1)})
         log("ingest_failed", error=type(e).__name__, message=str(e)[:500])
         raise
 
 
-def _run(bucket, s3, ctx, t0):
+def _run(bucket, s3, ctx, t0, run_id, meta):
     with tempfile.TemporaryDirectory() as tmp:
         raw, out = Path(tmp, "raw"), Path(tmp, "curated")
         out.mkdir(parents=True)
@@ -82,12 +96,12 @@ def _run(bucket, s3, ctx, t0):
         for name in CURATED:  # manifest.json is last: readers only see it once the data it lists is in place
             s3.upload_file(str(out / name), bucket, f"curated/{name}",
                            ExtraArgs={"ContentType": TYPES[Path(name).suffix]})
+        published = json.loads((out / "manifest.json").read_text())
     secs = round(time.time() - t0, 1)
-    run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    pub = [x for x in published.get("sources", []) if not str(x.get("id", "")).startswith("ngsim")]
     flat = {k: v for k, v in metrics.items() if not isinstance(v, dict)}
-    s3.put_object(Bucket=bucket, Key=f"curated/runs/{run_id}.json", ContentType="application/json",
-                  Body=json.dumps({"run_id": run_id, "job": "ingest", "status": "succeeded",
-                                   "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                                   "seconds": secs, **flat}, default=str).encode())
+    _put_run(s3, bucket, run_id, {**flat, "status": "succeeded", **meta, "finished_at": _now(), "seconds": secs,
+                                  "records": sum(int(x.get("records") or 0) for x in pub), "sources": len(pub),
+                                  "manifest_generated_at": published.get("generated_at")})
     log("ingest_done", seconds=round(time.time() - t0, 1), **{k: v for k, v in metrics.items() if not isinstance(v, dict)})
     return {"ok": True, **metrics}

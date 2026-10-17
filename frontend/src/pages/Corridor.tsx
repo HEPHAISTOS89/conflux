@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import MapView, { type MapLayer } from '../components/MapView';
 import { Icon } from '../components/Icon';
 import Term from '../components/Term';
@@ -12,7 +12,7 @@ import { useReveal } from '../lib/motion';
 import '../styles/corridor.css';
 
 interface St { dfo: number; route: string; lon: number; lat: number; lanes: number | null; speed_limit: number | null; aadt: number | null; truck_pct: number | null; speed_all: number | null; speed_am: number | null; speed_md: number | null; speed_pm: number | null; crashes_per_mi: number | null; seg_id?: string | null }
-interface CorridorT { id: string; name: string; routes: string[]; len_mi: number; stations: St[]; summary: { segments: number; crashes_per_yr: number; crashes_total: number; crash_years: number; aadt_mean: number; aadt_max: number; speed_all_mean: number; truck_pct_mean: number; bbox: number[]; top_segment: string | null; note: string | null } }
+interface CorridorT { id: string; name: string; routes: string[]; len_mi: number; stations: St[]; summary: { segments: number; crashes_per_yr: number; crashes_total: number; crashes_ka?: number; crash_years: number; seg_len_mi?: number; crashes_per_mi_yr?: number; aadt_mean: number; aadt_max: number; speed_all_mean: number; truck_pct_mean: number; bbox: number[]; top_segment: string | null; note: string | null } }
 type Card = Omit<CorridorT, 'stations'> & { n_stations: number };
 
 const INV = 'TxDOT Roadway Inventory 2024 (lanes, posted speed), sampled every 0.25 mi on DFO';
@@ -26,21 +26,21 @@ const SPECS: Record<'density' | 'aadt' | 'speed' | 'rho', MetricSpec> = {
   },
   aadt: {
     name: 'Annual average daily traffic', provenance: 'public', unit: 'vehicles per day',
-    formula: 'TxDOT_AADT.AADT_CUR nearest count station on the route, per 0.25 mi station',
+    formula: 'TxDOT_AADT.AADT_CUR of the count section whose DFO range contains the station; Roadway Inventory ADT_CUR where none does',
     source: 'TxDOT AADT annuals, © TxDOT, informational use', citation: 'FHWA Traffic Monitoring Guide (2022)',
   },
   speed: {
     name: 'Operating speed', provenance: 'public', unit: 'mph',
     formula: 'Segment mean speed from the TxDOT Statewide Speed 2024 layer; AM, midday and PM periods as published',
-    threshold: 'compared against the posted limit from the roadway inventory',
+    threshold: 'compared against the posted limit from the roadway inventory. The layer reports no speed above 65 mph (352 of 2,738 records are exactly 65), so 65 is read as "65 or more" and stations posted above 65 have no measurable speed difference',
     source: <>TxDOT Statewide Speed 2024; {INV}</>,
     citation: 'NCHRP Report 504, Design Speed, Operating Speed, and Posted Speed Practices (2003)',
   },
   rho: {
     name: 'Spearman rank correlation', provenance: 'derived', unit: 'ρ, −1 to 1',
-    formula: <>ρ = Pearson r of the ranks (average ranks for ties)</>,
-    threshold: 'descriptive only: stations within one segment share a crash value, so they are not independent',
-    source: 'Stations with both an operating speed and a crash density',
+    formula: <>ρ = Pearson r of the ranks (average ranks for ties), one point per screened segment: mean station speed against the segment&rsquo;s crash density</>,
+    threshold: 'descriptive only; computed per segment because stations inside one segment share its crash value',
+    source: 'Segments with at least one station that has both an operating speed and a crash density',
     citation: 'Spearman (1904)',
   },
 };
@@ -60,6 +60,10 @@ function useWidth<T extends HTMLElement>(fallback: number) {
 }
 
 const typing = (e: KeyboardEvent) => e.metaKey || e.ctrlKey || e.altKey || !!(e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable], [role="listbox"]') || !!document.querySelector('.cmdk-scrim');
+/** TxDOT Statewide Speed 2024 reports no speed above 65 mph: a value of 65 means "65 or more". */
+const SPEED_CAP = 65;
+const censored = (s: St) => s.speed_all != null && s.speed_all >= SPEED_CAP && (s.speed_limit ?? 0) > SPEED_CAP;
+const opTxt = (v: number | null | undefined) => (v != null && v >= SPEED_CAP ? `≥ ${SPEED_CAP}` : nf(v));
 const route = (r: string) => r.replace('-KG', '').replace(/^([A-Z]{2})0*/, '$1 ');
 
 /** Average ranks (ties share the mean rank), then Pearson r of the ranks. */
@@ -90,9 +94,23 @@ export default function CorridorPage() {
   const list = useApi<Card[]>('/corridors');
   const cor = useApi<CorridorT>(`/corridors/${id}`);
   const [hov, setHov] = useState<number | null>(null);
-  const [pin, setPin] = useState<number | null>(null);
+  // pinned station lives in the URL (?at=ROUTE:DFO) so Copy link reproduces the view
+  const [params, setParams] = useSearchParams();
+  const atParam = params.get('at');
   const [copied, setCopied] = useState(false);
   useEffect(() => { if (!copied) return; const t = setTimeout(() => setCopied(false), 1600); return () => clearTimeout(t); }, [copied]);
+  const st0 = cor.data?.stations;
+  const pin = useMemo(() => {
+    if (!atParam || !st0) return null;
+    const [r, d] = atParam.split(':');
+    const i = st0.findIndex((s) => s.route === r && Math.abs(s.dfo - Number(d)) < 1e-6);
+    return i >= 0 ? i : null;
+  }, [atParam, st0]);
+  const setPin = (next: number | null | ((p: number | null) => number | null)) => {
+    const v = typeof next === 'function' ? next(pin) : next;
+    const s = v != null ? st0?.[v] : undefined;
+    setParams((prev) => { const p = new URLSearchParams(prev); if (s) p.set('at', `${s.route}:${s.dfo}`); else p.delete('at'); return p; }, { replace: true });
+  };
   const cur = hov ?? pin;
   const [figRef, W] = useWidth<HTMLDivElement>(900);
   const sldRef = useRef<HTMLDivElement>(null);
@@ -109,10 +127,11 @@ export default function CorridorPage() {
     const s = cor.data?.summary;
     let worst = -1;
     st.forEach((x, i) => { if ((x.crashes_per_mi ?? 0) > (worst < 0 ? 0 : st[worst].crashes_per_mi ?? 0)) worst = i; });
-    const both = st.filter((x) => x.speed_all != null && x.speed_limit != null);
+    // stations posted above 65 with a capped speed of 65 carry no measurable operating speed
+    const both = st.filter((x) => x.speed_all != null && x.speed_limit != null && !censored(x));
     const mean = (f: (x: St) => number) => (both.length ? both.reduce((a, x) => a + f(x), 0) / both.length : null);
     return {
-      density: s && s.segments ? s.crashes_per_yr / s.segments : null,
+      density: s ? (s.crashes_per_mi_yr ?? (s.seg_len_mi ? s.crashes_per_yr / s.seg_len_mi : null)) : null,
       worst: worst >= 0 ? worst : null,
       op: mean((x) => x.speed_all!), posted: mean((x) => x.speed_limit!), nBoth: both.length,
     };
@@ -212,7 +231,7 @@ export default function CorridorPage() {
         readouts={[
           { label: <span className="rd-l">Crash density <MetricInfo spec={SPECS.density} align="right" /></span>, value: stats.density, unit: '/mi/yr', digits: 2, tone: 'alert' },
           { label: <span className="rd-l">Worst DFO</span>, value: worstSt?.dfo ?? null, unit: worstSt ? `${route(worstSt.route)} · ${nf(worstSt.crashes_per_mi, 2)}/mi/yr` : undefined, digits: 2 },
-          { label: <span className="rd-l">Operating speed <MetricInfo spec={SPECS.speed} align="right" /></span>, value: stats.op, unit: stats.posted != null ? `mph · ${nf(stats.posted, 0)} posted` : 'mph', digits: 1, tone: stats.op != null && stats.posted != null && stats.op > stats.posted ? 'alert' : undefined },
+          { label: <span className="rd-l">Operating speed <MetricInfo spec={SPECS.speed} align="right" /></span>, value: stats.op, unit: stats.posted != null ? `mph · ${nf(stats.posted, 0)} posted · ${stats.nBoth} stations` : 'mph', digits: 1, tone: stats.op != null && stats.posted != null && stats.op > stats.posted ? 'alert' : undefined },
         ]}
         actions={<>
           <button type="button" className="btn ghost" onClick={exportCsv} disabled={!st.length}><Icon name="download" size={16} /><span>Download CSV</span></button>
@@ -223,7 +242,7 @@ export default function CorridorPage() {
 
       <nav className="cor-tabs" aria-label="Corridors">
         {(list.data ?? []).map((c, k) => (
-          <button key={c.id} style={{ '--i': k } as React.CSSProperties} aria-pressed={c.id === id} onClick={() => { setHov(null); setPin(null); nav(`/corridors/${c.id}`); }}>
+          <button key={c.id} style={{ '--i': k } as React.CSSProperties} aria-pressed={c.id === id} onClick={() => { setHov(null); nav(`/corridors/${c.id}${params.get('x') ? `?x=${params.get('x')}` : ''}`); }}>
             <span>{c.name.split(' (')[0]}</span>
             <small className="measure">{nf(c.len_mi, 1)} mi · {nf(c.summary.crashes_per_yr, 1)}/yr</small>
           </button>
@@ -232,7 +251,7 @@ export default function CorridorPage() {
       </nav>
       {list.error && <div className="error-box">Corridor list unavailable: {list.error}</div>}
       {cor.data?.summary.note && <p className="cor-note"><Icon name="warning" size={16} />{cor.data.summary.note}</p>}
-      {cor.error && <div className="error-box">Corridor unavailable: {cor.error} <button type="button" className="btn ghost" onClick={() => location.reload()}>Reload</button></div>}
+      {cor.error && <div className="error-box" role="alert">Corridor unavailable: {cor.error} <button type="button" className="btn ghost" onClick={() => location.reload()}><Icon name="reset" size={16} /><span>Retry</span></button></div>}
 
       <section className="cor-grid">
         <figure className="panel sld" data-ui data-r="4">
@@ -294,7 +313,7 @@ export default function CorridorPage() {
                 <dl>
                   <dt>Lanes</dt><dd className="measure">{nf(at.lanes)}</dd>
                   <dt>Posted</dt><dd className="measure">{nf(at.speed_limit)} mph</dd>
-                  <dt>AM / MD / PM</dt><dd className="measure">{nf(at.speed_am)} / {nf(at.speed_md)} / {nf(at.speed_pm)} mph</dd>
+                  <dt>AM / MD / PM</dt><dd className="measure">{opTxt(at.speed_am)} / {opTxt(at.speed_md)} / {opTxt(at.speed_pm)} mph</dd>
                   <dt><Term k="AADT" /></dt><dd className="measure">{nf(at.aadt)} veh/d</dd>
                   <dt>Trucks</dt><dd className="measure">{nf(at.truck_pct, 1)}%</dd>
                   <dt>Ped/bike crashes</dt><dd className="measure" data-hi={(at.crashes_per_mi ?? 0) > 0 || undefined}>{nf(at.crashes_per_mi, 2)} /mi/yr</dd>
@@ -306,7 +325,8 @@ export default function CorridorPage() {
                 <h3>Corridor summary</h3>
                 <dl>
                   <dt>Screened segments</dt><dd className="measure">{nf(cor.data.summary.segments)}</dd>
-                  <dt>Ped/bike crashes</dt><dd className="measure">{nf(cor.data.summary.crashes_total)} in {cor.data.summary.crash_years} yr</dd>
+                  <dt>Ped/bike crashes</dt><dd className="measure">{nf(cor.data.summary.crashes_total)} in {cor.data.summary.crash_years} yr{cor.data.summary.crashes_ka != null ? ` · ${cor.data.summary.crashes_ka} KA` : ''}</dd>
+                  <dt>Screened length</dt><dd className="measure">{nf(cor.data.summary.seg_len_mi, 1)} mi</dd>
                   <dt>Mean <Term k="AADT" /></dt><dd className="measure">{nf(cor.data.summary.aadt_mean)} veh/d</dd>
                   <dt>Peak AADT</dt><dd className="measure">{nf(cor.data.summary.aadt_max)} veh/d</dd>
                   <dt>Mean truck share</dt><dd className="measure">{nf(cor.data.summary.truck_pct_mean, 1)}%</dd>
@@ -323,20 +343,30 @@ export default function CorridorPage() {
           <h2 id="sc-h"><Icon name="gauge" size={22} />Operating speed and ped/bike crash density</h2>
           <p>One dot per 0.25-mi station, linked to the diagram.</p>
         </div>
-        {st.length ? <SpeedScatter st={st} cur={cur} pin={pin} onHover={setHov} onPick={pick} id={id} name={name} /> : !cor.error && <div className="skeleton" style={{ height: 380 }} aria-label="Loading scatter" />}
+        {st.length ? <SpeedScatter st={st} cur={cur} pin={pin} onHover={setHov} onPick={pick} id={id} name={name} mode={params.get('x') === 'delta' ? 'delta' : 'abs'}
+          setMode={(m) => setParams((prev) => { const p = new URLSearchParams(prev); if (m === 'delta') p.set('x', 'delta'); else p.delete('x'); return p; }, { replace: true })} /> : !cor.error && <div className="skeleton" style={{ height: 380 }} aria-label="Loading scatter" />}
       </section>
     </div>
   );
 }
 
 /** Operating speed (or its difference from the posted limit) against crash density, one dot per station. */
-function SpeedScatter({ st, cur, pin, onHover, onPick, id, name }: { st: St[]; cur: number | null; pin: number | null; onHover: (i: number | null) => void; onPick: (i: number | null) => void; id: string; name: string }) {
+function SpeedScatter({ st, cur, pin, onHover, onPick, id, name, mode, setMode }: { st: St[]; cur: number | null; pin: number | null; onHover: (i: number | null) => void; onPick: (i: number | null) => void; id: string; name: string; mode: 'abs' | 'delta'; setMode: (m: 'abs' | 'delta') => void }) {
   const [ref, W] = useWidth<HTMLDivElement>(900);
   const box = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<'abs' | 'delta'>('abs');
-  const pts = st.map((s, i) => ({ s, i })).filter(({ s }) => s.speed_all != null && s.crashes_per_mi != null && s.speed_limit != null);
+  // In "operating − posted" mode, stations posted above the 65 mph reporting cap have no measurable difference.
+  const pts = st.map((s, i) => ({ s, i })).filter(({ s }) => s.speed_all != null && s.crashes_per_mi != null && s.speed_limit != null && (mode === 'abs' || !censored(s)));
+  const nCens = mode === 'delta' ? st.filter((s) => s.speed_all != null && s.crashes_per_mi != null && censored(s)).length : 0;
   const xv = (s: St) => (mode === 'abs' ? s.speed_all! : s.speed_all! - s.speed_limit!);
-  const rho = spearman(pts.map(({ s }) => xv(s)), pts.map(({ s }) => s.crashes_per_mi!));
+  // ρ per segment: stations inside one segment share its crash density, so they are not independent observations
+  const bySeg = new Map<string, { x: number[]; y: number }>();
+  for (const { s } of pts) {
+    if (!s.seg_id) continue;
+    const e = bySeg.get(s.seg_id) ?? { x: [], y: s.crashes_per_mi! };
+    e.x.push(xv(s)); bySeg.set(s.seg_id, e);
+  }
+  const segPts = [...bySeg.values()].map((e) => [e.x.reduce((a, b) => a + b, 0) / e.x.length, e.y] as const);
+  const rho = spearman(segPts.map((p) => p[0]), segPts.map((p) => p[1]));
   const xsAll = pts.flatMap(({ s }) => (mode === 'abs' ? [s.speed_all!, s.speed_limit!] : [xv(s), 0]));
   const x0 = Math.floor((Math.min(...xsAll) - 3) / 5) * 5, x1 = Math.ceil((Math.max(...xsAll) + 3) / 5) * 5;
   const ymax = Math.max(1, ...pts.map(({ s }) => s.crashes_per_mi!)) * 1.12;
@@ -347,6 +377,7 @@ function SpeedScatter({ st, cur, pin, onHover, onPick, id, name }: { st: St[]; c
   const xt: number[] = []; for (let v = x0; v <= x1; v += (x1 - x0) > 40 ? 10 : 5) xt.push(v);
   const yt = [0, ymax / 1.12 / 2, ymax / 1.12];
   const above = pts.filter(({ s }) => s.speed_all! > s.speed_limit!).length;
+  const nCapped = pts.filter(({ s }) => censored(s)).length;
   const active = cur != null ? pts.find((p) => p.i === cur) : undefined;
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -366,7 +397,7 @@ function SpeedScatter({ st, cur, pin, onHover, onPick, id, name }: { st: St[]; c
           <button aria-pressed={mode === 'abs'} onClick={() => setMode('abs')}>Operating speed</button>
           <button aria-pressed={mode === 'delta'} onClick={() => setMode('delta')}>Operating − posted</button>
         </div>
-        <span className="sc-stat">ρ <b className="measure">{rho == null ? '—' : rho.toFixed(2)}</b><MetricInfo spec={SPECS.rho} /> <span className="muted">n = {pts.length} stations · {above} above posted</span></span>
+        <span className="sc-stat">ρ <b className="measure">{rho == null ? '—' : rho.toFixed(2)}</b><MetricInfo spec={SPECS.rho} /> <span className="muted">n = {segPts.length} segments ({pts.length} stations) · {above} stations above posted</span></span>
         <button type="button" className="btn ghost" onClick={save}><Icon name="image" size={16} /><span>Download PNG</span></button>
       </div>
       <div ref={box}>
@@ -390,7 +421,7 @@ function SpeedScatter({ st, cur, pin, onHover, onPick, id, name }: { st: St[]; c
                   {mode === 'abs' && <line x1={X(s.speed_limit!)} x2={X(s.speed_limit!)} y1={cy - 6} y2={cy + 6} className="sc-gap" />}
                   <circle cx={cx} cy={cy} r={7} className="sc-ring" />
                   <text x={cx + (right ? -12 : 12)} y={cy - 12} textAnchor={right ? 'end' : 'start'} className="sc-lab">
-                    DFO {s.dfo.toFixed(2)} · {nf(s.speed_all)} mph ({nf(s.speed_limit)} posted) · {nf(s.crashes_per_mi, 2)}/mi/yr
+                    DFO {s.dfo.toFixed(2)} · {opTxt(s.speed_all)} mph ({nf(s.speed_limit)} posted) · {nf(s.crashes_per_mi, 2)}/mi/yr
                   </text>
                 </g>
               );
@@ -401,7 +432,7 @@ function SpeedScatter({ st, cur, pin, onHover, onPick, id, name }: { st: St[]; c
         </div>
       </div>
       <p className="sc-key" aria-hidden="true"><span><i data-k="hit" />crashes, at or below posted</span><span><i data-k="over" />crashes, above posted</span><span><i data-k="none" />no crash</span></p>
-      <p className="sc-foot muted">Stations inherit the crash density of their one-mile segment, so dots stack in runs. ρ is descriptive only. Speed: TxDOT Statewide Speed 2024.</p>
+      <p className="sc-foot muted">Stations inherit the crash density of their one-mile segment, so dots stack in runs; ρ is computed per segment and is descriptive only. Speed: TxDOT Statewide Speed 2024, which reports no value above 65 mph{mode === 'abs' && nCapped ? ` (${nCapped} stations posted above 65 sit at the cap)` : ''}{nCens ? `; ${nCens} stations posted above 65 omitted here` : ''}.</p>
     </div>
   );
 }

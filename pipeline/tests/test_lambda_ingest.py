@@ -65,3 +65,22 @@ def test_handler_sanity_gate_records_failure_and_skips_upload(monkeypatch, tmp_p
     assert s3.uploads == []
     (rec,) = s3.puts.values()
     assert rec["status"] == "failed" and rec["error"] == "RuntimeError"
+
+
+def test_handler_run_record_lifecycle_and_manual_trigger(monkeypatch, tmp_path):
+    s3 = run(monkeypatch, tmp_path, manifest(100, 400), 90, 390)
+    seen = []
+    put = s3.put_object
+    s3.put_object = lambda **kw: (seen.append(json.loads(kw["Body"])["status"]), put(**kw))
+    L.handler({"trigger": "manual", "requested_at": "2026-10-17T12:00:00Z"}, Ctx())
+    assert seen == ["running", "succeeded"]
+    (rec,) = s3.puts.values()
+    assert rec["trigger"] == "manual" and rec["requested_at"] == "2026-10-17T12:00:00Z"
+    assert rec["records"] == 90 * len(LAYER_IDS) and rec["sources"] == len(LAYER_IDS) and rec["started_at"]
+
+
+def test_handler_scheduled_trigger(monkeypatch, tmp_path):
+    s3 = run(monkeypatch, tmp_path, manifest(100, 400), 90, 390)
+    L.handler({"source": "aws.events"}, Ctx())
+    (rec,) = s3.puts.values()
+    assert rec["trigger"] == "schedule" and "requested_at" not in rec

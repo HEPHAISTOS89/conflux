@@ -13,7 +13,7 @@ interface Row { icon: IconName; value: string | null; unit?: string; text: strin
 export default function Verdict() {
   const ref = useReveal<HTMLElement>();
   const scr = useApi<{ items: Seg[]; total: number }>('/screening?method=eb_excess&limit=1000');
-  const vru = useApi<{ by_severity: Record<string, number>; years: number[] }>('/vru/summary');
+  const vru = useApi<{ by_severity: Record<string, number>; years: number[]; on_system?: { total: number; ka: number } }>('/vru/summary');
   const cf = useApi<(ConflictT & { overlap?: boolean })[]>('/intersections/peachtree-10th/conflicts');
 
   // project-wide rule: flagged = EB excess > 0; confirmed = flagged and critical rate ratio > 1
@@ -22,14 +22,15 @@ export default function Verdict() {
   const flagged = flaggedSegs.length;
   const confirmed = flaggedSegs.filter((s) => (s.crit_ratio ?? 0) > 1).length;
   const t = items[0];
-  const ka = vru.data ? (vru.data.by_severity.K ?? 0) + (vru.data.by_severity.A ?? 0) : null;
+  // state roads = on-system crashes only (the screened network); all-roads KA would overstate the claim
+  const ka = vru.data?.on_system ? vru.data.on_system.ka : null;
   const yrs = vru.data?.years.join('–') ?? '2021–2023';
   const crit = (cf.data ?? []).filter((c) => c.severity === 'critical' && !c.overlap).length;
 
   const rows: Row[] = [
-    { icon: 'alert', value: scr.data ? String(flagged) : null, unit: `of ${nf(scr.data?.total ?? items.length)}`, text: `segments with pedestrian and cyclist EB excess > 0; ${confirmed} also with R/Rc > 1`, basis: `HSM Part B, Empirical Bayes · CRIS ${yrs}`, prov: 'derived', to: '/screening', cta: 'Screening' },
+    { icon: 'alert', value: scr.data ? String(flagged) : null, unit: `of ${nf(scr.data?.total ?? items.length)} screened`, text: `segments with pedestrian and cyclist EB excess > 0; ${confirmed} also with R/Rc > 1`, basis: `HSM Part B, Empirical Bayes · CRIS ${yrs}`, prov: 'derived', to: '/screening', cta: 'Screening' },
     { icon: 'target', value: t ? t.name : null, unit: t ? `DFO ${nf(t.dfo_from, 1)}–${nf(t.dfo_to, 1)}` : undefined, text: t ? `rank 1: ${nf(t.eb_excess, 2)} excess crashes/yr at AADT ${nf(t.aadt)}` : 'rank 1', basis: `${t?.site_type ?? 'Site-type'} SPF · TxDOT AADT`, prov: 'derived', to: t ? `/screening?seg=${encodeURIComponent(t.seg_id)}` : '/screening', cta: 'Segment' },
-    { icon: 'pedestrian', value: ka == null ? null : String(ka), unit: 'K + A', text: `pedestrians and cyclists killed or seriously injured, Lubbock County state roads, ${yrs}`, basis: 'TxDOT CRIS crash reports, KABCO', prov: 'observed', to: '/vru', cta: 'Crashes' },
+    { icon: 'pedestrian', value: ka == null ? null : String(ka), unit: 'K + A', text: `pedestrians and cyclists killed or seriously injured, Lubbock County state roads, ${yrs}`, basis: 'TxDOT CRIS crash reports, on-system, KABCO', prov: 'observed', to: '/vru', cta: 'Crashes' },
     { icon: 'intersection', value: cf.data ? String(crit) : null, unit: 'in 90 s', text: 'critical conflicts, Peachtree St & 10th St; position-overlap flags excluded as likely data error', basis: 'NGSIM trajectories · FHWA SSAM thresholds', prov: 'derived', to: '/intersections/peachtree-10th', cta: 'Conflicts' },
   ];
 

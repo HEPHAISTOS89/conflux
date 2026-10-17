@@ -136,7 +136,7 @@ export default function Methods() {
         readouts={[
           { label: 'Metrics', value: METRICS.length },
           { label: 'Sources', value: meta.data?.sources.length ?? null },
-          { label: 'Segments, ≈ 1 mi', value: (meta.data?.metrics?.segments as number | undefined) ?? null },
+          { label: 'Segments built, ≈ 1 mi', value: (meta.data?.metrics?.segments as number | undefined) ?? null },
           { label: 'Conflict sites', value: SITES.length },
         ]}
       />
@@ -157,7 +157,7 @@ export default function Methods() {
             {meta.error && <div className="error-box">{meta.error}</div>}
             {meta.loading && <div className="skeleton m-skel" />}
             {meta.data && (
-              <div className="m-scroll" data-ui>
+              <div className="m-scroll" data-ui role="region" aria-label="Data sources table, scrolls horizontally" tabIndex={0}>
                 <table className="data">
                   <thead><tr><th>Source</th><th>Provenance</th><th>Licence</th><th className="r">Records</th><th>Fetched</th><th>SHA-256</th></tr></thead>
                   <tbody>
@@ -424,7 +424,7 @@ function SpfTable({ s }: { s: SpfData }) {
   if (!st.length) return null;
   const g = s.pooled_gof, sys = s.system_gof;
   return (
-    <div className="m-scroll" data-ui>
+    <div className="m-scroll" data-ui role="region" aria-label="SPF coefficients table, scrolls horizontally" tabIndex={0}>
       <table className="data">
         <caption className="m-cap">
           NB2 SPFs by site type, outcome {s.crash_period ?? '2021–2023'} ped/bike crashes; k per mile (k<sub>seg</sub> = k/L).
@@ -496,13 +496,13 @@ function SsmRules({ sites }: { sites: { name: string; d?: SsmData; err?: string 
   return (
     <>
       <h3>Matching rules as run</h3>
-      <div className="m-scroll" data-ui>
+      <div className="m-scroll" data-ui role="region" aria-label="SSAM matching rules table, scrolls horizontally" tabIndex={0}>
         <table className="data m-rules">
           <thead><tr><th>Rule</th><th>Definition</th><th>Source / note</th></tr></thead>
           <tbody>{rows.map(([k, v, c]) => <tr key={k}><td>{k}</td><td className="m-small">{v}</td><td className="m-small muted">{c ?? '—'}</td></tr>)}</tbody>
         </table>
       </div>
-      <div className="m-scroll" data-ui>
+      <div className="m-scroll" data-ui role="region" aria-label="Conflict counts by site table, scrolls horizontally" tabIndex={0}>
         <table className="data">
           <thead><tr><th>Site</th><th className="r">Conflicts</th><th className="r">Rear-end</th><th className="r">Lane change</th><th className="r">Crossing</th><th className="r">of which overlap</th><th className="r">DRAC flag</th></tr></thead>
           <tbody>
@@ -554,7 +554,7 @@ function RepairCard({ name, r, err }: { name: string; r?: RepairSum; err?: strin
           mean <span className="num">{nf(occ.gap_len_mean_s, 2)}</span> s
         </p>
       )}
-      <div className="m-scroll" data-ui>
+      <div className="m-scroll" data-ui role="region" aria-label="Trajectory repair error table, scrolls horizontally" tabIndex={0}>
       <table className="data">
         <thead>
           <tr><th>Protocol · truth</th><th className="r">Gaps</th><th className="r">Linear</th><th className="r">Kalman RTS</th><th className="r">Path-constr.</th><th className="r">&lt; 2 s lin / KF</th><th className="r">≥ 2 s lin / KF</th></tr>

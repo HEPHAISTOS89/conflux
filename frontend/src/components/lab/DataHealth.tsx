@@ -20,7 +20,7 @@ export default function DataHealth({ h, repaired, hz }: { h: Health; repaired: {
         <div title={`${h.gaps} gaps longer than 1.5 frames`}>
           <dt>Longest gap</dt><dd className="measure">{h.longestGapS.toFixed(1)}<small>s</small></dd>
         </div>
-        <div title={`Tracks with at least one step whose position-implied speed differs from the reported speed by more than ${JUMP_MPS} m/s (${h.jumpSamples} steps): ID switches or position jumps`}>
+        <div title={`Tracks with at least one step whose position-implied speed differs from the reported speed by more than ${(JUMP_MPS * 3.281).toFixed(1)} ft/s (${h.jumpSamples} steps): ID switches or position jumps`}>
           <dt>Position jumps</dt><dd className="measure">{h.jumpTracks}<small>of {h.tracks} tracks</small></dd>
         </div>
         <div>

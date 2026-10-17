@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Icon, type IconName } from './Icon';
+import { useFloatFit } from './useFloatFit';
 
 export interface Option<T extends string> { value: T; label: string; hint?: string; icon?: IconName }
 
@@ -17,11 +18,12 @@ export default function Select<T extends string>({ value, options, onChange, lab
   const list = useRef<HTMLUListElement>(null);
   const typed = useRef({ s: '', t: 0 });
   const current = options.find((o) => o.value === value) ?? options[0];
+  useFloatFit(list, open);
 
   useEffect(() => {
     if (!open) return;
     setActive(Math.max(0, options.findIndex((o) => o.value === value)));
-    requestAnimationFrame(() => list.current?.focus());
+    list.current?.focus();
     const away = (e: PointerEvent) => {
       if (!list.current?.contains(e.target as Node) && !btn.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -35,7 +37,7 @@ export default function Select<T extends string>({ value, options, onChange, lab
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
     else if (e.key === 'Home') { e.preventDefault(); setActive(0); }
     else if (e.key === 'End') { e.preventDefault(); setActive(options.length - 1); }
-    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(active); }
+    else if (e.key === 'Enter' || (e.key === ' ' && performance.now() - typed.current.t > 600)) { e.preventDefault(); choose(active); }
     else if (e.key === 'Escape' || e.key === 'Tab') { setOpen(false); btn.current?.focus(); }
     else if (e.key.length === 1) {
       const now = performance.now();
@@ -56,7 +58,7 @@ export default function Select<T extends string>({ value, options, onChange, lab
         aria-controls={`${id}-list`}
         aria-label={`${label}: ${current?.label}`}
         onClick={() => setOpen((o) => !o)}
-        onKeyDown={(e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setOpen(true); } }}
+        onKeyDown={(e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setOpen(true); } else if (e.key === 'Escape') setOpen(false); }}
       >
         {icon && <Icon name={icon} size={16} />}
         <span className="sel-k">{label}</span>
@@ -72,7 +74,7 @@ export default function Select<T extends string>({ value, options, onChange, lab
               {o.icon && <Icon name={o.icon} size={16} />}
               <span>{o.label}</span>
               {o.hint && <small className="num">{o.hint}</small>}
-              {o.value === value && <Icon name="check" size={15} weight="bold" />}
+              {o.value === value && <Icon name="check" size={14} weight="bold" />}
             </li>
           ))}
         </ul>

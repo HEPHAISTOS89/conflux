@@ -4,11 +4,15 @@ import { Icon, type IconName } from '../components/Icon';
 import '../styles/methods.css'; // hosts the .nf-* rules
 
 const LINKS: [string, string, string, IconName][] = [
-  ['/', 'County atlas', 'Lubbock County network, crashes and AADT', 'atlas'],
+  ['/', 'Atlas', 'Summary of findings, TTC threshold, network ranking', 'atlas'],
   ['/screening', 'Network screening', 'HSM crash rate, critical rate and EB ranks', 'rank'],
+  ['/corridors', 'Corridors', 'Straight-line diagrams by DFO', 'corridor'],
   ['/vru', 'Pedestrians and cyclists', 'CRIS VRU crashes by severity, light and speed', 'ped'],
   ['/intersections', 'Intersection lab', 'Trajectories, TTC / PET conflicts, repair', 'lidar'],
+  ['/brief', 'District brief', 'One printable page for county officials', 'sheet'],
   ['/methods', 'Methods and data', 'Formulas, thresholds, sources and licences', 'methods'],
+  ['/platform', 'Platform', 'AWS pipeline, runs and alarms', 'platform'],
+  ['/roadmap', 'Roadmap', 'Built, prototype and planned work', 'flag'],
   ['/ask', 'Ask the data', 'Questions answered from the curated tables', 'ask'],
 ];
 
@@ -21,7 +25,7 @@ export default function NotFound() {
         {LINKS.map(([to, t, d, ic]) => (
           <li key={to}>
             <Link to={to} className="nf-link">
-              <Icon name={ic} size={18} weight="duotone" />
+              <Icon name={ic} size={20} weight="duotone" />
               <span><b>{t}</b><small>{d}</small></span>
               <Icon name="arrow" size={16} />
             </Link>

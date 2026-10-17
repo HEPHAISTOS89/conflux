@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { CHART } from '../lib/format';
-import { createEngine, SENSOR, BLIND_R, type CamMode, type Engine, type Layers, type PresetId, type ReplayStatus } from '../lib/lab/engine';
-import { focusConflict, webglAvailable } from '../lib/lab/hooks';
+import { createEngine, SENSOR, BLIND_R, type CamMode, type Engine, type EngineView, type Layers, type PresetId, type ReplayStatus } from '../lib/lab/engine';
+import { labPalette, useThemeName } from '../lib/lab/palette';
+import { focusConflict, webglAvailable, writeParam } from '../lib/lab/hooks';
 import { useClock, useClockFrame, useSelection, type ConflictT, type IntersectionT } from '../lib/traj';
 import { Icon, type IconName } from './Icon';
 import Hud from './lab/Hud';
@@ -17,7 +18,8 @@ export const MODES: { id: CamMode; name: string; icon: IconName; tip: string }[]
   { id: 'sensor', name: 'Sensor', icon: 'sensor', tip: 'Sensor point of view from the pole head; drag to look, scroll to change field of view' },
 ];
 export const PRESETS: { id: PresetId; name: string }[] = [
-  { id: 'approach', name: 'Approach lane' },
+  { id: 'overview', name: 'Overview' },
+  { id: 'approach', name: 'Approach' },
   { id: 'zone', name: 'Conflict zone' },
   { id: 'stopline', name: 'Stop line' },
   { id: 'sensor', name: 'Sensor POV' },
@@ -53,7 +55,7 @@ function Lidar3D({ data, conflicts, label }: Props) {
   const sel = useSelection();
   const selRef = useRef(sel);
   selRef.current = sel;
-  const [mode, setMode] = useState<CamMode>('orbit');
+  const [mode, setMode] = useState<CamMode>(() => { const c = new URLSearchParams(location.search).get('cam'); return c === 'fly' || c === 'top' || c === 'sensor' ? c : 'orbit'; });
   const [layers, setLayers] = useState<Layers>(() => readLayers());
   const [replay, setReplay] = useState<ReplayStatus | null>(null);
   const [layersOpen, setLayersOpen] = useState(false);
@@ -62,13 +64,18 @@ function Lidar3D({ data, conflicts, label }: Props) {
   const primary = sel ? [...sel.selected][0] ?? null : null;
   const layersRef = useRef(layers); layersRef.current = layers;
   const modeRef = useRef(mode); modeRef.current = mode;
+  const theme = useThemeName();
+  // camera kept across a rebuild (theme switch); seeded from ?cam= on first mount
+  const viewRef = useRef<EngineView | null>(null);
+  const [fps, setFps] = useState<number | null>(null);
 
   useEffect(() => {
     let e: Engine;
     try {
       e = createEngine({
         host: host.current!, minimap: mini.current, compass: needle.current, heading: heading.current,
-        data, conflicts, layers: layersRef.current, mode: modeRef.current, clock,
+        data, conflicts, layers: layersRef.current, mode: modeRef.current, clock, palette: labPalette(theme), view: viewRef.current,
+        onFps: setFps,
         onPick: (id, add) => { const s = selRef.current; if (!s) return; if (id) s.select([id], { add }); else s.select(null); },
         onHover: (id) => { const s = selRef.current; if (s && s.hovered !== id) s.hover(id); },
         onMode: setMode,
@@ -76,13 +83,16 @@ function Lidar3D({ data, conflicts, label }: Props) {
       });
     } catch { setGlError(true); return; }
     eng.current = e;
-    return () => { e.dispose(); eng.current = null; };
+    e.setSel(selRef.current?.selected ?? new Set(), selRef.current?.hovered ?? null, null);
+    return () => { viewRef.current = e.getView(); e.dispose(); eng.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, conflicts]);
+  }, [data, conflicts, theme]);
 
-  useEffect(() => { eng.current?.setSel(sel?.selected ?? new Set(), sel?.hovered ?? null, focus); }, [sel?.selected, sel?.hovered, focus, data, conflicts]);
+  useEffect(() => { eng.current?.setSel(sel?.selected ?? new Set(), sel?.hovered ?? null, focus); }, [sel?.selected, sel?.hovered, focus, data, conflicts, theme]);
   useEffect(() => { eng.current?.setLayers(layers); try { localStorage.setItem('rs-lab-layers', JSON.stringify(layers)); } catch { /* private mode */ } }, [layers]);
-  useClockFrame((t) => eng.current?.update(t), [data, conflicts]);
+  useClockFrame((t) => eng.current?.update(t), [data, conflicts, theme]);
+  // camera mode in the deep link
+  useEffect(() => { writeParam('cam', mode === 'orbit' ? null : mode); }, [mode]);
 
   // 3D shortcuts: C / Shift+C camera mode, P preset, R replay from three angles
   const api = useRef({ cycle: (_d: number) => {}, preset: () => {}, replay: () => {} });
@@ -127,7 +137,7 @@ function Lidar3D({ data, conflicts, label }: Props) {
       <div className="lidar-cams">
         <div className="seg" role="group" aria-label="Camera mode">
           {MODES.map((m) => (
-            <button key={m.id} aria-pressed={mode === m.id} disabled={m.id === 'follow' && !primary} title={m.id === 'follow' && !primary ? 'Select a vehicle to follow it' : `${m.tip} (C cycles)`}
+            <button key={m.id} aria-label={m.name} aria-pressed={mode === m.id} disabled={m.id === 'follow' && !primary} title={m.id === 'follow' && !primary ? 'Select a vehicle to follow it' : `${m.tip} (C cycles)`}
               onClick={() => eng.current?.setMode(m.id)}>
               <Icon name={m.icon} size={15} /><span>{m.name}</span>
             </button>
@@ -144,7 +154,7 @@ function Lidar3D({ data, conflicts, label }: Props) {
             <>
               <span className="lidar-moment-k"><Icon name="camera" size={15} /> Angle {replay.angle} of {replay.of}</span>
               <span>{replay.name}</span>
-              <button className="btn ghost" onClick={() => eng.current?.cancelReplay()}>Stop</button>
+              <button className="btn ghost" onClick={() => eng.current?.cancelReplay()}>Stop replay</button>
             </>
           ) : focus && (
             <>
@@ -194,6 +204,7 @@ function Lidar3D({ data, conflicts, label }: Props) {
         </span>
         <span ref={heading} className="lidar-heading measure" aria-hidden="true" />
       </div>
+      {fps != null && <span className="lidar-fps measure" title="Frames drawn per second while the scene moves (target 60)">{fps} fps</span>}
     </div>
   );
 }
@@ -202,3 +213,4 @@ function readLayers(): Layers {
   const d: Layers = { trails: true, projection: true, zones: false, fov: false, cloud: true };
   try { const v = JSON.parse(localStorage.getItem('rs-lab-layers') ?? 'null'); return v && typeof v === 'object' ? { ...d, ...v } : d; } catch { return d; }
 }
+

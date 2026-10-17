@@ -1,3 +1,15 @@
 .mapview { position: absolute; inset: 0; }
 .mapview canvas { outline: none; }
 .maplibregl-ctrl-attrib, .maplibregl-ctrl-attrib a { font-size: 13px !important; }
+
+/* MapLibre controls in the portal palette. These follow maplibre-gl.css in import order, so they win at equal specificity. */
+.mapview .maplibregl-ctrl-group { background: var(--raise); border-radius: var(--r-m); box-shadow: none; }
+.mapview .maplibregl-ctrl-group button { width: var(--ctl-s); height: var(--ctl-s); }
+.mapview .maplibregl-ctrl-group button + button { border-top: 1px solid var(--rule); }
+.mapview .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(0.88); }
+:root[data-theme='light'] .mapview .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: none; }
+.mapview .maplibregl-ctrl-group button:not(:disabled):hover { background: var(--paper-2); }
+.mapview .maplibregl-ctrl-attrib, .mapview .maplibregl-ctrl-attrib.maplibregl-compact-show { background: color-mix(in srgb, var(--paper) 88%, transparent); color: var(--ink-2); border-radius: var(--r-m); }
+.mapview .maplibregl-ctrl-attrib a { color: var(--ink-2); }
+.mapview .maplibregl-ctrl-attrib-button { filter: invert(0.88); background-color: transparent; }
+:root[data-theme='light'] .mapview .maplibregl-ctrl-attrib-button { filter: none; }

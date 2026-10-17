@@ -68,6 +68,7 @@ export default function Ask() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [model, setModel] = useState<{ state: ModelState; id?: string }>({ state: 'unknown' });
   const nextId = useRef(1);
+  const inflight = useRef(false); // synchronous guard: two clicks in one frame must not send two requests
   const area = useRef<HTMLTextAreaElement>(null);
   const pageRef = useReveal<HTMLDivElement>();
 
@@ -81,7 +82,8 @@ export default function Ask() {
 
   async function submit(question: string) {
     const text = question.trim().slice(0, MAX);
-    if (!text || busy) return;
+    if (!text || busy || inflight.current) return;
+    inflight.current = true;
     const id = nextId.current++;
     setBusy(true);
     setTurns((t) => [{ id, q: text }, ...t].slice(0, 8));
@@ -92,6 +94,7 @@ export default function Ask() {
     out.ms = performance.now() - t0;
     if (out.res) setModel({ state: out.res.fallback ? 'fallback' : 'bedrock', id: out.res.model });
     setTurns((t) => t.map((x) => (x.id === id ? { ...x, ...out } : x)));
+    inflight.current = false;
     setBusy(false);
     area.current?.focus();
   }
@@ -102,7 +105,7 @@ export default function Ask() {
   const chip = model.state === 'bedrock'
     ? <span className="status" data-s="ok"><Icon name="bedrock" size={14} />Bedrock · <span className="measure">{model.id}</span></span>
     : model.state === 'fallback'
-      ? <span className="status" data-s="warn"><Icon name="warning" size={14} />Rule-based fallback</span>
+      ? <span className="status" data-s="warn" title="Bedrock did not answer: model access awaits AWS account verification (or the daily Bedrock cap was reached). The same tools answer deterministically."><Icon name="warning" size={14} />Rule-based fallback · Bedrock not active</span>
       : <span className="status" data-s="warn"><Icon name="bedrock" size={14} />Bedrock awaiting AWS account verification</span>;
 
   return (
@@ -136,8 +139,9 @@ export default function Ask() {
           </span>
           <span className="ask-btns">
             {q && !busy && <button type="button" className="btn ghost" onClick={() => { setQ(''); area.current?.focus(); }}>Clear</button>}
-            <button className="btn ask-go" type="submit" disabled={busy || !q.trim()}>
-              {busy ? <><Icon name="spinner" size={18} />Answering…</> : <>Ask<Icon name="send" size={18} /></>}
+            <button className="btn ask-go" type="submit" disabled={busy || !q.trim()} aria-busy={busy}
+              title={busy ? 'Answering the previous question' : !q.trim() ? 'Type a question first' : undefined}>
+              {busy ? <><Icon name="spinner" size={16} />Answering…</> : <>Ask<Icon name="send" size={16} /></>}
             </button>
           </span>
         </div>
@@ -148,8 +152,8 @@ export default function Ask() {
         <ul className="ask-sugg">
           {SUGGESTED.map((s) => (
             <li key={s.q}>
-              <button type="button" className="ask-sq" disabled={busy} onClick={() => void submit(s.q)}>
-                <Icon name={s.icon} size={18} weight="duotone" />
+              <button type="button" className="ask-sq" disabled={busy} title={busy ? 'Answering the previous question' : undefined} onClick={() => void submit(s.q)}>
+                <Icon name={s.icon} size={20} weight="duotone" />
                 <span className="ask-sq-q">{s.q}</span>
                 <code className="ask-sq-t">{s.tool}</code>
               </button>
@@ -173,18 +177,19 @@ export default function Ask() {
 
 function TurnView({ t, busy, onRetry }: { t: Turn; busy: boolean; onRetry: () => void }) {
   const r = t.res;
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle');
   // The service appends a standing caveat paragraph; show it as a note, not as part of the answer.
   const paras = r ? r.answer.split(/\n{2,}/) : [];
   const caveat = paras.length > 1 && /^limitations?:/i.test(paras[paras.length - 1]) ? paras.pop() : undefined;
   const copy = async () => {
     if (!r) return;
     const text = `Q: ${t.q}\n\n${r.answer}\n\nCited: ${r.citations.join('; ') || 'none'}\nModel: ${r.model}`;
-    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch { /* clipboard blocked */ }
+    try { await navigator.clipboard.writeText(text); setCopied('ok'); } catch { setCopied('fail'); /* clipboard blocked: say so rather than pretend */ }
+    setTimeout(() => setCopied('idle'), 1800);
   };
   return (
     <li className="ask-turn">
-      <p className="ask-q"><Icon name="ask" size={18} />{t.q}</p>
+      <p className="ask-q"><Icon name="ask" size={20} />{t.q}</p>
       {!r && !t.error && !t.limited && (
         <div className="ask-wait" role="status" aria-label="Waiting for answer"><i className="skeleton" /><i className="skeleton" /><i className="skeleton" /></div>
       )}
@@ -192,7 +197,7 @@ function TurnView({ t, busy, onRetry }: { t: Turn; busy: boolean; onRetry: () =>
         <div className="error-box ask-err">
           <Icon name="warning" size={16} />
           <span>{t.limited ? `Rate limited. ${t.limited}` : `Request failed. ${t.error}`}</span>
-          <button type="button" className="btn ghost" onClick={onRetry} disabled={busy}><Icon name="reset" size={15} />Retry</button>
+          <button type="button" className="btn ghost sm" onClick={onRetry} disabled={busy} title={busy ? 'Another question is being answered' : undefined}><Icon name="reset" size={16} />Retry</button>
         </div>
       )}
       {r && (
@@ -206,13 +211,13 @@ function TurnView({ t, busy, onRetry }: { t: Turn; busy: boolean; onRetry: () =>
               ))}
             </ul>
           )}
-          {caveat && <p className="ask-caveat"><Icon name="info" size={15} />{caveat.replace(/^limitations?:\s*/i, '')}</p>}
+          {caveat && <p className="ask-caveat"><Icon name="info" size={14} />{caveat.replace(/^limitations?:\s*/i, '')}</p>}
           <div className="ask-foot">
             <span className="status" data-s={r.fallback ? 'warn' : 'ok'}><Icon name={r.fallback ? 'warning' : 'bedrock'} size={14} />{r.fallback ? 'Rule-based fallback' : 'Bedrock'}</span>
             <span className="measure ask-model">{r.model}</span>
             {t.ms != null && <span className="measure ask-model">{(t.ms / 1000).toFixed(2)} s</span>}
             <button type="button" className="ask-copy" onClick={() => void copy()} aria-label="Copy answer with citations">
-              <Icon name={copied ? 'check' : 'copy'} size={15} />{copied ? 'Copied' : 'Copy'}
+              <Icon name={copied === 'ok' ? 'check' : copied === 'fail' ? 'warning' : 'copy'} size={14} /><span aria-live="polite">{copied === 'ok' ? 'Copied' : copied === 'fail' ? 'Copy blocked by browser' : 'Copy answer'}</span>
             </button>
           </div>
           {r.tool_calls.length > 0 && (

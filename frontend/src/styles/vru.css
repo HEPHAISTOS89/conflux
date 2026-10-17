@@ -1,31 +1,31 @@
 .vru { gap: clamp(40px, 5vw, 72px); }
-.vru h2 { font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem); letter-spacing: -0.025em; }
+.vru h2 { font-size: var(--t-h2); letter-spacing: -0.025em; }
 .vru-mapsec { gap: var(--s4); }
 
 .vru-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s4); }
 .vru-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 /* Chips are layer toggles: filled when shown, outlined when hidden. */
-.vru-chip, .vru-lchip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid transparent; border-radius: 999px; background: var(--raise); color: var(--ink); font-size: 15px; padding: 7px 14px; min-height: 38px; cursor: pointer; }
-.vru-chip .num, .vru-lchip .num { color: var(--ink-3); font-size: 14px; }
+.vru-chip, .vru-lchip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid transparent; border-radius: var(--r-pill); background: var(--raise); color: var(--ink); font-size: var(--t-ui); padding: 7px 14px; min-height: var(--ctl-m); cursor: pointer; }
+.vru-chip .num, .vru-lchip .num { color: var(--ink-3); font-size: var(--t-ui); }
 .vru-chip[aria-pressed='false'], .vru-lchip[aria-pressed='false'] { background: transparent; border-color: var(--rule); color: var(--ink-3); }
 .vru-chip[aria-pressed='false'] { text-decoration: line-through; text-decoration-color: color-mix(in srgb, currentColor 50%, transparent); }
-.vru-years button { padding: 5px 10px; font-size: 14px; }
+.vru-years button { padding: 5px 10px; font-size: var(--t-ui); }
 .vru-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-left: auto; }
-.vru-actions .btn { font-size: 15px; }
+.vru-actions .btn { font-size: var(--t-ui); }
 @media (hover: hover) {
   .vru-chip:hover, .vru-lchip:hover { background: var(--rule); }
   .vru-chip[aria-pressed='false']:hover, .vru-lchip[aria-pressed='false']:hover { background: var(--paper-2); color: var(--ink-2); }
 }
 
-.vru-map { position: relative; min-height: clamp(460px, 52vw, 680px); overflow: hidden; border-radius: 10px; }
+.vru-map { position: relative; min-height: clamp(460px, 52vw, 680px); overflow: hidden; border-radius: var(--r-m); }
 .vru-map .mapview { position: absolute; inset: 0; }
 /* Floating readouts sit on a solid tone step, not a shadow. */
-.vru-legend, .vru-readout { position: absolute; z-index: 2; background: var(--raise); border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+.vru-legend, .vru-readout { position: absolute; z-index: 2; background: var(--raise); border-radius: var(--r-m); padding: 10px 14px; font-size: var(--t-ui); }
 .vru-legend { left: 12px; bottom: 12px; display: grid; gap: 2px; padding: 8px; }
-.vru-legend-h { padding: 2px 8px 4px; color: var(--ink-3); font-size: 13px; }
-.vru-legend-tip { padding: 4px 8px 0; color: var(--ink-3); font-size: 12px; }
-.vru-lchip { border-radius: 6px; min-height: 32px; padding: 4px 8px; font-size: 14px; background: transparent; justify-content: flex-start; }
-.vru-lchip .num { margin-left: auto; padding-left: 12px; font-size: 13px; }
+.vru-legend-h { padding: 2px 8px 4px; color: var(--ink-3); font-size: var(--t-label); }
+.vru-legend-tip { padding: 4px 8px 0; color: var(--ink-3); font-size: var(--t-micro); }
+.vru-lchip { border-radius: var(--r-m); min-height: var(--ctl-s); padding: 4px 8px; font-size: var(--t-ui); background: transparent; justify-content: flex-start; }
+.vru-lchip .num { margin-left: auto; padding-left: 12px; font-size: var(--t-label); }
 .vru-lname { white-space: pre; }
 .vru-lchip i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .vru-lchip[aria-pressed='false'] { border-color: transparent; }
@@ -35,14 +35,14 @@
 .vru-readout[data-pinned] { background: color-mix(in srgb, var(--accent) 16%, var(--raise)); }
 .vru-readout-h { display: flex; align-items: center; gap: 8px; }
 .vru-readout-h strong { flex: 1; }
-.vru-x { display: grid; place-items: center; width: 28px; height: 28px; margin: -6px -8px -6px 0; border: 0; border-radius: 6px; background: transparent; color: var(--ink-3); }
+.vru-x { display: grid; place-items: center; width: 28px; height: 28px; margin: -6px -8px -6px 0; border: 0; border-radius: var(--r-m); background: transparent; color: var(--ink-3); }
 @media (hover: hover) { .vru-x:hover { background: var(--rule); color: var(--ink); } }
 .vru-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
 .vru-dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 6px 0 0; }
 .vru-dl dt { color: var(--ink-3); }
 .vru-dl dd { margin: 0; overflow-wrap: anywhere; }
 .vru-dl .term-tip { left: auto; }
-.vru-empty { position: absolute; z-index: 2; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--raise); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; font-size: 15px; white-space: nowrap; }
+.vru-empty { position: absolute; z-index: 2; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--raise); border-radius: var(--r-m); padding: 12px 16px; display: flex; align-items: center; gap: 12px; font-size: var(--t-ui); white-space: nowrap; }
 
 .vru-heat { margin: 0; display: grid; gap: var(--s3); align-content: start; }
 .vru-heat-scroll { overflow-x: auto; }
@@ -54,19 +54,19 @@
   .vru-heat svg:hover rect { opacity: 0.55; }
   .vru-heat svg:hover rect:hover { opacity: 1; }
 }
-.vru-ax { font: 500 14px var(--f-ui); fill: var(--ink-3); transition: fill 160ms; }
+.vru-ax { font: 500 var(--t-ui) var(--f-ui); fill: var(--ink-3); transition: fill 160ms; }
 .vru-ax[data-on] { fill: var(--ink); }
-.vru-heat-legend { display: flex; align-items: center; gap: 10px; font-size: 15px; flex-wrap: wrap; color: var(--ink-2); min-height: 24px; }
-.vru-steps { display: inline-flex; border-radius: 3px; overflow: hidden; }
+.vru-heat-legend { display: flex; align-items: center; gap: 10px; font-size: var(--t-ui); flex-wrap: wrap; color: var(--ink-2); min-height: 24px; }
+.vru-steps { display: inline-flex; border-radius: var(--r-s); overflow: hidden; }
 .vru-steps i { width: 22px; height: 10px; }
 .vru-cell { margin-left: 6px; }
-.vru-note { font-size: 15px; }
+.vru-note { font-size: var(--t-ui); }
 
 .vru-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.vru-bars li { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) 9ch; gap: var(--s4); align-items: center; font-size: 15px; padding: 7px 8px; margin: 0 -8px; border-radius: 6px; transition: background-color 140ms; }
+.vru-bars li { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) 9ch; gap: var(--s4); align-items: center; font-size: var(--t-ui); padding: 7px 8px; margin: 0 -8px; border-radius: var(--r-m); transition: background-color 140ms; }
 .vru-bar-l { overflow-wrap: anywhere; color: var(--ink-2); }
 @media (hover: hover) { .vru-bars li:hover { background: var(--raise); } .vru-bars li:hover .vru-bar-l { color: var(--ink); } }
-.vru-bar-t { height: 8px; background: var(--raise); border-radius: 4px; overflow: hidden; }
+.vru-bar-t { height: 8px; background: var(--raise); border-radius: var(--r-s); overflow: hidden; }
 .vru-bar { display: block; height: 100%; background: var(--sev-a); transform-origin: left center; transition: transform 600ms var(--ease-out); }
 .vru-bar-v { text-align: right; }
 
@@ -87,22 +87,22 @@
 
 /* Drill-down chips: each active cross-filter is removable in one click. */
 .vru-drills { display: flex; flex-wrap: wrap; gap: 6px; }
-.vru-drill { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--accent) 20%, var(--raise)); color: var(--ink); font-size: 14px; cursor: pointer; }
+.vru-drill { display: inline-flex; align-items: center; gap: 6px; min-height: var(--ctl-s); padding: 4px 10px; border: 0; border-radius: var(--r-pill); background: color-mix(in srgb, var(--accent) 20%, var(--raise)); color: var(--ink); font-size: var(--t-ui); cursor: pointer; }
 .vru-drill .icon:last-child { color: var(--ink-3); }
 @media (hover: hover) { .vru-drill:hover .icon:last-child { color: var(--ink); } }
 .vru-chip .icon { color: var(--ink-2); }
 
 /* Analysis sheets: a two-column grid of figures, each with a header that says what and why. */
 .vru-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); align-items: stretch; }
-.vru-card { gap: var(--s4); background: var(--sheet); border-radius: 14px; padding: clamp(16px, 2vw, 28px); min-width: 0; align-content: start; }
+.vru-card { gap: var(--s4); background: var(--sheet); border-radius: var(--r-l); padding: clamp(16px, 2vw, 28px); min-width: 0; align-content: start; }
 .vru-wide { grid-column: 1 / -1; }
 .vru-sh { display: grid; gap: 6px; }
 .vru-sh-t { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
 .vru-sh h2 { display: flex; align-items: center; gap: 10px; margin: 0; }
 .vru-sh h2 > .icon { color: var(--accent); flex: none; }
-.vru-sh p { margin: 0; font-size: 15px; color: var(--ink-2); max-width: 64ch; line-height: 1.45; }
+.vru-sh p { margin: 0; font-size: var(--t-ui); color: var(--ink-2); max-width: 64ch; line-height: 1.45; }
 .vru-sh-a { display: flex; gap: 4px; }
-.vru-exp { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border: 0; border-radius: 8px; background: var(--raise); color: var(--ink-2); font: 500 12.5px var(--f-ui); letter-spacing: 0.02em; cursor: pointer; transition: background-color 140ms, color 140ms; }
+.vru-exp { display: inline-flex; align-items: center; gap: 6px; min-height: var(--ctl-s); padding: 4px 10px; border: 0; border-radius: var(--r-m); background: var(--raise); color: var(--ink-2); font: 500 var(--t-label) var(--f-ui); cursor: pointer; transition: background-color 140ms, color 140ms; }
 @media (hover: hover) { .vru-exp:hover { background: var(--rule); color: var(--ink); } }
 .vru-exp:active { transform: scale(0.97); }
 
@@ -110,23 +110,23 @@
 .vru-heat-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: var(--s5); align-items: start; }
 .vru-pk .vru-pk-band { pointer-events: none; fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.6; }
 .vru-pk path { fill: none; stroke: var(--ink); stroke-width: 1.5; }
-.vru-pk-t { font: 500 12px var(--f-ui); fill: var(--ink); }
-.vru-peak { display: grid; gap: 6px; padding: 14px 16px; border-radius: 10px; background: var(--raise); }
-.vru-peak-k { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-3); }
+.vru-pk-t { font: 500 var(--t-micro) var(--f-ui); fill: var(--ink); }
+.vru-peak { display: grid; gap: 6px; padding: 14px 16px; border-radius: var(--r-m); background: var(--raise); }
+.vru-peak-k { display: flex; align-items: center; gap: 6px; font-size: var(--t-label); color: var(--ink-3); }
 .vru-peak-k .icon { color: var(--sev-a); }
-.vru-peak-v { font-size: 1.6rem; font-weight: 500; letter-spacing: -0.03em; color: var(--ink); }
-.vru-peak-s { font-size: 14px; color: var(--ink-2); line-height: 1.4; }
+.vru-peak-v { font-size: var(--t-fig); font-weight: 500; letter-spacing: -0.03em; color: var(--ink); }
+.vru-peak-s { font-size: var(--t-ui); color: var(--ink-2); line-height: 1.4; }
 .vru-peak-s b { color: var(--ink); font-weight: 600; }
 
 /* Breakdown: crash count + KA share with Wilson interval, rows are drill-down buttons. */
 .vru-bd { display: grid; gap: var(--s2); background: var(--sheet); }
-.vru-bd-find { margin: 0 0 var(--s2); font-size: 15px; color: var(--ink-2); }
+.vru-bd-find { margin: 0 0 var(--s2); font-size: var(--t-ui); color: var(--ink-2); }
 .vru-bd-find b { color: var(--ink); font-weight: 600; }
 .vru-bd-box { position: relative; min-height: 120px; }
 .vru-bd svg { display: block; overflow: visible; }
-.vru-bd-h { font: 500 13px var(--f-ui); fill: var(--ink-3); }
+.vru-bd-h { font: 500 var(--t-label) var(--f-ui); fill: var(--ink-3); }
 .vru-bd-hk { fill: var(--sev-a); }
-.vru-bd-ax { font: 500 12px var(--f-ui); fill: var(--ink-3); font-variant-numeric: tabular-nums; }
+.vru-bd-ax { font: 500 var(--t-micro) var(--f-ui); fill: var(--ink-3); font-variant-numeric: tabular-nums; }
 .vru-bd-grid { stroke: var(--rule); stroke-width: 1; }
 .vru-bd-ref { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 3 3; }
 .vru-bd-row { cursor: pointer; outline: none; }
@@ -136,49 +136,49 @@
 .vru-bd-row[data-on] .vru-bd-hit { fill: color-mix(in srgb, var(--accent) 18%, var(--sheet)); }
 .vru-bd-row[data-dim] { opacity: 0.5; }
 .vru-bd-row { transition: opacity 160ms; }
-.vru-bd-l { font: 500 14px var(--f-ui); fill: var(--ink-2); }
+.vru-bd-l { font: 500 var(--t-ui) var(--f-ui); fill: var(--ink-2); }
 .vru-bd-row[data-on] .vru-bd-l { fill: var(--ink); }
 .vru-bd-rest { fill: color-mix(in srgb, var(--ink-3) 55%, var(--sheet)); }
-.vru-bd-n { font: 500 13px var(--f-measure); fill: var(--ink-2); }
+.vru-bd-n { font: 500 var(--t-label) var(--f-measure); fill: var(--ink-2); }
 .vru-bd-ci { stroke: var(--ink-2); stroke-width: 2; stroke-linecap: round; }
 .vru-bd-dot { fill: var(--sev-a); stroke: var(--sheet); stroke-width: 2; }
-.vru-bd-read { margin: 0; font-size: 14px; color: var(--ink-2); min-height: 2.6em; }
+.vru-bd-read { margin: 0; font-size: var(--t-ui); color: var(--ink-2); min-height: 2.6em; }
 .vru-bd-read b { color: var(--ink); font-weight: 500; }
-.vru-bd-skel { position: absolute; inset: 0; border-radius: 8px; }
+.vru-bd-skel { position: absolute; inset: 0; border-radius: var(--r-m); }
 
 /* Failure to yield: the split, then two comparable figures. */
 .vru-ysrc { justify-self: start; max-width: 100%; }
-.vru-ysrc button { font-size: 14px; padding: 5px 12px; }
-.vru-yctx { width: 100%; font-size: 14px; table-layout: fixed; }
-.vru-yctx th { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+.vru-ysrc button { font-size: var(--t-ui); padding: 5px 12px; }
+.vru-yctx { width: 100%; font-size: var(--t-ui); table-layout: fixed; }
+.vru-yctx th { font-size: var(--t-label); font-weight: 500; color: var(--ink-3); }
 .vru-yctx td, .vru-yctx th { padding: 8px 6px; }
 .vru-yctx td:first-child { color: var(--ink-2); }
 .vru-yctx td:first-child .icon { color: var(--ink-3); vertical-align: -2px; margin-right: 8px; }
 .vru-yield { display: grid; gap: var(--s3); }
-.vru-ysplit { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; }
+.vru-ysplit { display: flex; gap: 2px; height: 10px; border-radius: var(--r-s); overflow: hidden; }
 .vru-ysplit span { flex-basis: 0; transition: flex-grow 500ms var(--ease-out); }
 .vru-ysplit [data-k='motorist'] { background: var(--sev-a); }
 .vru-ysplit [data-k='pedestrian'] { background: color-mix(in srgb, var(--ink-3) 55%, var(--sheet)); }
 .vru-ycards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
-.vru-ycard { display: grid; gap: 4px; text-align: left; padding: 14px 16px; border: 0; border-radius: 10px; background: var(--raise); color: var(--ink); cursor: pointer; transition: background-color 140ms, box-shadow 140ms; }
+.vru-ycard { display: grid; gap: 4px; text-align: left; padding: 14px 16px; border: 0; border-radius: var(--r-m); background: var(--raise); color: var(--ink); cursor: pointer; transition: background-color 140ms, box-shadow 140ms; }
 .vru-ycard[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--accent); } /* taste-skill-ignore: selected ring */
 .vru-ycard:disabled { opacity: 0.5; cursor: not-allowed; }
 @media (hover: hover) { .vru-ycard:hover:not(:disabled) { background: var(--rule); } }
 .vru-ycard:active:not(:disabled) { transform: scale(0.985); }
-.vru-yk { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.vru-yk { display: flex; align-items: center; gap: 8px; font-size: var(--t-ui); color: var(--ink-2); }
 .vru-ycard[data-k='motorist'] .vru-yk .icon { color: var(--sev-a); }
 .vru-yv { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.vru-yv .num { font-size: 2.25rem; font-weight: 500; letter-spacing: -0.04em; line-height: 1.05; }
-.vru-yv small { font-size: 13px; color: var(--ink-3); }
-.vru-ys { font-size: 14px; color: var(--ink-2); }
-.vru-ynote { margin: 0; font-size: 14px; }
+.vru-yv .num { font-size: var(--t-fig); font-weight: 500; letter-spacing: -0.04em; line-height: 1.05; }
+.vru-yv small { font-size: var(--t-label); color: var(--ink-3); }
+.vru-ys { font-size: var(--t-ui); color: var(--ink-2); }
+.vru-ynote { margin: 0; font-size: var(--t-ui); }
 
 .vru-bar { position: relative; overflow: hidden; background: color-mix(in srgb, var(--ink-3) 55%, var(--sheet)); }
 .vru-bar-ka { position: absolute; inset: 0 auto 0 0; background: var(--sev-a); }
 .vru-bar-t { background: var(--raise); }
-.vru-bar-v small { color: var(--ink-3); font-size: 12.5px; }
+.vru-bar-v small { color: var(--ink-3); font-size: var(--t-micro); }
 
-.vru-source { display: grid; gap: 8px; font-size: 14px; color: var(--ink-2); padding-top: var(--s4); border-top: 1px solid var(--rule); }
+.vru-source { display: grid; gap: 8px; font-size: var(--t-ui); color: var(--ink-2); padding-top: var(--s4); border-top: 1px solid var(--rule); }
 .vru-src-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .vru-src-row > .icon { color: var(--ink-3); }
 
@@ -200,5 +200,16 @@
 .vru-bd-box { overflow: hidden; }
 .vru-yield, .vru-yield > * { min-width: 0; }
 .vru-yctx th, .vru-yctx td { white-space: normal; }
-.vru-yctx th:first-child { width: 60%; }
+.vru-yctx th:first-child { width: 46%; }
 .vru-bd-fig { min-width: 0; background: var(--sheet); }
+
+/* Darkness × posted speed strata */
+.vru-st { display: grid; gap: var(--s3); }
+.vru-st-scroll { overflow-x: auto; }
+.vru-st-t { width: 100%; min-width: 420px; font-size: var(--t-ui); }
+.vru-st-t th[scope='row'] { white-space: nowrap; font-weight: var(--w-strong); }
+.vru-st-t th[scope='row'] .icon { margin-right: var(--s2); vertical-align: -2px; color: var(--ink-2); }
+.vru-st-t td { padding: var(--s3) var(--s4); border-radius: var(--r-s); }
+.vru-st-t td b { font-size: var(--t-h3); }
+.vru-st-n { display: block; font-size: var(--t-label); color: var(--ink-2); }
+.vru-st-read { font-size: var(--t-ui); color: var(--ink-2); max-width: 90ch; margin: 0; }

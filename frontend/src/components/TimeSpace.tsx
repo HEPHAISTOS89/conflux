@@ -1,5 +1,7 @@
 import '../styles/timespace.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { useThemeName } from '../lib/lab/palette';
+import { roadGeometry } from '../lib/lab/road';
 import Reticle from './Reticle';
 import { CHART, conflictColor } from '../lib/format';
 import { fitCanvas, poseAt, selectConflict, useClock, useClockFrame, useSelection, type ConflictT, type IntersectionT } from '../lib/traj';
@@ -30,6 +32,8 @@ export default function TimeSpace({ data, conflicts, dir, label, compact, reveal
   const hovered = sel?.hovered ?? null;
   const T = data.window_s;
   const [[, y0], [, y1]] = data.bbox as [[number, number], [number, number]];
+  const road = useMemo(() => roadGeometry(data), [data]);
+  const theme = useThemeName();
   const tracks = data.tracks.filter((tr) => (dir ? tr.dir === dir : tr.dir === 'NB' || tr.dir === 'SB'));
 
   const geom = (c: HTMLCanvasElement) => {
@@ -56,10 +60,18 @@ export default function TimeSpace({ data, conflicts, dir, label, compact, reveal
       ctx.beginPath(); ctx.moveTo(PAD.l, Y(m)); ctx.lineTo(W - PAD.r, Y(m)); ctx.stroke();
       ctx.fillText(f === fTop ? `${f} ft` : `${f}`, 4, Y(m) + 4);
     }
-    // stop line (intersection centre, y = 0)
-    ctx.strokeStyle = CHART.axis; ctx.setLineDash([3, 3]);
-    ctx.beginPath(); ctx.moveTo(PAD.l, Y(0)); ctx.lineTo(W - PAD.r, Y(0)); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = CHART.ink2; ctx.fillText('stop line', W - PAD.r - 56, Y(0) - 5);
+    // intersection box and the stop bars derived from queueing (lib/lab/road.ts); y = 0 is the intersection centre
+    if (road.box) {
+      ctx.fillStyle = CHART.graticule; ctx.globalAlpha = 0.55;
+      ctx.fillRect(PAD.l, Y(road.box.y1), W - PAD.l - PAD.r, Y(road.box.y0) - Y(road.box.y1)); ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = CHART.axis; ctx.setLineDash([3, 3]); ctx.fillStyle = CHART.ink2;
+    for (const b of road.stops) {
+      if (dir && b.dir !== dir) continue;
+      ctx.beginPath(); ctx.moveTo(PAD.l, Y(b.a[1])); ctx.lineTo(W - PAD.r, Y(b.a[1])); ctx.stroke();
+      if (!compact) ctx.fillText(`${b.dir} stop bar`, W - PAD.r - 92, Y(b.a[1]) + (b.dir === 'NB' ? 15 : -5));
+    }
+    ctx.setLineDash([]);
 
     const emph = (id: string) => (sel?.selected.has(id) ? 2 : id === hovered ? 1 : 0);
     const order = sel ? [...tracks].sort((a, b) => emph(String(a.id)) - emph(String(b.id))) : tracks;
@@ -104,7 +116,7 @@ export default function TimeSpace({ data, conflicts, dir, label, compact, reveal
     if (base.current) ro.observe(base.current);
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, conflicts, sel?.selected, hovered, dir, reveal]);
+  }, [data, conflicts, sel?.selected, hovered, dir, reveal, theme]);
 
   useClockFrame((t) => {
     if (reveal) drawBase(t);
@@ -119,7 +131,7 @@ export default function TimeSpace({ data, conflicts, dir, label, compact, reveal
     ctx.fillText(`t = ${t.toFixed(1)} s`, Math.min(X(t) + 6, W - 72), PAD.t + 13);
     c.setAttribute('aria-valuenow', String(Math.round(t * 10) / 10));
     c.setAttribute('aria-valuetext', `${t.toFixed(1)} seconds`);
-  }, [data, reveal]);
+  }, [data, reveal, theme]);
 
   /** Hit test in CSS pixels: a conflict diamond within 8 px, else the nearest vehicle line within 6 px. */
   const hitAt = (c: HTMLCanvasElement, px: number, py: number) => {

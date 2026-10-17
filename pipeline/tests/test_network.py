@@ -196,3 +196,23 @@ def test_stored_spf_missing_covariate_leaves_segment_unscored():
     assert segs[0]["rank"] == 1 and segs[0]["spf_pred"] is not None
     assert segs[1]["rank"] is None and segs[1]["spf_pred"] is None
     assert [p["seg_id"] for p in out["points"]] == [1]
+
+
+@pytest.mark.skipif(not (CURATED / "corridors.json").exists(), reason="run build_network first")
+def test_corridor_figures_agree_with_segments():
+    """Corridor per-year figures come from the integer 3-year counts, not sums of rounded segment rates,
+    and every station's crash density equals that of the segment containing it."""
+    segs = {f["properties"]["seg_id"]: f["properties"] for f in json.loads((CURATED / "network.geojson").read_text())["features"]}
+    for c in json.loads((CURATED / "corridors.json").read_text()):
+        cs = [p for p in segs.values() if p["route"] in c["routes"]]
+        s, Y = c["summary"], c["summary"]["crash_years"]
+        n = sum(p["crashes_total"] for p in cs)
+        assert s["crashes_total"] == n and s["crashes_ka"] == sum(p["crashes_ka"] for p in cs)
+        assert s["crashes_per_yr"] == round(n / Y, 2)
+        assert s["seg_len_mi"] == pytest.approx(sum(p["len_mi"] for p in cs), abs=0.01)
+        assert s["crashes_per_mi_yr"] == pytest.approx(n / Y / sum(p["len_mi"] for p in cs), abs=1e-3)
+        for st in c["stations"]:
+            if st.get("seg_id"):
+                p = segs[st["seg_id"]]
+                assert p["dfo_from"] - 1e-6 <= st["dfo"] <= p["dfo_to"] + 1e-6
+                assert st["crashes_per_mi"] == round(p["crashes_total"] / Y / p["len_mi"], 2)

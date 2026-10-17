@@ -1,4 +1,5 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { useFloatFit } from './useFloatFit';
 import { Link } from 'react-router-dom';
 
 /** One-line definitions of the safety-analysis terms used across the portal. */
@@ -22,15 +23,28 @@ export default function Term({ k, children }: { k: keyof typeof GLOSSARY | strin
   const g = GLOSSARY[k];
   const id = useId();
   const [open, setOpen] = useState(false);
+  const tip = useRef<HTMLSpanElement>(null);
+  const box = useRef<HTMLSpanElement>(null);
+  useFloatFit(tip, open);
+  useEffect(() => {
+    if (!open) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('keydown', esc);
+    document.addEventListener('pointerdown', away);
+    return () => { document.removeEventListener('keydown', esc); document.removeEventListener('pointerdown', away); };
+  }, [open]);
   if (!g) return <>{children ?? k}</>;
   return (
-    <span className="term" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <span ref={box} className="term" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
       <button type="button" className="term-btn" aria-describedby={open ? id : undefined} aria-expanded={open}
-        onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onClick={() => setOpen((o) => !o)}>
+        onFocus={() => setOpen(true)} onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) setOpen(false); }}
+        onClick={() => setOpen(true)} /* hover/focus already opened it; a toggle here would close it under the pointer */>
         {children ?? k}
       </button>
       {open && (
-        <span role="tooltip" id={id} className="term-tip">
+        // mousedown inside the tip must not blur the term (which would unmount the Method link before its click lands)
+        <span ref={tip} role="tooltip" id={id} className="term-tip" onMouseDown={(e) => e.preventDefault()}>
           <b>{g.name}</b>
           <span>{g.def}</span>
           {g.anchor && <Link to={`/methods#${g.anchor}`} tabIndex={-1}>Method</Link>}

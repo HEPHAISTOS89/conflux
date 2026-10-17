@@ -21,12 +21,21 @@ const ICONS = {
 
 export type IconName = keyof typeof ICONS;
 
-export function Icon({ name, size = 18, title, weight = 'regular' }: { name: IconName; size?: number; title?: string; weight?: IconWeight }) {
+/** Spec icon grid (docs/DESIGN_SPEC.md): 14 inline, 16 buttons/nav, 20 panel headers, 24 page badges. Glyph dots (< 12) keep their size. */
+export function iconSize(size: number): number {
+  if (size < 12) return size;
+  if (size <= 15) return 14;
+  if (size <= 18) return 16;
+  if (size <= 22) return 20;
+  return 24;
+}
+
+export function Icon({ name, size = 16, title, weight = 'regular' }: { name: IconName; size?: number; title?: string; weight?: IconWeight }) {
   const C = ICONS[name];
   return (
     <C
       className="icon"
-      size={size}
+      size={iconSize(size)}
       weight={weight}
       aria-hidden={title ? undefined : true}
       role={title ? 'img' : undefined}

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import MapView, { type MapLayer } from '../components/MapView';
 import PageHeader from '../components/PageHeader';
 import MetricInfo, { ProvChip, type MetricSpec } from '../components/MetricInfo';
@@ -6,7 +7,7 @@ import { Icon, type IconName } from '../components/Icon';
 import Term from '../components/Term';
 import { useApi } from '../lib/api';
 import { useReveal } from '../lib/motion';
-import { downloadCSV, downloadPNG } from '../lib/export';
+import { copyLink, downloadCSV, downloadPNG } from '../lib/export';
 import { CHART, nf, SEV_HEX, SEV_LABEL } from '../lib/format';
 import type { FC, Severity, VruProps } from '../lib/types';
 import '../styles/vru.css';
@@ -86,7 +87,7 @@ const KA_SPEC: MetricSpec = {
   formula: 'KA share = (K + A) / N;  95% CI: Wilson score',
   source: 'TxDOT CRIS crash severity (KABCO), as recorded by the reporting officer',
   citation: 'FHWA KABCO scale (MMUCC 5th ed.); Wilson (1927) score interval',
-  note: 'Small groups have wide intervals; compare the whiskers.',
+  note: 'Small groups have wide intervals; compare the whiskers. Computed with the severity filter off, so hiding K or A never distorts a share.',
 };
 const COUNT_SPEC: MetricSpec = {
   name: 'Crash count', provenance: 'observed', unit: 'crashes, 2021–2023',
@@ -96,6 +97,7 @@ const COUNT_SPEC: MetricSpec = {
 
 const typing = (e: KeyboardEvent) => e.metaKey || e.ctrlKey || e.altKey || !!(e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable]') || !!document.querySelector('.cmdk-scrim');
 const ramp = (t: number) => `color-mix(in srgb, var(--sev-a) ${Math.round(t * 100)}%, var(--raise))`;
+const rampSoft = (t: number) => ramp(Math.min(1, t) * 0.45);
 const titleCase = (s: string) => s.replace(/^\d+\s*-\s*/, '').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
 /** Toggle one member; with Alt/Option, isolate it (or show all again if it is already the only one shown). */
@@ -123,15 +125,48 @@ function useWidth<T extends HTMLElement>() {
   return [ref, w] as const;
 }
 
+/** Filter state read once from the URL (?hide=K,B&modes=bike&year=2022&cell=4-18&focus=light:dark-unlit&yield=factor&crash=ID). */
+function fromUrl(p: URLSearchParams) {
+  const list = (k: string) => (p.get(k) ?? '').split(',').filter(Boolean);
+  const c = (p.get('cell') ?? '').split('-').map(Number);
+  const [fk, fv] = (p.get('focus') ?? '').split(':');
+  const y = Number(p.get('year'));
+  return {
+    sevOff: new Set(list('hide').filter((x): x is Severity => (SEVS as string[]).includes(x))),
+    modeOff: new Set(list('modes').filter((x) => MODES.includes(x))),
+    year: Number.isInteger(y) && y > 2000 ? y : null,
+    cell: c.length === 2 && c[0] >= 0 && c[0] < 7 && c[1] >= 0 && c[1] < 24 ? ([c[0], c[1]] as [number, number]) : null,
+    focus: (['light', 'speed', 'yield'] as string[]).includes(fk) && fv ? ({ kind: fk as FocusKind, key: fv }) : null,
+    ysrc: (p.get('yield') === 'factor' ? 'factor' : 'pbcat') as YieldSrc,
+    crash: p.get('crash'),
+  };
+}
+
 export default function Vru() {
-  const [sevOff, setSevOff] = useState<Set<Severity>>(new Set());
-  const [modeOff, setModeOff] = useState<Set<string>>(new Set());
-  const [year, setYear] = useState<number | null>(null);
-  const [cell, setCell] = useState<[number, number] | null>(null);
-  const [focus, setFocus] = useState<Focus>(null);
-  const [ysrc, setYsrc] = useState<YieldSrc>('pbcat');
-  const [selId, setSelId] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const init = useMemo(() => fromUrl(params), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [sevOff, setSevOff] = useState<Set<Severity>>(init.sevOff);
+  const [modeOff, setModeOff] = useState<Set<string>>(init.modeOff);
+  const [year, setYear] = useState<number | null>(init.year);
+  const [cell, setCell] = useState<[number, number] | null>(init.cell);
+  const [focus, setFocus] = useState<Focus>(init.focus);
+  const [ysrc, setYsrc] = useState<YieldSrc>(init.ysrc);
+  const [selId, setSelId] = useState<string | null>(init.crash);
+  // Mirror the filters into the URL so a copied link (and Back) reproduces the view.
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (sevOff.size) p.set('hide', SEVS.filter((x) => sevOff.has(x)).join(','));
+    if (modeOff.size) p.set('modes', MODES.filter((x) => modeOff.has(x)).join(','));
+    if (year != null) p.set('year', String(year));
+    if (cell) p.set('cell', `${cell[0]}-${cell[1]}`);
+    if (focus) p.set('focus', `${focus.kind}:${focus.key}`);
+    if (ysrc !== 'pbcat') p.set('yield', ysrc);
+    if (selId) p.set('crash', selId);
+    if (p.toString() !== params.toString()) setParams(p, { replace: true });
+  }, [sevOff, modeOff, year, cell, focus, ysrc, selId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [hover, setHover] = useState<Crash | null>(null);
+  const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle');
+  useEffect(() => { if (copied === 'idle') return; const t = setTimeout(() => setCopied('idle'), 1600); return () => clearTimeout(t); }, [copied]);
 
   // 307 points: fetch once, filter on the client so every control answers instantly.
   const pts = useApi<FC<Crash>>('/vru');
@@ -144,16 +179,20 @@ export default function Vru() {
       : f.kind === 'speed' ? speedBin(p.speed_limit) === f.key
         : !!YIELD.find((y) => y.key === f.key)?.test[ysrc](p);
 
-  const pass = (p: Crash, skip?: Dim) =>
-    (skip === 'sev' || !sevOff.has(p.severity)) &&
-    (skip === 'mode' || !modeOff.has(p.mode)) &&
-    (skip === 'year' || year == null || p.year === year) &&
-    (skip === 'cell' || !cell || (p.dow === cell[0] && p.hour === cell[1])) &&
-    (!focus || skip === focus.kind || focusTest(p, focus));
+  // KA shares are always computed with the severity filter off (hiding K or A would make the share meaningless);
+  // counts, the map and the CSV respect it.
+  const pass = (p: Crash, skip: Dim | Dim[] = []) => {
+    const sk = (d: Dim) => (Array.isArray(skip) ? skip.includes(d) : skip === d);
+    return (sk('sev') || !sevOff.has(p.severity)) &&
+      (sk('mode') || !modeOff.has(p.mode)) &&
+      (sk('year') || year == null || p.year === year) &&
+      (sk('cell') || !cell || (p.dow === cell[0] && p.hour === cell[1])) &&
+      (!focus || sk(focus.kind) || focusTest(p, focus));
+  };
 
   const deps = [all, sevOff, modeOff, year, cell, focus, ysrc];
   const feats = useMemo(() => all.filter((f) => pass(f.properties)), deps); // eslint-disable-line react-hooks/exhaustive-deps
-  const without = (d: Dim) => all.filter((f) => pass(f.properties, d)).map((f) => f.properties);
+  const without = (d: Dim | Dim[]) => all.filter((f) => pass(f.properties, d)).map((f) => f.properties);
 
   const counts = useMemo(() => {
     const sev: Record<string, number> = {}, mode: Record<string, number> = {};
@@ -167,15 +206,17 @@ export default function Vru() {
   // Each breakdown ignores its own drill-down so the alternatives stay visible around the selection.
   const heat = useMemo(() => {
     const grid = Array.from({ length: 7 }, () => Array(24).fill(0) as number[]);
-    const byHour = Array(24).fill(0) as number[], kaHour = Array(24).fill(0) as number[];
+    const byHour = Array(24).fill(0) as number[];
     let unk = 0;
     for (const p of without('cell')) {
-      if (p.hour != null && p.dow != null) { grid[p.dow][p.hour]++; byHour[p.hour]++; if (isKA(p)) kaHour[p.hour]++; } else unk++;
+      if (p.hour != null && p.dow != null) { grid[p.dow][p.hour]++; byHour[p.hour]++; } else unk++;
     }
     const pk = peakWindow(byHour, 3);
     const timed = byHour.reduce((a, b) => a + b, 0);
-    const pkKa = [0, 1, 2].reduce((a, i) => a + kaHour[(pk.start + i) % 24], 0);
-    return { grid, unk, max: Math.max(1, ...grid.flat()), peak: { ...pk, ka: pkKa, timed }, noonGap: byHour[12] === 0 && byHour[0] >= 5, midnight: byHour[0] };
+    // KA share inside the window, severity filter off
+    const inWin = (h: number | null) => h != null && [0, 1, 2].some((i) => (pk.start + i) % 24 === h);
+    const win = without(['cell', 'sev']).filter((p) => inWin(p.hour));
+    return { grid, unk, max: Math.max(1, ...grid.flat()), peak: { ...pk, ka: win.filter(isKA).length, kaN: win.length, timed }, noonGap: byHour[12] === 0 && byHour[0] >= 5, midnight: byHour[0] };
   }, deps); // eslint-disable-line react-hooks/exhaustive-deps
 
   const group = (rows: Crash[], defs: [string, string][], key: (p: Crash) => string): Row[] => {
@@ -183,10 +224,10 @@ export default function Vru() {
     for (const p of rows) { const e = m.get(key(p))!; e.n++; if (isKA(p)) e.ka++; }
     return [...m.values()].filter((r) => r.n > 0 || r.key !== 'unk');
   };
-  const lightRows = useMemo(() => group(without('light'), LIGHT_GROUPS, (p) => lightGroup(p.light)), deps); // eslint-disable-line react-hooks/exhaustive-deps
-  const speedRows = useMemo(() => group(without('speed'), SPEED_BINS, (p) => speedBin(p.speed_limit)), deps); // eslint-disable-line react-hooks/exhaustive-deps
+  const lightRows = useMemo(() => group(without(['light', 'sev']), LIGHT_GROUPS, (p) => lightGroup(p.light)), deps); // eslint-disable-line react-hooks/exhaustive-deps
+  const speedRows = useMemo(() => group(without(['speed', 'sev']), SPEED_BINS, (p) => speedBin(p.speed_limit)), deps); // eslint-disable-line react-hooks/exhaustive-deps
   const yieldRows = useMemo(() => {
-    const rows = without('yield').filter((p) => p.mode === 'ped');
+    const rows = without(['yield', 'sev']).filter((p) => p.mode === 'ped');
     const share = (hit: Crash[], f: (p: Crash) => boolean) => (hit.length ? hit.filter(f).length / hit.length : null);
     const out = YIELD.map((y) => {
       const hit = rows.filter(y.test[ysrc]);
@@ -280,7 +321,18 @@ export default function Vru() {
   })();
   const sel = selFeature?.properties ?? null;
   const readout = sel ?? hover;
-  const overallShare = agg.n ? agg.ka / agg.n : 0;
+  // severity-independent share for all KA comparisons
+  const share = useMemo(() => { const b = without('sev'); return { n: b.length, ka: b.filter(isKA).length }; }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+  const overallShare = share.n ? share.ka / share.n : 0;
+  // Light × posted-speed strata: separates the two effects, which overlap (high-speed roads are less often lit)
+  const strata = useMemo(() => {
+    const rows = without(['light', 'speed', 'sev']).filter((p) => (p.speed_limit ?? 0) > 0 && ['day', 'dark-lit', 'dark-unlit'].includes(lightGroup(p.light)));
+    const cell = (dark: boolean, fast: boolean) => {
+      const r = rows.filter((p) => lightGroup(p.light).startsWith('dark') === dark && (p.speed_limit! >= 50) === fast);
+      return { n: r.length, ka: r.filter(isKA).length };
+    };
+    return { rows: rows.length, c: [[cell(false, false), cell(false, true)], [cell(true, false), cell(true, true)]] };
+  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
   const mapRef = useReveal<HTMLElement>(), gridRef = useReveal<HTMLDivElement>();
   const heatFig = useRef<HTMLElement>(null), lightFig = useRef<HTMLDivElement>(null), speedFig = useRef<HTMLDivElement>(null);
 
@@ -290,7 +342,9 @@ export default function Vru() {
         icon="ped"
         title="Pedestrian and cyclist crashes"
         lede={agg.n
-          ? <>{pct(agg.ka, agg.n)}% of {nf(agg.n)} crashes were fatal or suspected serious injury (KA); {pct(agg.unlit, agg.n)}% occurred on dark, unlit roads.</>
+          ? sevOff.size
+            ? <>{nf(agg.n)} crashes shown with the severity filter on; across all severities in this view, {pct(share.ka, share.n)}% of {nf(share.n)} were fatal or suspected serious injury (KA).</>
+            : <>{pct(agg.ka, agg.n)}% of {nf(agg.n)} crashes were fatal or suspected serious injury (KA); {pct(agg.unlit, agg.n)}% occurred on dark, unlit roads.</>
           : pts.loading ? 'Loading crash records…' : 'No crashes match these filters.'}
         source={<>TxDOT CRIS · Lubbock County, on and off system · {year ?? span} <ProvChip kind="observed" /></>}
         readouts={[
@@ -299,7 +353,10 @@ export default function Vru() {
           { label: 'Dark, unlit', value: agg.n ? (100 * agg.unlit) / agg.n : null, unit: '%', digits: 1 },
           { label: <span title="Share of timed crashes in the busiest 3-hour window">Peak {pk.n > 0 ? <span className="measure">{hh(pk.start)}–{hh(pk.start + 3)} h</span> : 'window'}</span>, value: pk.timed ? (100 * pk.n) / pk.timed : null, unit: '%', digits: 1 },
         ]}
-        actions={<button type="button" className="btn ghost" onClick={exportCsv} disabled={!feats.length}><Icon name="download" size={16} />Download CSV</button>}
+        actions={<>
+          <button type="button" className="btn ghost" onClick={exportCsv} disabled={!feats.length}><Icon name="download" size={16} /><span>Download CSV</span></button>
+          <button type="button" className="btn ghost" onClick={async () => setCopied((await copyLink()) ? 'ok' : 'fail')} aria-live="polite"><Icon name={copied === 'ok' ? 'check' : 'link'} size={16} /><span>{copied === 'ok' ? 'Copied' : copied === 'fail' ? 'Copy blocked' : 'Copy link'}</span></button>
+        </>}
       />
 
       <section className="section vru-mapsec" aria-labelledby="vru-map-h" ref={mapRef}>
@@ -386,7 +443,7 @@ export default function Vru() {
                 <span className="vru-peak-k"><Icon name="target" size={16} />Peak 3-hour window</span>
                 <span className="vru-peak-v measure">{hh(pk.start)}:00–{hh(pk.start + 3)}:00</span>
                 <span className="vru-peak-s"><span className="num">{pk.n}</span> of <span className="num">{pk.timed}</span> timed crashes (<span className="num">{pct(pk.n, pk.timed)}</span>%; uniform: <span className="num">12.5</span>%)</span>
-                <span className="vru-peak-s">KA share in window <b className="num">{pct(pk.ka, pk.n)}%</b> vs <span className="num">{pct(agg.ka, agg.n)}%</span> overall</span>
+                <span className="vru-peak-s">KA share in window <b className="num">{pct(pk.ka, pk.kaN)}%</b> (n = <span className="num">{pk.kaN}</span>, CI <span className="num">{nf(100 * wilson(pk.ka, pk.kaN)[0], 0)}–{nf(100 * wilson(pk.ka, pk.kaN)[1], 0)}%</span>) vs <span className="num">{pct(share.ka, share.n)}%</span> overall</span>
               </aside>
             )}
           </div>
@@ -414,7 +471,13 @@ export default function Vru() {
             onPick={(k) => toggleFocus('speed', k)} finding={speedFind} label="Crashes and KA share by posted speed limit" loading={pts.loading} />
         </section>
 
-        <section className="section vru-card" aria-labelledby="vru-fy" data-r="4">
+        <section className="section vru-card vru-wide" aria-labelledby="vru-st" data-r="4">
+          <SecHead id="vru-st" icon="warning" title="Darkness and speed together" why="KA share in each combination of light and posted speed, so one condition is not credited with the other’s effect."
+            actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-dark-by-speed-${suffix}.csv`, ([['Daylight', 0], ['Dark (lit or unlit)', 1]] as const).flatMap(([l, d]) => (['< 50 mph', '≥ 50 mph'] as const).map((sp, f) => { const c = strata.c[d][f]; const [lo, hi] = wilson(c.ka, c.n); return { light: l, posted: sp, crashes: c.n, ka: c.ka, ka_share_pct: c.n ? +(100 * c.ka / c.n).toFixed(1) : '', ci95_lo_pct: +(100 * lo).toFixed(1), ci95_hi_pct: +(100 * hi).toFixed(1) }; })))} />} />
+          <Strata c={strata.c} n={strata.rows} />
+        </section>
+
+        <section className="section vru-card" aria-labelledby="vru-fy" data-r="5">
           <SecHead id="vru-fy" icon="sign" title="Failure to yield" why="Pedestrian crashes only. Driver-yielding treatments target motorist failure to yield."
             actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-failure-to-yield-${ysrc}-${suffix}.csv`, yieldRows.out.map((y) => ({ source: ysrc === 'pbcat' ? 'PBCAT crash type' : 'CRIS contributing factor', group: y.label, crashes: y.n, ka: y.ka, ka_share_pct: y.n ? +(100 * y.ka / y.n).toFixed(1) : '', of_pedestrian_crashes: yieldRows.peds })))} />} />
           <div className="seg vru-ysrc" role="group" aria-label="Yield classification source">
@@ -425,7 +488,7 @@ export default function Vru() {
             selected={focus?.kind === 'yield' ? focus.key : null} onPick={(k) => toggleFocus('yield', k)} />
         </section>
 
-        <section className="section vru-card" aria-labelledby="vru-pb" data-r="5">
+        <section className="section vru-card" aria-labelledby="vru-pb" data-r="6">
           <SecHead id="vru-pb" icon="ped" title={<>Ten most frequent <Term k="PBCAT" /> types</>} why="Pre-crash manoeuvre type. Bar: crashes; red: KA."
             actions={<ExportBtn kind="csv" onClick={() => downloadCSV(`roadscope-vru-pbcat-${suffix}.csv`, agg.pbcat.map(([k, e]) => ({ pbcat: k, crashes: e.n, ka: e.ka })))} />} />
           <ol className="vru-bars" data-ui>
@@ -450,6 +513,43 @@ export default function Vru() {
         <span className="vru-src-row"><Icon name="methods" size={15} />KA shares, Wilson intervals, peak window and groupings computed from CRIS records <ProvChip kind="derived" /></span>
         <span className="muted">Informational use only; crash records are protected from discovery and use in litigation (23 U.S.C. §407). Counts are not exposure-adjusted rates. <MetricInfo spec={COUNT_SPEC} /></span>
       </footer>
+    </div>
+  );
+}
+
+function Strata({ c, n }: { c: { n: number; ka: number }[][]; n: number }) {
+  const cellTxt = (x: { n: number; ka: number }) => {
+    if (!x.n) return <span className="muted">no crashes</span>;
+    const [lo, hi] = wilson(x.ka, x.n);
+    return <><b className="num">{pct(x.ka, x.n, 0)}%</b> <span className="muted num">CI {nf(100 * lo, 0)}–{nf(100 * hi, 0)}%</span><span className="vru-st-n">n = <span className="num">{x.n}</span>{x.n < 20 ? ' · small n' : ''}</span></>;
+  };
+  const hi = c[1][1], lo = c[0][0];
+  return (
+    <div className="vru-st">
+      <div className="vru-st-scroll" role="region" aria-label="KA share by light and posted speed" tabIndex={0}>
+        <table className="data vru-st-t">
+          <caption className="sr-only">KA share of crashes by light condition (rows) and posted speed (columns), 95% Wilson intervals</caption>
+          <thead><tr><th>Light</th><th className="r">Posted under 50 mph</th><th className="r">Posted 50 mph or more</th></tr></thead>
+          <tbody>
+            <tr><th scope="row"><Icon name="sun" size={15} />Daylight</th><td className="r" style={{ background: rampSoft(lo.n ? lo.ka / lo.n : 0) }}>{cellTxt(c[0][0])}</td><td className="r" style={{ background: rampSoft(c[0][1].n ? c[0][1].ka / c[0][1].n : 0) }}>{cellTxt(c[0][1])}</td></tr>
+            <tr><th scope="row"><Icon name="moon" size={15} />Dark, lit or unlit</th><td className="r" style={{ background: rampSoft(c[1][0].n ? c[1][0].ka / c[1][0].n : 0) }}>{cellTxt(c[1][0])}</td><td className="r" style={{ background: rampSoft(hi.n ? hi.ka / hi.n : 0) }}>{cellTxt(c[1][1])}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="vru-st-read">
+        {hi.n && lo.n
+          ? <>Dark and posted 50 mph or more: <b className="num">{pct(hi.ka, hi.n, 0)}%</b> KA against <b className="num">{pct(lo.ka, lo.n, 0)}%</b> in daylight under 50 mph. {(() => {
+              const sh = (x: { n: number; ka: number }) => (x.n ? x.ka / x.n : NaN);
+              const dark = sh(c[1][0]) > sh(c[0][0]) && sh(c[1][1]) > sh(c[0][1]);
+              const fast = sh(c[0][1]) > sh(c[0][0]) && sh(c[1][1]) > sh(c[1][0]);
+              return dark && fast ? 'Darkness raises the share at both speed levels, and higher posted speed raises it in both light conditions.'
+                : dark ? 'Darkness raises the share at both speed levels; the speed effect is not consistent across light conditions here.'
+                  : fast ? 'Higher posted speed raises the share in both light conditions; the darkness effect is not consistent here.'
+                    : 'Neither condition raises the share consistently in this view.';
+            })()}</>
+          : 'Too few crashes in this view to compare the four groups.'}
+        {' '}<span className="muted"><span className="num">{n}</span> crashes with a recorded light condition and posted speed; dawn, dusk and unknown excluded.</span>
+      </p>
     </div>
   );
 }

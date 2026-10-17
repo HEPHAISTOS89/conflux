@@ -8,7 +8,7 @@ import DataHealth from '../components/lab/DataHealth';
 import Shortcuts from '../components/lab/Shortcuts';
 import SpeedHistogram from '../components/lab/SpeedHistogram';
 import { downloadCSV } from '../lib/export';
-import { exportCanvases, focusConflict, useFullscreen } from '../lib/lab/hooks';
+import { exportCanvases, focusConflict, useFullscreen, writeParam } from '../lib/lab/hooks';
 import { dataHealth, nearMissWarp, nextRisk, stepFrame } from '../lib/lab/metrics';
 import PlanView from '../components/PlanView';
 import TimeSpace from '../components/TimeSpace';
@@ -58,8 +58,11 @@ export default function IntersectionPage() {
   const clock = useClockState(ix.data?.window_s ?? 90);
   const selection = useSelectionState(clock);
   const { selected, select } = selection;
-  const [view, setView] = useState<'plan' | 'lidar'>('plan');
-  const [typeF, setTypeF] = useState<TypeF>('all');
+  // view and type filter live in the deep link (?view=3d&type=crossing) with the selection, time and camera
+  const [view, setView] = useState<'plan' | 'lidar'>(() => (new URLSearchParams(location.search).get('view') === '3d' ? 'lidar' : 'plan'));
+  const [typeF, setTypeF] = useState<TypeF>(() => { const v = new URLSearchParams(location.search).get('type'); return v === 'rear_end' || v === 'crossing' || v === 'lane_change' ? v : 'all'; });
+  useEffect(() => { writeParam('view', view === 'lidar' ? '3d' : null); if (view !== 'lidar') writeParam('cam', null); }, [view, id]);
+  useEffect(() => { writeParam('type', typeF === 'all' ? null : typeF); }, [typeF, id]);
   const [help, setHelp] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
   const [fs, toggleFs] = useFullscreen(stage);
@@ -68,7 +71,8 @@ export default function IntersectionPage() {
   const health = useMemo(() => (ix.data ? dataHealth(ix.data.tracks, ix.data.hz) : null), [ix.data]);
   const rep = useApi<{ summary: { tracks_occluded: number; tracks_eligible: number } }>(`/intersections/${id}/repair`);
   const all = cf.data ?? [];
-  const counts = useMemo(() => ({ n: all.length, crit: all.filter((c) => c.severity === 'critical').length, ttc: all.reduce<number | null>((m, c) => (c.ttc_min != null && (m == null || c.ttc_min < m) ? c.ttc_min : m), null) }), [all]);
+  // critical excludes simultaneous-occupancy (overlap) flags, likely NGSIM position error: same rule as the landing verdict
+  const counts = useMemo(() => ({ n: all.length, crit: all.filter((c) => c.severity === 'critical' && !(c as { overlap?: boolean }).overlap).length, overlap: all.filter((c) => (c as { overlap?: boolean }).overlap).length, ttc: all.reduce<number | null>((m, c) => (c.ttc_min != null && (m == null || c.ttc_min < m) ? c.ttc_min : m), null) }), [all]);
 
   const jump = (c: ConflictT) => selectConflict(selection, c);
   useDeepLink(ready ? id : null, cf.data ?? [], clock, selection);
@@ -108,7 +112,7 @@ export default function IntersectionPage() {
         source={<>FHWA NGSIM vehicle trajectories · USDOT ITS DataHub · {site} · 90 s window · vehicles only</>}
         readouts={[
           { label: 'Conflicts', value: ready ? counts.n : null },
-          { label: 'Critical', value: ready ? counts.crit : null, tone: 'alert' },
+          { label: <span title={`Critical events, excluding ${counts.overlap} overlap flags (likely position error)`}>Critical, excl. overlap</span>, value: ready ? counts.crit : null, tone: 'alert' },
           { label: 'Worst TTC', value: ready ? counts.ttc : null, unit: 's', digits: 2 },
           { label: 'Data completeness', value: health?.completeness ?? null, unit: '%', digits: 1, tone: 'accent' },
         ]}
@@ -134,7 +138,7 @@ export default function IntersectionPage() {
               <div className="ix-view-bar">
                 <div className="seg" role="group" aria-label="View">
                   <button aria-pressed={view === 'plan'} onClick={() => setView('plan')} title="Plan view (2)">Plan</button>
-                  <button aria-pressed={view === 'lidar'} onClick={() => setView('lidar')} title="3D view (3)">Roadside LiDAR 3D</button>
+                  <button aria-pressed={view === 'lidar'} onClick={() => setView('lidar')} title="Simulated roadside LiDAR, 3D (3)">3D LiDAR</button>
                 </div>
                 <Player conflicts={conflicts} />
                 <div className="ix-view-tools">
@@ -233,7 +237,14 @@ function VehicleReadout({ data, conflicts }: { data: IntersectionT; conflicts: C
   const sel = useContext(SelectionCtx)!;
   const trs = [...sel.selected].map((id) => data.tracks.find((t) => String(t.id) === id)).filter((t): t is IntersectionT['tracks'][number] => !!t).slice(0, 3);
   const [poses, setPoses] = useState<ReturnType<typeof poseAt>[]>([]);
-  useClockFrame((t) => setPoses(trs.map((tr) => poseAt(tr, t, data.hz))), [sel.selected]);
+  // readout refreshes at the 10 Hz sample rate, not every animation frame
+  const lastKey = useRef('');
+  useClockFrame((t) => {
+    const key = `${[...sel.selected].join(',')}@${Math.round(t * 10)}`;
+    if (key === lastKey.current) return;
+    lastKey.current = key;
+    setPoses(trs.map((tr) => poseAt(tr, t, data.hz)));
+  }, [sel.selected]);
   const mine = conflicts.filter((c) => sel.selected.has(String(c.a)) || sel.selected.has(String(c.b))).sort((a, b) => a.t - b.t);
   const pair = trs.length === 2 ? mine.filter((c) => sel.selected.has(String(c.a)) && sel.selected.has(String(c.b))) : [];
   const ext = (v: (number | null)[], f: (...x: number[]) => number) => { const n = v.filter((x): x is number => x != null); return n.length ? f(...n) : null; };
@@ -262,7 +273,7 @@ function VehicleReadout({ data, conflicts }: { data: IntersectionT; conflicts: C
               <tr><th>Movement</th>{trs.map((tr) => <td key={String(tr.id)} className="r">{tr.dir} {tr.move}</td>)}</tr>
               <tr><th>Speed</th>{live((p) => `${(p.v * MPS_TO_MPH).toFixed(1)} mph`)}</tr>
               <tr><th>Accel.</th>{live((p) => `${(p.a * FT).toFixed(1)} ft/s²`)}</tr>
-              <tr><th>Lane</th>{live((p) => String(p.lane))}</tr>
+              <tr><th>Lane</th>{live((p) => (p.lane === 0 ? 'in intersection' : p.lane >= 100 ? 'unassigned' : `NGSIM ${p.lane}`))}</tr>
             </tbody>
           </table>
           {mine.length > 0 && (
@@ -311,11 +322,12 @@ function useKeys(clock: Clock, sel: Selection, setView: (v: 'plan' | 'lidar') =>
         return;
       }
       if (e.key === ',' || e.key === '.') { e.preventDefault(); c.pause(); c.setT(stepFrame(c.now(), e.key === '.' ? 1 : -1, c.duration)); return; }
-      if (typing(e.target)) return;
+      if (e.key === '2') { setView('plan'); return; }
+      if (e.key === '3') { setView('lidar'); return; }
+      // Space and arrows keep their native meaning on a focused button, link or slider
+      if (typing(e.target) || (e.target instanceof HTMLElement && e.target.getAttribute('role') === 'slider')) return;
       if (e.key === ' ') { e.preventDefault(); c.toggle(); }
       else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); c.setT(c.now() + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 0.1)); }
-      else if (e.key === '2') setView('plan');
-      else if (e.key === '3') setView('lidar');
     };
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);

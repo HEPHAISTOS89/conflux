@@ -86,6 +86,10 @@ def test_vru_summary(client: TestClient) -> None:
     assert s["total"] == 5 and s["ka_total"] == 2 and s["by_severity"]["K"] == 1
     assert len(s["hour_dow"]) == 7 and len(s["hour_dow"][0]) == 24 and sum(map(sum, s["hour_dow"])) == 5
     assert s["years"] == [2019, 2023]
+    assert s["on_system"] == {"total": 3, "ka": 1}
+    cond = {c["key"]: c for c in s["severity_by_condition"]}
+    assert set(cond) >= {"dark_unlit", "day", "speed_ge50", "speed_le35"}
+    assert all(0 <= c["ka"] <= c["n"] <= s["total"] for c in cond.values())
 
 
 def test_fatal(client: TestClient) -> None:
@@ -246,3 +250,22 @@ def test_lambda_handler_import() -> None:
 def test_intersection_list_excludes_ssm_files(client: TestClient) -> None:
     ids = [i["id"] for i in client.get("/api/v1/intersections").json()]
     assert all(not i.endswith("_ssm") for i in ids)
+
+
+def test_screening_excludes_unscored_segments(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Segments without AADT/site type (rank null) are reported, never ranked last under any measure."""
+    from app import queries
+
+    real = queries.store.load
+    def load(name: str):
+        d = real(name)
+        if name != "network.geojson":
+            return d
+        extra = {**d["features"][0], "properties": {**d["features"][0]["properties"], "seg_id": "UNSCORED", "rank": None,
+                 "aadt": None, "rate_100mvmt": None, "crit_ratio": None, "eb_excess": None, "crashes_total": 99}}
+        return {**d, "features": [*d["features"], extra]}
+    monkeypatch.setattr(queries.store, "load", load)
+    for method in ("frequency", "eb_excess", "rate"):
+        d = client.get(f"{API}/screening", params={"method": method, "limit": 100}).json()
+        assert d["total"] == 4 and "UNSCORED" not in {i["seg_id"] for i in d["items"]}
+        assert d["unscreened"]["segments"] == 1 and d["unscreened"]["crashes"] == 99

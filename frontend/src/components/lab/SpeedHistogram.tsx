@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { CHART } from '../../lib/format';
+import { useThemeName } from '../../lib/lab/palette';
 import { downloadCSV } from '../../lib/export';
 import { histogram, MPS_TO_MPH, percentile, spotSpeeds } from '../../lib/lab/metrics';
 import type { IntersectionT } from '../../lib/traj';
@@ -24,6 +25,7 @@ const SPEC: MetricSpec = {
 
 /** Spot-speed distribution on the corridor approaches, NB against SB, in 5 mph bins with 85th-percentile markers. */
 export default function SpeedHistogram({ data }: { data: IntersectionT }) {
+  useThemeName(); // canvas palette (CHART) is swapped in place on a theme change: re-render to pick it up
   const [dist, setDist] = useState<Dist>('100');
   const [hover, setHover] = useState<number | null>(null);
   const svg = useRef<SVGSVGElement>(null);

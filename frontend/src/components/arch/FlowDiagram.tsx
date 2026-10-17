@@ -1,48 +1,102 @@
-import { useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../Icon';
-import { EDGES, NODES, NODE, NH, NW, ROW, VB_H, VB_W, bez, lut, pathD, type Flow, type Live } from './model';
+import { NODES, bez, layoutEdges, lut, pathD, type EdgeGeo, type Flow, type Live, type NodeState, type Rect } from './model';
 
 /**
- * The living architecture diagram. Geometry and state come from ./model; this file draws it and runs
- * one requestAnimationFrame loop that moves "comets" along each running edge at a rate set by real volume.
- * When a node is down (a replay of a real failure or the labelled simulation), comets queue in front of it;
- * when it recovers the queue drains at an accelerated rate. The loop stops when the tab is hidden or the
- * diagram is off screen, and never starts under prefers-reduced-motion.
+ * The living architecture diagram. Nodes are HTML laid out by CSS grid, so every label wraps inside its
+ * box at the spec's real pixel sizes; the edges are an SVG drawn underneath from the measured node boxes
+ * and re-measured on resize and font load. One requestAnimationFrame loop moves "comets" along each running
+ * edge at a rate set by real volume. When a node is down (replay of a real failure or the labelled
+ * simulation) comets queue in front of it; when it recovers the queue drains at an accelerated rate.
+ * The loop stops when the tab is hidden or the diagram is off screen and never starts under reduced motion.
  */
 
 const POOL = 9, TAIL = 4;
-const LIVE_EDGES = EDGES.filter((e) => e.status === 'live');
 const MARK_FLOWS: Flow[] = ['ingest', 'curated', 'api', 'metrics', 'ai', 'plan'];
+const LIVE = NODES.filter((n) => n.lane === 'live' && !n.band), PILOT = NODES.filter((n) => n.lane === 'pilot');
+const ROWS = { r0: 1, r1: 2, r2: 3, p0: 1, p1: 2 } as const;
 
 interface Comet { s: number; on: boolean; q: boolean; fast: boolean }
 interface RT { id: string; from: string; to: string; pts: Float32Array; len: number; n: number; comets: Comet[]; acc: number; burst: number; els: SVGGElement[] }
+interface Geo { w: number; h: number; rects: Record<string, Rect>; edges: EdgeGeo[] }
+export interface Override { state: NodeState; chip: string }
 
-export default function FlowDiagram({ live, down, downLabel = 'Down · queueing', selected, onSelect, motion, onBacklog }: {
-  live: Live; down: string | null; downLabel?: string; selected: string | null; onSelect: (id: string) => void; motion: boolean;
-  onBacklog?: (n: number) => void;
+export default function FlowDiagram({ live, down, overrides, badges, selected, onSelect, motion }: {
+  live: Live; down: string | null; overrides?: Record<string, Override>; badges?: Record<string, string>;
+  selected: string | null; onSelect: (id: string) => void; motion: boolean;
 }) {
+  const canvasRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const liveRef = useRef(live); liveRef.current = live;
   const downRef = useRef(down); downRef.current = down;
-  const backlogCb = useRef(onBacklog); backlogCb.current = onBacklog;
-  const luts = useMemo(() => Object.fromEntries(LIVE_EDGES.map((e) => [e.id, lut(e.p)])), []);
+  const [geo, setGeo] = useState<Geo | null>(null);
+
+  // Measure node boxes (offset*, so pulse transforms never disturb the geometry) and derive the edges.
+  useLayoutEffect(() => {
+    const c = canvasRef.current;
+    if (!c) return;
+    let raf = 0;
+    const measure = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const rects: Record<string, Rect> = {};
+        c.querySelectorAll<HTMLElement>('[data-node]').forEach((el) => {
+          let x = 0, y = 0, n: HTMLElement | null = el;
+          while (n && n !== c) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent as HTMLElement | null; }
+          rects[el.dataset.node!] = { x, y, w: el.offsetWidth, h: el.offsetHeight };
+        });
+        const grid = c.querySelector<HTMLElement>('.ar-grid');
+        const gap = grid ? parseFloat(getComputedStyle(grid).columnGap) || 40 : 40;
+        const w = c.offsetWidth, h = c.offsetHeight;
+        setGeo((g) => {
+          const same = g && g.w === w && g.h === h && Object.entries(rects).every(([k, r]) => {
+            const o = g.rects[k]; return o && o.x === r.x && o.y === r.y && o.w === r.w && o.h === r.h;
+          });
+          return same ? g : { w, h, rects, edges: layoutEdges(rects, gap) };
+        });
+      });
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(c);
+    c.querySelectorAll('[data-node]').forEach((el) => ro.observe(el));
+    document.fonts?.ready.then(measure).catch(() => {});
+    measure();
+    return () => { ro.disconnect(); cancelAnimationFrame(raf); };
+  }, []);
+
+  const edges = geo?.edges ?? [];
+  const liveEdges = useMemo(() => edges.filter((e) => e.status === 'live'), [edges]);
+  const luts = useMemo(() => Object.fromEntries(liveEdges.map((e) => [e.id, lut(e.p)])), [liveEdges]);
+
+  // Hide an edge label wherever it would sit on a node: the same figures are listed in each node's panel.
+  useLayoutEffect(() => {
+    const c = canvasRef.current;
+    if (!c || !geo) return;
+    const boxes = Object.values(geo.rects);
+    c.querySelectorAll<SVGGElement>('[data-elabel]').forEach((g) => {
+      g.removeAttribute('data-clash');
+      const b = g.getBBox(), t = g.transform.baseVal.consolidate()?.matrix;
+      const x = b.x + (t?.e ?? 0), y = b.y + (t?.f ?? 0), pad = 3;
+      const clash = boxes.some((r) => x < r.x + r.w + pad && x + b.width > r.x - pad && y < r.y + r.h + pad && y + b.height > r.y - pad)
+        || x < 0 || x + b.width > geo.w;
+      if (clash) g.setAttribute('data-clash', '');
+    });
+  }, [geo, live]);
 
   useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg || !motion) return;
-    const rts: RT[] = LIVE_EDGES.map((e) => {
+    const svg = svgRef.current, canvas = canvasRef.current;
+    if (!svg || !canvas || !motion || !liveEdges.length) return;
+    const rts: RT[] = liveEdges.map((e) => {
       const L = luts[e.id];
       return { id: e.id, from: e.from, to: e.to, pts: L.pts, len: L.len, n: L.pts.length / 2 - 1,
         comets: Array.from({ length: POOL }, () => ({ s: 0, on: false, q: false, fast: false })), acc: Math.random(), burst: 0,
         els: Array.from(svg.querySelectorAll<SVGGElement>(`[data-comets="${e.id}"] > g`)) };
     });
-    const nodeEls = new Map<string, SVGGElement>();
-    svg.querySelectorAll<SVGGElement>('[data-node]').forEach((el) => nodeEls.set(el.dataset.node!, el));
-    const badge = new Map<string, SVGTextElement>();
-    svg.querySelectorAll<SVGTextElement>('[data-badge]').forEach((el) => badge.set(el.dataset.badge!, el));
+    const nodeEls = new Map<string, HTMLElement>();
+    canvas.querySelectorAll<HTMLElement>('[data-node]').forEach((el) => nodeEls.set(el.dataset.node!, el));
     const lastPulse = new Map<string, number>();
-    const backlog = new Map<string, number>();
-    let prevDown: string | null = null, shownBacklog = -1;
+    const queued = new Map<string, number>();
+    let prevDown: string | null = null;
 
     const at = (rt: RT, s: number): [number, number] => {
       const f = Math.max(0, Math.min(1, s / rt.len)) * rt.n, i = Math.min(rt.n - 1, Math.floor(f)), k = f - i, p = rt.pts;
@@ -51,10 +105,7 @@ export default function FlowDiagram({ live, down, downLabel = 'Down · queueing'
     const pulse = (id: string, now: number) => {
       if (now - (lastPulse.get(id) ?? 0) < 420) return;
       lastPulse.set(id, now);
-      const el = nodeEls.get(id);
-      const band = el?.classList.contains('ar-band');
-      el?.querySelector('.ar-ring')?.animate(band ? [{ opacity: 0.5 }, { opacity: 0 }] : [{ opacity: 0.55, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.06, 1.14)' }], { duration: 760, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
-      if (!band) el?.querySelector('.ar-body')?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.015)' }, { transform: 'scale(1)' }], { duration: 360, easing: 'ease-out' });
+      nodeEls.get(id)?.querySelector('.ar-ring')?.animate([{ opacity: 0.6 }, { opacity: 0 }], { duration: 760, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
     };
 
     let raf = 0, last = 0, running = false, visible = true;
@@ -63,14 +114,14 @@ export default function FlowDiagram({ live, down, downLabel = 'Down · queueing'
       const L = liveRef.current, dn = downRef.current;
       if (dn !== prevDown) {
         if (prevDown && !dn) {
-          // Recovery: release every queued comet fast and replay the backlog downstream as a burst.
-          const n = backlog.get(prevDown) ?? 0;
+          // Recovery: release every queued comet fast and replay what queued as a burst downstream.
+          const n = queued.get(prevDown) ?? 0;
           for (const rt of rts) {
             if (rt.to === prevDown) rt.comets.forEach((c) => { if (c.on) { c.q = false; c.fast = true; } });
-            if (rt.from === prevDown) rt.burst += n;
+            if (rt.from === prevDown) rt.burst += Math.min(12, n);
           }
         }
-        if (dn) backlog.set(dn, 0);
+        if (dn) queued.set(dn, 0);
         prevDown = dn;
       }
       for (const rt of rts) {
@@ -82,7 +133,7 @@ export default function FlowDiagram({ live, down, downLabel = 'Down · queueing'
           while (rt.acc >= 1) {
             rt.acc -= 1;
             if (rt.burst > 0) rt.burst -= 1;
-            if (blocked) backlog.set(rt.to, (backlog.get(rt.to) ?? 0) + 1);
+            if (blocked) queued.set(rt.to, (queued.get(rt.to) ?? 0) + 1);
             const c = rt.comets.find((x) => !x.on);
             if (c) { c.on = true; c.s = 0; c.q = false; c.fast = rt.burst > 0; }
           }
@@ -109,131 +160,123 @@ export default function FlowDiagram({ live, down, downLabel = 'Down · queueing'
           }
         }
       }
-      // Backlog: queued while down, draining as the downstream burst plays out after recovery.
-      let total = 0;
-      for (const id of new Set([...backlog.keys()])) {
-        const n = id === dn ? backlog.get(id) ?? 0 : rts.filter((r) => r.from === id).reduce((a, r) => Math.max(a, r.burst), 0);
-        if (id !== dn) backlog.set(id, n);
-        total += n;
-        const b = badge.get(id);
-        if (b) { b.textContent = n > 0 ? (id === dn ? `${n} queued` : `draining ${n}`) : ''; }
-      }
-      if (total !== shownBacklog) { shownBacklog = total; backlogCb.current?.(total); }
       raf = requestAnimationFrame(frame);
     };
     const start = () => { if (!running && visible && !document.hidden) { running = true; last = 0; raf = requestAnimationFrame(frame); } };
     const stop = () => { running = false; cancelAnimationFrame(raf); };
     const onVis = () => (document.hidden ? stop() : start());
-    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; svg.toggleAttribute('data-offscreen', !visible); visible ? start() : stop(); });
-    io.observe(svg);
+    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; svg.toggleAttribute('data-offscreen', !visible); if (visible) start(); else stop(); });
+    io.observe(canvas);
     document.addEventListener('visibilitychange', onVis);
     start();
     return () => { stop(); io.disconnect(); document.removeEventListener('visibilitychange', onVis); rts.forEach((r) => r.els.forEach((el) => el.setAttribute('opacity', '0'))); };
-  }, [motion, luts]);
+  }, [motion, liveEdges, luts]);
 
-  const key = (id: string) => (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(id); } };
+  const isLinked = (id: string) => !selected || selected === id || edges.some((e) => (e.from === selected && e.to === id) || (e.to === selected && e.from === id));
+
+  const node = (id: string) => {
+    const n = NODES.find((x) => x.id === id)!;
+    const st = live.nodes[id], ov = overrides?.[id];
+    const state: NodeState = down === id ? 'down' : ov?.state ?? st?.state ?? 'idle';
+    const chip = ov?.chip ?? st?.chip ?? '';
+    const sub = st?.sub ?? n.service;
+    const label = `${n.title}, ${n.service}. ${state === 'planned' ? 'Planned' : chip}. Open details.`;
+    const common = {
+      'data-node': id, 'data-state': state, 'data-flow': n.flow, 'data-sel': selected === id || undefined,
+      'aria-pressed': selected === id, 'aria-label': label, onClick: () => onSelect(id), type: 'button' as const,
+    };
+    if (n.band) {
+      return (
+        <button key={id} className="ar-n ar-band" {...common}>
+          <span className="ar-ring" aria-hidden="true" />
+          <Icon name={n.icon} size={20} weight="duotone" />
+          <b className="ar-n-t">{n.title}</b>
+          <span className="ar-n-c measure"><i />{chip}</span>
+          <span className="ar-n-s">{id === 'cw' ? 'Metrics and JSON logs from every compute stage' : 'One role per component'}</span>
+          {badges?.[id] && <span className="ar-badge measure">{badges[id]}</span>}
+        </button>
+      );
+    }
+    return (
+      <button key={id} className="ar-n" {...common} data-lane={n.lane} data-dim={!isLinked(id) || undefined}
+        style={{ gridColumn: (n.col ?? 0) + 1, gridRow: ROWS[n.row ?? 'r0'] }}>
+        <span className="ar-ring" aria-hidden="true" />
+        <span className="ar-n-h"><span className="ar-n-ico"><Icon name={n.icon} size={20} weight="duotone" /></span></span><b className="ar-n-t">{n.title.replace(' · ', '\u00a0· ')}</b>
+        <span className="ar-n-s">{sub}</span>
+        <span className="ar-n-c measure"><i />{chip}</span>
+        {badges?.[id] && <span className="ar-badge measure">{badges[id]}</span>}
+      </button>
+    );
+  };
 
   return (
-    <svg ref={svgRef} className="ar-svg" viewBox={`-4 0 ${VB_W + 8} ${VB_H}`} role="group" aria-labelledby="ar-t" data-motion={motion || undefined}>
-      <title id="ar-t">RoadScope architecture: running system and planned roadside-LiDAR pilot</title>
-      <defs>
-        {/* taste-skill-ignore: owner-requested flow gradient — each running edge fades in from its source to show direction. */}
-        {EDGES.filter((e) => e.status !== 'planned').map((e) => (
-          <linearGradient key={e.id} id={`ar-g-${e.id}`} gradientUnits="userSpaceOnUse" x1={e.p[0]} y1={e.p[1]} x2={e.p[6]} y2={e.p[7]}>
-            <stop offset="0" style={{ stopColor: `var(--fl-${e.flow})`, stopOpacity: 0.18 }} />
-            <stop offset="1" style={{ stopColor: `var(--fl-${e.flow})`, stopOpacity: 0.95 }} />
-          </linearGradient>
-        ))}
-        {MARK_FLOWS.map((f) => (
-          <marker key={f} id={`ar-m-${f}`} viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M1 1.5 L9 5 L1 8.5 Q2.6 5 1 1.5z" style={{ fill: `var(--fl-${f})` }} />
-          </marker>
-        ))}
-      </defs>
-
-      {/* Lanes */}
-      <text x={0} y={22} className="ar-lane">Deployed</text>
-      <text x={VB_W} y={22} className="ar-lane-note" textAnchor="end">AWS us-east-2 · account-level budget alarm</text>
-      <rect x={-2} y={ROW.pilotHead - 24} width={VB_W + 4} height={VB_H - ROW.pilotHead + 22} rx={18} className="ar-pilot-bg" />
-      <text x={18} y={ROW.pilotHead + 6} className="ar-lane">Pilot</text>
-      <text x={VB_W - 18} y={ROW.pilotHead + 6} className="ar-lane-note" textAnchor="end">Planned roadside-LiDAR pedestrian warning; not deployed</text>
-
-      {/* Edges */}
-      {EDGES.map((e) => {
-        const ed = live.edges[e.id];
-        const d = pathD(e.p);
-        const hot = selected && (e.from === selected || e.to === selected);
-        const stalled = down && (e.from === down);
-        const dur = ed?.rate ? 18 / Math.max(12, (ed.speed ?? 60) * 0.5) : 3.2;
-        const [mx, my] = bez(e.p, 0.5);
-        return (
-          <g key={e.id} className="ar-edge" data-flow={e.flow} data-status={e.status} data-hot={hot || undefined} data-dim={(selected && !hot) || undefined} data-stalled={stalled || undefined}>
-            <path d={d} className="ar-base" style={e.status === 'planned' ? undefined : { stroke: `url(#ar-g-${e.id})` }} markerEnd={`url(#ar-m-${e.flow})`} />
-            {e.status === 'live' && <path d={d} className="ar-stream" style={{ stroke: `var(--fl-${e.flow})`, animationDuration: `${dur.toFixed(2)}s` }} />}
-            {ed?.label && (
-              <g className="ar-elabel" transform={`translate(${mx} ${my})`}>
-                <text className="ar-etext" textAnchor="middle" y={-20}>
-                  {ed.label.split('|')[0] && <tspan className="ar-ev" x={0}>{ed.label.split('|')[0]}</tspan>}
-                  <tspan x={0} dy={ed.label.split('|')[0] ? 14 : 14}>{ed.label.split('|')[1]}</tspan>
-                </text>
-              </g>
-            )}
-          </g>
-        );
-      })}
-
-      {/* Comets (pool per running edge; positions written by the rAF loop) */}
-      {motion && LIVE_EDGES.map((e) => (
-        <g key={e.id} data-comets={e.id} style={{ fill: `var(--fl-${e.flow})` }} aria-hidden="true">
-          {Array.from({ length: POOL }, (_, i) => (
-            <g key={i} opacity={0}>
-              {Array.from({ length: TAIL }, (_, k) => <circle key={k} r={[4, 3.1, 2.3, 1.6][k]} style={{ opacity: [1, 0.5, 0.28, 0.14][k] }} />)}
-            </g>
+    <div className="ar-canvas" ref={canvasRef} role="group" aria-labelledby="ar-t" data-motion={motion || undefined}>
+      <p id="ar-t" className="sr-only">RoadScope architecture: running system and planned roadside-LiDAR pilot. Each component is a button that opens its details.</p>
+      <svg ref={svgRef} className="ar-svg" width={geo?.w ?? 0} height={geo?.h ?? 0} viewBox={`0 0 ${geo?.w ?? 1} ${geo?.h ?? 1}`} aria-hidden="true">
+        <defs>
+          {/* taste-skill-ignore: owner-requested flow gradient — each running edge fades in from its source to show direction. */}
+          {edges.filter((e) => e.status !== 'planned').map((e) => (
+            <linearGradient key={e.id} id={`ar-g-${e.id}`} gradientUnits="userSpaceOnUse" x1={e.p[0]} y1={e.p[1]} x2={e.p[6]} y2={e.p[7]}>
+              <stop offset="0" style={{ stopColor: `var(--fl-${e.flow})`, stopOpacity: 0.18 }} />
+              <stop offset="1" style={{ stopColor: `var(--fl-${e.flow})`, stopOpacity: 0.95 }} />
+            </linearGradient>
           ))}
-        </g>
-      ))}
-
-      {/* Nodes */}
-      {NODES.map((n) => {
-        const st = live.nodes[n.id];
-        const w = n.w ?? NW, h = n.h ?? NH;
-        const isDown = down === n.id || st?.state === 'down';
-        const state = isDown ? 'down' : st?.state ?? 'idle';
-        const label = `${n.title}, ${n.service}. ${state === 'planned' ? 'Planned' : st?.chip ?? ''}. Open details.`;
-        if (n.band) {
+          {MARK_FLOWS.map((f) => (
+            <marker key={f} id={`ar-m-${f}`} viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M1 1.5 L9 5 L1 8.5 Q2.6 5 1 1.5z" style={{ fill: `var(--fl-${f})` }} />
+            </marker>
+          ))}
+        </defs>
+        {edges.map((e) => {
+          const ed = live.edges[e.id];
+          const d = pathD(e.p);
+          const hot = selected && (e.from === selected || e.to === selected);
+          const dur = ed?.rate ? 18 / Math.max(12, (ed.speed ?? 60) * 0.5) : 3.2;
           return (
-            <g key={n.id} data-node={n.id} className="ar-node ar-band" data-state={state} data-flow={n.flow} data-sel={selected === n.id || undefined}
-              role="button" tabIndex={0} aria-label={label} aria-pressed={selected === n.id} onClick={() => onSelect(n.id)} onKeyDown={key(n.id)}>
-              <g className="ar-body">
-                <rect x={n.x} y={n.y} width={w} height={h} rx={h / 2} className="ar-box" />
-                <rect x={n.x} y={n.y} width={w} height={h} rx={h / 2} className="ar-ring" />
-                <g transform={`translate(${n.x + 18} ${n.y + h / 2 - 10})`} className="ar-ico"><Icon name={n.icon} size={20} weight="duotone" /></g>
-                <text x={n.x + 48} y={n.y + h / 2 + 6} className="ar-btitle">{n.title}</text>
-                <text x={n.x + 48 + (n.id === 'cw' ? 118 : 50)} y={n.y + h / 2 + 5} className="ar-bchip">{st?.chip}</text>
-                <text x={n.x + w - 22} y={n.y + h / 2 + 5} className="ar-bspec" textAnchor="end">{n.id === 'cw' ? 'metrics + JSON logs from every compute stage' : 'one role per component'}</text>
-              </g>
+            <g key={e.id} className="ar-edge" data-flow={e.flow} data-status={e.status} data-hot={hot || undefined} data-dim={(selected && !hot) || undefined} data-stalled={(down && e.from === down) || undefined}>
+              <path d={d} className="ar-base" style={e.status === 'planned' ? undefined : { stroke: `url(#ar-g-${e.id})` }} markerEnd={`url(#ar-m-${e.flow})`} />
+              {e.status === 'live' && <path d={d} className="ar-stream" style={{ stroke: `var(--fl-${e.flow})`, animationDuration: `${dur.toFixed(2)}s` }} />}
             </g>
           );
-        }
-        const nd = NODE[n.id];
-        return (
-          <g key={n.id} data-node={n.id} className="ar-node" data-state={state} data-flow={n.flow} data-lane={n.lane} data-sel={selected === n.id || undefined}
-            data-dim={(selected && selected !== n.id && !EDGES.some((e) => (e.from === selected && e.to === n.id) || (e.to === selected && e.from === n.id))) || undefined}
-            role="button" tabIndex={0} aria-label={label} aria-pressed={selected === n.id} onClick={() => onSelect(n.id)} onKeyDown={key(n.id)}>
-            <g className="ar-body" style={{ transformOrigin: `${n.x + w / 2}px ${n.y + h / 2}px` }}>
-              <rect x={n.x} y={n.y} width={w} height={h} rx={14} className="ar-box" />
-              <rect x={n.x} y={n.y} width={w} height={h} rx={14} className="ar-ring" style={{ transformOrigin: `${n.x + w / 2}px ${n.y + h / 2}px` }} />
-              <rect x={n.x + 14} y={n.y + 14} width={30} height={30} rx={8} className="ar-icobg" />
-              <g transform={`translate(${n.x + 19} ${n.y + 19})`} className="ar-ico"><Icon name={nd.icon} size={20} weight="duotone" /></g>
-              <text x={n.x + 54} y={n.y + 28} className="ar-title">{n.title}</text>
-              <text x={n.x + 54} y={n.y + 45} className="ar-sub">{st?.sub ?? n.service}</text>
-              <circle cx={n.x + 20} cy={n.y + 74} r={4} className="ar-dot" />
-              <text x={n.x + 31} y={n.y + 78.5} className="ar-chip">{down === n.id ? downLabel : st?.chip}</text>
-              <text x={n.x + w - 10} y={n.y - 8} className="ar-badge" textAnchor="end" data-badge={n.id} />
-            </g>
+        })}
+        {motion && liveEdges.map((e) => (
+          <g key={e.id} data-comets={e.id} style={{ fill: `var(--fl-${e.flow})` }}>
+            {Array.from({ length: POOL }, (_, i) => (
+              <g key={i} opacity={0}>
+                {Array.from({ length: TAIL }, (_, k) => <circle key={k} r={[4, 3.1, 2.3, 1.6][k]} style={{ opacity: [1, 0.5, 0.28, 0.14][k] }} />)}
+              </g>
+            ))}
           </g>
-        );
-      })}
-    </svg>
+        ))}
+      </svg>
+
+      <div className="ar-lanehead"><span className="ar-lane">Deployed</span><span className="ar-lane-note">AWS us-east-2 · account-level budget alarm</span></div>
+      {node('iam')}
+      <div className="ar-grid" data-lane="live">{LIVE.map((n) => node(n.id))}</div>
+      {node('cw')}
+      <div className="ar-pilot">
+        <div className="ar-lanehead"><span className="ar-lane">Pilot</span><span className="ar-lane-note">Planned roadside-LiDAR pedestrian warning; not deployed</span></div>
+        <div className="ar-grid" data-lane="pilot">{PILOT.map((n) => node(n.id))}</div>
+      </div>
+
+      {/* Edge labels sit above the nodes; any label that would cover a node is hidden (see the node panel). */}
+      <svg className="ar-svg ar-labels" width={geo?.w ?? 0} height={geo?.h ?? 0} viewBox={`0 0 ${geo?.w ?? 1} ${geo?.h ?? 1}`} aria-hidden="true">
+        {edges.map((e) => {
+          const lab = live.edges[e.id]?.label;
+          if (!lab) return null;
+          const [v, t] = lab.split('|');
+          const [mx, my] = bez(e.p, 0.5);
+          const dim = selected && !(e.from === selected || e.to === selected);
+          return (
+            <g key={e.id} data-elabel={e.id} transform={`translate(${mx.toFixed(1)} ${my.toFixed(1)})`} data-dim={dim || undefined} className="ar-elabel">
+              <text className="ar-etext" textAnchor="middle" y={v ? -18 : -8}>
+                {v && <tspan className="ar-ev" x={0}>{v}</tspan>}
+                <tspan x={0} dy={v ? 15 : 0}>{t}</tspan>
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
   );
 }

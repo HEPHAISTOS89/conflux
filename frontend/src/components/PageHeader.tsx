@@ -15,7 +15,7 @@ export default function PageHeader({ icon, title, lede, source, readouts = [], a
     <header className="ph" data-r="1">
       <div className="ph-main">
         <div className="ph-title">
-          <span className="ph-icon"><Icon name={icon} size={22} weight="duotone" /></span>
+          <span className="ph-icon"><Icon name={icon} size={24} weight="duotone" /></span>
           <h1>{title}</h1>
         </div>
         {lede && <p className="ph-lede">{lede}</p>}

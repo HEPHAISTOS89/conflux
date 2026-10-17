@@ -99,3 +99,12 @@ export function webglAvailable(): boolean {
   } catch { glOk = false; }
   return glOk;
 }
+
+/** Replace one query parameter in place (no history entry); null removes it. */
+export function writeParam(k: string, v: string | null) {
+  const q = new URLSearchParams(location.search);
+  if (v == null) q.delete(k); else q.set(k, v);
+  const s = q.toString().replace(/%2C/g, ',');
+  const url = `${location.pathname}${s ? `?${s}` : ''}${location.hash}`;
+  if (url !== `${location.pathname}${location.search}${location.hash}`) history.replaceState(history.state, '', url);
+}

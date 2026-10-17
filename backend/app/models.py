@@ -72,6 +72,7 @@ class Screening(BaseModel):
     f_system: int | None
     total: int
     items: list[Segment]
+    unscreened: dict[str, Any] = {}
 
 
 class Spf(Open):
@@ -116,6 +117,8 @@ class VruSummary(BaseModel):
     by_pbcat: dict[str, int]
     top_streets: dict[str, int]
     ka_total: int
+    on_system: dict[str, int] = {}
+    severity_by_condition: list[dict[str, Any]] = []
     hour_dow: list[list[int]]
 
 

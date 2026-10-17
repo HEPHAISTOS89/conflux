@@ -77,7 +77,10 @@ const GROUPS = ['All', 'Interstate/Freeway', 'Principal arterial', 'Minor arteri
 const TOP = 25;
 
 type Row = SegmentProps & { fc_group?: string; site_type?: string; crashes_per_yr?: number; crashes_ka?: number; dfo_from?: number; dfo_to?: number; speed_all?: number };
-interface Screening { method: string; total: number; items: Row[] }
+interface Screening { method: string; total: number; items: Row[]; unscreened?: { segments: number; crashes: number; reason: string } }
+/** TxDOT Statewide Speed 2024 tops out at exactly 65 mph (352 of 2,738 records, none above): treat 65 as "65 or more". */
+const SPEED_CAP = 65;
+const opSpeed = (v?: number | null) => (v == null ? '—' : v >= SPEED_CAP ? `≥ ${SPEED_CAP}` : nf(v, 1));
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const typing = (e: KeyboardEvent) => e.metaKey || e.ctrlKey || e.altKey || !!(e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable], [role="listbox"]') || !!document.querySelector('.cmdk-scrim');
@@ -113,9 +116,12 @@ export default function ScreeningPage() {
   const focus = params.get('seg');
   const set = useCallback((k: string, v: string | null) => setParams((prev) => { const p = new URLSearchParams(prev); v ? p.set(k, v) : p.delete(k); return p; }, { replace: true }), [setParams]);
 
-  const net = useApi<FC<SegmentProps & { fc_group?: string }>>('/network');
-  const scr = useApi<Screening>(`/screening?method=${method}&limit=443`);
-  const spf = useApi<SpfFull>('/spf');
+  // retry: a new query token re-requests a failed endpoint without reloading the page
+  const [retry, setRetry] = useState(0);
+  const rq = retry ? `${'&'}retry=${retry}` : '';
+  const net = useApi<FC<SegmentProps & { fc_group?: string }>>(`/network${rq ? `?${rq.slice(1)}` : ''}`);
+  const scr = useApi<Screening>(`/screening?method=${method}&limit=1000${rq}`);
+  const spf = useApi<SpfFull>(`/spf${rq ? `?${rq.slice(1)}` : ''}`);
   const meta = METHODS.find((m) => m.id === method)!;
   const gridRef = useReveal<HTMLElement>();
   const stabRef = useReveal<HTMLElement>();
@@ -136,6 +142,7 @@ export default function ScreeningPage() {
     for (const r of scr.data?.items ?? []) c[r.fc_group ?? ''] = (c[r.fc_group ?? ''] ?? 0) + 1;
     return c;
   }, [scr.data]);
+  const unscr = scr.data?.unscreened;
 
   // Fit only on request (double-click, F, deep link); n nudges the bounds so the same segment can be refitted.
   const [fit, setFit] = useState<{ id: string; n: number } | null>(() => (focus ? { id: focus, n: 0 } : null));
@@ -221,12 +228,12 @@ export default function ScreeningPage() {
       <PageHeader
         icon="rank"
         title="Network screening"
-        lede={<>{nf(scr.data?.total)} one-mile on-system segments in Lubbock County, ranked by pedestrian and bicyclist crashes.</>}
+        lede={<>{nf(scr.data?.total)} one-mile on-system segments in Lubbock County, ranked by pedestrian and bicyclist crashes{unscr?.segments ? <> ({nf(unscr.segments)} more lack an inventory or AADT match and are not ranked)</> : null}.</>}
         source={<>TxDOT CRIS 2021–2023 · Roadway Inventory 2024 · AADT · <ProvChip kind="derived" /></>}
         readouts={[
           { label: <span className="rd-l">Sites flagged <MetricInfo spec={SPECS.eb_excess} align="right" /></span>, value: scr.data ? head.flagged : null, unit: `of ${nf(rows.length)}`, tone: 'alert' },
           { label: <span className="rd-l">Top EB excess</span>, value: head.top, unit: 'crashes/yr', digits: 2 },
-          { label: <span className="rd-l">Ped/bike crashes</span>, value: scr.data ? head.crashes : null, unit: '3 yr' },
+          { label: <span className="rd-l">Ped/bike crashes</span>, value: scr.data ? head.crashes : null, unit: group === 'All' ? '3 yr, ranked segments' : `3 yr, ${group}` },
           { label: <span className="rd-l">Network rate <MetricInfo spec={SPECS.rate} align="right" /></span>, value: head.rate, unit: '/100 MVMT', digits: 2 },
         ]}
         actions={<>
@@ -248,10 +255,13 @@ export default function ScreeningPage() {
         <Icon name={meta.icon} size={16} /><span>{meta.d}</span>
         <MetricInfo spec={SPECS[method]} />
       </p>
+      {scr.data && head.crashes < 10 && rows.length > 0 && (
+        <p className="scr-warn" role="note"><Icon name="warning" size={16} /><span>Only {head.crashes} crash{head.crashes === 1 ? '' : 'es'} on {nf(rows.length)} {group} segments: below the crash-bearing sites, ranks are ties near zero and carry no information.</span></p>
+      )}
 
       <section className="scr-grid" ref={gridRef} aria-label="Ranking and map">
-        <div className="panel scr-table-wrap" data-ui data-r="1" ref={wrapRef} aria-busy={scr.loading || undefined}>
-          {scr.error && <div className="error-box scr-state">Ranking unavailable: {scr.error} <button type="button" className="btn ghost" onClick={() => location.reload()}>Reload</button></div>}
+        <div className="panel scr-table-wrap" data-ui data-r="1" ref={wrapRef} aria-busy={scr.loading || undefined} role="region" aria-label="Ranked segments table" tabIndex={0}>
+          {scr.error && <div className="error-box scr-state" role="alert">Ranking unavailable: {scr.error} <button type="button" className="btn ghost" onClick={() => setRetry((n) => n + 1)}><Icon name="reset" size={16} /><span>Retry</span></button></div>}
           <table className="data">
             <caption className="sr-only">Segments ranked by {meta.label}{group !== 'All' ? `, ${group}` : ''}</caption>
             <thead>
@@ -293,7 +303,7 @@ export default function ScreeningPage() {
             bounds={bounds}
             onClick={(_, f) => select((f.properties as any).seg_id, true)}
           />
-          {net.error && <div className="error-box scr-map-err">Network unavailable: {net.error}</div>}
+          {net.error && <div className="error-box scr-map-err" role="alert">Network unavailable: {net.error} <button type="button" className="btn ghost" onClick={() => setRetry((n) => n + 1)}><Icon name="reset" size={16} /><span>Retry</span></button></div>}
           <div className="scr-legend" aria-hidden="true">
             <span>Rank by {meta.short}</span>
             <i style={{ background: `linear-gradient(90deg, ${SEV_HEX.K}, ${SEV_HEX.A}, ${SEV_HEX.B})` }} />
@@ -328,7 +338,7 @@ export default function ScreeningPage() {
           <p>NB2 models used in the EB ranking. The CURE plot checks fit along AADT.</p>
         </div>
         <div data-r="2">
-          {spf.error ? <div className="error-box">Models unavailable: {spf.error}</div>
+          {spf.error ? <div className="error-box" role="alert">Models unavailable: {spf.error} <button type="button" className="btn ghost" onClick={() => setRetry((n) => n + 1)}><Icon name="reset" size={16} /><span>Retry</span></button></div>
             : spf.data ? <SiteTypes spf={spf.data} /> : <div className="skeleton" style={{ height: 360 }} aria-label="Loading models" />}
         </div>
       </section>
@@ -346,9 +356,9 @@ function SegmentCard({ s, rank, onFit, onClose }: { s: Row; rank?: number; onFit
       </div>
       <dl className="measure">
         <dt>Facility</dt><dd>{s.fc_group ?? '—'} · {nf(s.lanes)} ln</dd>
-        <dt>Posted / operating</dt><dd>{nf(s.speed_limit)} / {nf(s.speed_all, 1)} mph</dd>
+        <dt>Posted / operating</dt><dd>{nf(s.speed_limit)} / {opSpeed(s.speed_all)} mph</dd>
         <dt><Term k="AADT" /> · trucks</dt><dd>{nf(s.aadt)} veh/d · {nf(s.truck_pct, 1)}%</dd>
-        <dt>Observed</dt><dd>{nf(s.crashes_per_yr, 2)} /yr</dd>
+        <dt>Observed</dt><dd>{nf(s.crashes_per_yr, 2)} /yr · {nf(s.crashes_total)} in 3 yr, {nf(s.crashes_ka)} KA</dd>
         <dt><Term k="SPF">SPF</Term> predicted</dt><dd>{nf(s.spf_pred, 2)} /yr</dd>
         <dt><Term k="EB">EB</Term> expected</dt><dd>{nf(s.eb_expected, 2)} /yr</dd>
         <dt><Term k="Critical ratio" /></dt><dd data-hi={(s.crit_ratio ?? 0) > 1 || undefined}>{nf(s.crit_ratio, 2)}</dd>

@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getJSON } from '../lib/api';
 import { nf } from '../lib/format';
+import { Icon } from './Icon';
 
 interface Item { id: string; label: string; hint: string; to: string; kind: 'Sheet' | 'Corridor' | 'Segment' | 'Intersection' }
 
 const SHEETS: Item[] = [
   ['/', 'Atlas'], ['/screening', 'Network screening'], ['/corridors', 'Corridors'], ['/vru', 'Pedestrians & cyclists'],
-  ['/intersections', 'Intersection lab'], ['/brief', 'District brief'], ['/methods', 'Methods & data'], ['/platform', 'Platform'], ['/ask', 'Ask the data'],
+  ['/intersections', 'Intersection lab'], ['/brief', 'District brief'], ['/methods', 'Methods & data'], ['/platform', 'Platform'], ['/roadmap', 'Roadmap'], ['/ask', 'Ask the data'],
 ].map(([to, label]) => ({ id: to, label, hint: '', to, kind: 'Sheet' as const }));
 
 /** ⌘K / Ctrl-K jump to any sheet, corridor, ranked segment or intersection; arrow keys and Enter. */
@@ -36,7 +37,7 @@ export default function CommandPalette() {
     if (!open) { back.current?.focus?.(); return; }
     back.current = document.activeElement as HTMLElement;
     setQ(''); setI(0);
-    requestAnimationFrame(() => input.current?.focus());
+    input.current?.focus(); // synchronous, so keys typed right after the shortcut land in the field
     // Load searchable records once; the API responses are cached client-side.
     Promise.allSettled([
       getJSON<{ id: string; name: string; len_mi: number }[]>('/corridors'),
@@ -58,14 +59,21 @@ export default function CommandPalette() {
     return items.filter((it) => words.every((w) => `${it.label} ${it.hint} ${it.kind}`.toLowerCase().includes(w))).slice(0, 12);
   }, [q, items]);
 
+  useEffect(() => { if (open) document.getElementById(`cmdk-${i}`)?.scrollIntoView({ block: 'nearest' }); }, [i, open]);
+
   if (!open) return null;
   const go = (it?: Item) => { if (!it) return; setOpen(false); nav(it.to); };
 
   return (
     <div className="cmdk-scrim" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
       <div className="cmdk" role="dialog" aria-modal="true" aria-label="Jump to">
+        <div className="cmdk-in">
+        <Icon name="search" size={20} />
         <input
           ref={input}
+          role="combobox"
+          aria-expanded="true"
+          aria-autocomplete="list"
           value={q}
           placeholder="Jump to a sheet, corridor, segment or intersection"
           aria-label="Search"
@@ -77,8 +85,10 @@ export default function CommandPalette() {
             if (e.key === 'ArrowDown') { e.preventDefault(); setI((v) => Math.min(hits.length - 1, v + 1)); }
             if (e.key === 'ArrowUp') { e.preventDefault(); setI((v) => Math.max(0, v - 1)); }
             if (e.key === 'Enter') go(hits[i]);
+            if (e.key === 'Tab') e.preventDefault(); // focus stays in the dialog
           }}
         />
+        </div>
         <ul id="cmdk-list" role="listbox">
           {hits.map((it, k) => (
             <li key={`${it.kind}-${it.id}`} id={`cmdk-${k}`} role="option" aria-selected={k === i} onMouseEnter={() => setI(k)} onMouseDown={(e) => { e.preventDefault(); go(it); }}>

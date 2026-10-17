@@ -3,7 +3,8 @@ import type { PlatformRun, PlatformStatus } from '../../lib/types';
 
 /**
  * The architecture as data: node and edge geometry, what each component is, and how its live state
- * is read from /api/v1/platform/status. Geometry is in SVG user units (viewBox 0 0 VB_W VB_H).
+ * is read from /api/v1/platform/status. Nodes are laid out by CSS grid and sized by their content;
+ * edges are drawn from the measured node boxes (layoutEdges).
  */
 
 export type Flow = 'ingest' | 'curated' | 'api' | 'metrics' | 'ai' | 'plan';
@@ -11,140 +12,156 @@ export type Lane = 'live' | 'pilot';
 export type NodeState = 'ok' | 'idle' | 'warn' | 'down' | 'pending' | 'planned';
 export type EdgeStatus = 'live' | 'pending' | 'planned';
 
-export const NW = 180, NH = 96;
-const XS = [0, 245, 500, 755, 1010, 1265];
-const C = (i: number) => XS[i];
-export const ROW = { band: 40, r0: 116, r1: 248, r2: 380, cw: 512, pilotHead: 610, p0: 656, p1: 790 };
-export const VB_W = 1440, VB_H = 900;
+/** Grid placement: six columns; deployed rows r0–r2 sit between the IAM and CloudWatch bands, pilot rows p0–p1 below. */
+export type Row = 'r0' | 'r1' | 'r2' | 'p0' | 'p1';
+export const COLS = 6;
 
 export interface NodeDef {
-  id: string; lane: Lane; x: number; y: number; w?: number; h?: number; band?: boolean;
+  id: string; lane: Lane; col?: number; row?: Row; band?: boolean;
   title: string; service: string; icon: IconName; flow: Flow;
   role: string; spec: string; cost: string;
 }
 
 export const NODES: NodeDef[] = [
-  { id: 'iam', lane: 'live', band: true, x: 0, y: ROW.band, w: VB_W, h: 40, title: 'IAM', service: 'AWS IAM', icon: 'iam', flow: 'curated',
-    role: 'One role per component, limited to the actions and S3 prefixes it needs: API reads curated/*, ingest writes raw/* and curated/*, worker adds jobs/*, scheduler can start one instance only.',
-    spec: '4 roles · S3 prefix-scoped grants · Bedrock limited to one inference profile · scheduler trust bound to this account (aws:SourceAccount)',
+  { id: 'iam', lane: 'live', band: true, title: 'IAM', service: 'AWS IAM', icon: 'iam', flow: 'curated',
+    role: 'One role per component, limited to the actions and S3 prefixes it needs: API reads curated/* and may start the ingest function (Run ingest), ingest writes raw/* and curated/*, worker adds jobs/*, scheduler can start one instance only.',
+    spec: '4 roles · S3 prefix-scoped grants · API may invoke only roadscope-ingest · Bedrock limited to one inference profile · scheduler trust bound to this account (aws:SourceAccount)',
     cost: 'No charge.' },
-  { id: 'sched', lane: 'live', x: C(0), y: ROW.r0, w: 170, title: 'Weekly trigger', service: 'EventBridge', icon: 'schedule', flow: 'ingest',
-    role: 'Runs the ingest Lambda every Monday to refresh crash, AADT, roadway-inventory, speed and FARS extracts.',
+  { id: 'sched', lane: 'live', col: 0, row: 'r0', title: 'Weekly trigger', service: 'EventBridge', icon: 'schedule', flow: 'ingest',
+    role: 'Runs the ingest Lambda every Monday to refresh crash, AADT, roadway-inventory and speed extracts. Run ingest on this page starts the same function on demand.',
     spec: 'cron(0 8 ? * MON *) UTC · target retries 2', cost: 'Scheduled rules are free.' },
-  { id: 'ingest', lane: 'live', x: C(1), y: ROW.r0, title: 'Lambda · ingest', service: 'AWS Lambda', icon: 'lambda', flow: 'ingest',
-    role: 'Pulls TxDOT ArcGIS layers and NHTSA FARS, checksums each extract, then runs HSM screening and fits the NB SPF + Empirical Bayes; writes raw/ and curated/ objects and a run record.',
-    spec: 'Python 3.13 · arm64 · 1024 MB · 15 min timeout · AWS SDK for pandas layer · DLQ (SQS) after 2 retries',
+  { id: 'ingest', lane: 'live', col: 1, row: 'r0', title: 'Lambda · ingest', service: 'AWS Lambda', icon: 'lambda', flow: 'ingest',
+    role: 'Pulls the TxDOT ArcGIS layers (crashes, AADT, roadway inventory, speed), checksums each extract, applies the fitted site-type SPFs and recomputes Empirical Bayes, critical rates and the screening; refuses to publish if a layer loses half its records. Writes raw/ and curated/ objects and a run record. The NB SPF refit and FARS refresh run offline in build_network.',
+    spec: 'Python 3.13 · arm64 · 1024 MB · 15 min timeout · AWS SDK for pandas layer · DLQ (SQS) after 2 retries · manual runs: POST /api/v1/ops/ingest, async, one per 30 min',
     cost: 'Billed per GB-second; a ~10 s weekly run costs under US$0.01.' },
-  { id: 's3', lane: 'live', x: C(2), y: ROW.r1, title: 'S3 data lake', service: 'Amazon S3', icon: 'db', flow: 'curated',
+  { id: 's3', lane: 'live', col: 2, row: 'r1', title: 'S3 data lake', service: 'Amazon S3', icon: 'db', flow: 'curated',
     role: 'raw/ extracts as fetched, curated/ outputs served by the API, runs/ record per job, jobs/ bundle for the worker.',
     spec: 'SSE-S3 · versioned · public access blocked · TLS only · noncurrent versions expire after 30 d',
     cost: 'Storage is well under 1 GB; not metered on this page.' },
-  { id: 'api', lane: 'live', x: C(3), y: ROW.r1, title: 'Lambda · API', service: 'FastAPI on Lambda', icon: 'lambda', flow: 'api',
+  { id: 'api', lane: 'live', col: 3, row: 'r1', title: 'Lambda · API', service: 'FastAPI on Lambda', icon: 'lambda', flow: 'api',
     role: 'FastAPI on Mangum: screening, SPF/EB, corridor, intersection conflicts, VRU and this status endpoint, read from curated/ with ETags.',
     spec: 'Python 3.13 · arm64 · 1024 MB · 15 s timeout · JSON logs',
     cost: 'Billed per request and GB-second; the estimate below uses the p95 duration as an upper bound.' },
-  { id: 'apigw', lane: 'live', x: C(4), y: ROW.r1, title: 'API Gateway', service: 'HTTP API', icon: 'gauge', flow: 'api',
+  { id: 'apigw', lane: 'live', col: 4, row: 'r1', title: 'API Gateway', service: 'HTTP API', icon: 'gauge', flow: 'api',
     role: 'Public HTTPS endpoint for the API Lambda; Vercel rewrites /api/* here.',
     spec: 'Stage throttle 20 req/s, burst 40 · $default stage, auto-deploy',
     cost: 'US$1.00 per million requests.' },
-  { id: 'vercel', lane: 'live', x: C(5), y: ROW.r1, w: 175, title: 'Dashboard', service: 'Vercel · React', icon: 'platform', flow: 'api',
+  { id: 'vercel', lane: 'live', col: 5, row: 'r1', title: 'Dashboard', service: 'Vercel · React', icon: 'platform', flow: 'api',
     role: 'This portal: static React build on Vercel, proxying /api to API Gateway.',
     spec: 'React 19 + Vite · app shell revalidated on every visit',
     cost: 'Hobby plan; no AWS cost.' },
-  { id: 'cf', lane: 'live', x: C(4), y: ROW.r0, title: 'CloudFront', service: 'Amazon CloudFront', icon: 'edge', flow: 'api',
+  { id: 'cf', lane: 'live', col: 4, row: 'r0', title: 'CloudFront', service: 'Amazon CloudFront', icon: 'edge', flow: 'api',
     role: 'Edge cache in front of an IAM-authenticated Lambda Function URL, replacing API Gateway once enabled.',
     spec: 'Defined in CDK (cdk deploy -c edge=cloudfront) · OAC · 300 s cache · Price Class 100 · awaiting AWS account verification',
     cost: 'Not deployed; no cost.' },
-  { id: 'scheduler', lane: 'live', x: C(0), y: ROW.r2, w: 170, title: 'Monthly trigger', service: 'EventBridge', icon: 'schedule', flow: 'ingest',
+  { id: 'scheduler', lane: 'live', col: 0, row: 'r2', title: 'Monthly trigger', service: 'EventBridge', icon: 'schedule', flow: 'ingest',
     role: 'Starts the batch worker on the 1st of each month through the EC2 StartInstances universal target.',
     spec: 'cron(0 9 1 * ? *) UTC · role may start only this instance', cost: 'First 14 million invocations per month are free.' },
-  { id: 'ec2', lane: 'live', x: C(1), y: ROW.r2, title: 'EC2 batch worker', service: 'Amazon EC2', icon: 'ec2', flow: 'ingest',
+  { id: 'ec2', lane: 'live', col: 1, row: 'r2', title: 'EC2 batch worker', service: 'Amazon EC2', icon: 'ec2', flow: 'ingest',
     role: 'Rebuilds NGSIM trajectories, SSAM-style conflicts (TTC, PET) and the occlusion-repair evaluation, syncs them to curated/, writes a run record, then shuts itself down.',
     spec: 't4g.small · Amazon Linux 2023 arm64 · 12 GB gp3 encrypted · IMDSv2 · stops on shutdown + idle-CPU alarm backstop',
     cost: 'Billed only while running; the stopped volume costs about US$0.96 a month.' },
-  { id: 'bedrock', lane: 'live', x: C(4), y: ROW.r2, title: 'Bedrock analyst', service: 'Amazon Bedrock', icon: 'bedrock', flow: 'ai',
+  { id: 'bedrock', lane: 'live', col: 4, row: 'r2', title: 'Bedrock analyst', service: 'Amazon Bedrock', icon: 'bedrock', flow: 'ai',
     role: 'Answers Ask-page questions through the API tools. Until model access is granted, a deterministic in-Lambda analyst uses the same tools.',
     spec: 'Claude Haiku 4.5 via the us. inference profile · awaiting AWS account verification · fallback active',
     cost: 'Zero while the fallback is active; rate-limited to 10 questions/min per client plus a daily cap.' },
-  { id: 'cw', lane: 'live', band: true, x: 0, y: ROW.cw, w: VB_W, h: 44, title: 'CloudWatch', service: 'Amazon CloudWatch', icon: 'pulse', flow: 'metrics',
+  { id: 'cw', lane: 'live', band: true, title: 'CloudWatch', service: 'Amazon CloudWatch', icon: 'pulse', flow: 'metrics',
     role: 'Collects Lambda, API Gateway and EC2 metrics and JSON logs; the RoadScope dashboard and alarms watch errors, DLQ depth and an idle worker.',
     spec: 'Dashboard “RoadScope” · 4 alarms (API errors, ingest errors, DLQ depth, worker idle) · logs kept 14 d',
     cost: 'Within the Always Free tier (10 alarms, 3 dashboards).' },
 
   // Pilot design: what the roadside-LiDAR pedestrian-warning deployment would add. Nothing here runs.
-  { id: 'sensor', lane: 'pilot', x: C(0), y: ROW.p0, w: 170, title: 'Roadside LiDAR', service: 'Field sensor', icon: 'sensor', flow: 'plan',
+  { id: 'sensor', lane: 'pilot', col: 0, row: 'p0', title: 'Roadside LiDAR', service: 'Field sensor', icon: 'sensor', flow: 'plan',
     role: 'Pole-mounted LiDAR at a mid-block or uncontrolled crosswalk, 10 Hz point clouds.',
     spec: 'Planned · needs site, mounting permit and power/backhaul', cost: 'Hardware is outside the AWS budget.' },
-  { id: 'edgeu', lane: 'pilot', x: C(1), y: ROW.p0, title: 'Edge unit', service: 'Roadside computer', icon: 'scan', flow: 'plan',
+  { id: 'edgeu', lane: 'pilot', col: 1, row: 'p0', title: 'Edge unit', service: 'Roadside computer', icon: 'scan', flow: 'plan',
     role: 'Background filtering, clustering, tracking and pedestrian classification on site; sends object lists, never raw point clouds.',
     spec: 'Planned · trajectories at 10 Hz with track confidence', cost: 'Object lists only; small transfer volume.' },
-  { id: 'beacon', lane: 'pilot', x: C(1), y: ROW.p1, title: 'Warning beacon', service: 'Local actuation', icon: 'alert', flow: 'plan',
+  { id: 'beacon', lane: 'pilot', col: 1, row: 'p1', title: 'Warning beacon', service: 'Local actuation', icon: 'alert', flow: 'plan',
     role: 'Triggers the pedestrian warning (e.g. an RRFB) from the edge unit, independent of the cloud.',
     spec: 'Planned · local loop, target under 100 ms', cost: 'No cloud dependency.' },
-  { id: 'ps3', lane: 'pilot', x: C(2), y: ROW.p0, title: 'S3 · pilot/', service: 'Amazon S3', icon: 'db', flow: 'plan',
+  { id: 'ps3', lane: 'pilot', col: 2, row: 'p0', title: 'S3 · pilot/', service: 'Amazon S3', icon: 'db', flow: 'plan',
     role: 'Same bucket, new prefix for object lists and events, partitioned by site and hour.',
     spec: 'Planned · lifecycle to Glacier after the analysis window', cost: 'Scales with sites × hours.' },
-  { id: 'health', lane: 'pilot', x: C(2), y: ROW.p1, title: 'Sensor health', service: 'CloudWatch metrics', icon: 'offline', flow: 'plan',
+  { id: 'health', lane: 'pilot', col: 2, row: 'p1', title: 'Sensor health', service: 'CloudWatch metrics', icon: 'offline', flow: 'plan',
     role: 'Uptime, frame completeness and packet gaps per site, with an alarm when a sensor goes quiet.',
     spec: 'Planned', cost: 'A few custom metrics per site.' },
-  { id: 'pconf', lane: 'pilot', x: C(3), y: ROW.p0, title: 'Lambda · conflicts', service: 'AWS Lambda', icon: 'lambda', flow: 'plan',
+  { id: 'pconf', lane: 'pilot', col: 3, row: 'p0', title: 'Lambda · conflicts', service: 'AWS Lambda', icon: 'lambda', flow: 'plan',
     role: 'Extracts PET, TTC and driver failure-to-yield events from each hour of trajectories.',
     spec: 'Planned · reuses the SSAM-style extractor already running on NGSIM', cost: 'Per-hour batches keep it in the free tier for a few sites.' },
-  { id: 'papi', lane: 'pilot', x: C(4), y: ROW.p0, title: 'API · /pilot', service: 'Same FastAPI Lambda', icon: 'gauge', flow: 'plan',
+  { id: 'papi', lane: 'pilot', col: 4, row: 'p0', title: 'API · /pilot', service: 'Same FastAPI Lambda', icon: 'gauge', flow: 'plan',
     role: 'Site, hour and before/after endpoints with confidence intervals.',
     spec: 'Planned', cost: 'Same Lambda, same API.' },
-  { id: 'pdash', lane: 'pilot', x: C(5), y: ROW.p0, w: 175, title: 'SPAG dashboard', service: '15-county view', icon: 'county', flow: 'plan',
+  { id: 'pdash', lane: 'pilot', col: 5, row: 'p0', title: 'SPAG dashboard', service: '15-county view', icon: 'county', flow: 'plan',
     role: 'County-level view for the South Plains Association of Governments: yielding rate, conflicts per hour, sensor health.',
     spec: 'Planned', cost: 'Same Vercel deployment.' },
 ];
 export const NODE = Object.fromEntries(NODES.map((n) => [n.id, n])) as Record<string, NodeDef>;
 
-export interface EdgeDef { id: string; from: string; to: string; flow: Flow; status: EdgeStatus; p: number[] }
-
 type Port = 'r' | 'l' | 't' | 'b';
-function port(id: string, side: Port, off = 0): [number, number] {
-  const n = NODE[id], w = n.w ?? NW, h = n.h ?? NH;
-  if (side === 'r') return [n.x + w, n.y + h / 2 + off];
-  if (side === 'l') return [n.x, n.y + h / 2 + off];
-  if (side === 't') return [n.x + w / 2 + off, n.y];
-  return [n.x + w / 2 + off, n.y + h];
-}
-/** Smooth cubic between two ports with tangents matching the port sides. */
-function curve(a: [number, number], sa: Port, b: [number, number], sb: Port, k = 0.5): number[] {
-  const dx = Math.abs(b[0] - a[0]), dy = Math.abs(b[1] - a[1]);
-  const hx = Math.max(36, dx * k), vy = Math.max(30, dy * k);
-  const c1 = sa === 'r' ? [a[0] + hx, a[1]] : sa === 'l' ? [a[0] - hx, a[1]] : sa === 'b' ? [a[0], a[1] + vy] : [a[0], a[1] - vy];
-  const c2 = sb === 'l' ? [b[0] - hx, b[1]] : sb === 'r' ? [b[0] + hx, b[1]] : sb === 't' ? [b[0], b[1] - vy] : [b[0], b[1] + vy];
-  return [a[0], a[1], c1[0], c1[1], c2[0], c2[1], b[0], b[1]];
-}
-const E = (id: string, from: string, sa: Port, to: string, sb: Port, flow: Flow, status: EdgeStatus = 'live', oa = 0, ob = 0, to2?: [number, number]): EdgeDef =>
-  ({ id, from, to, flow, status, p: curve(port(from, sa, oa), sa, to2 ?? port(to, sb, ob), sb) });
-const cwTop = (x: number): [number, number] => [x, ROW.cw];
+export interface Rect { x: number; y: number; w: number; h: number }
+/** cw: the edge ends on the CloudWatch band, either straight below the source port or in the gap to its right. */
+export interface EdgeDef { id: string; from: string; to: string; flow: Flow; status: EdgeStatus; sa: Port; sb: Port; oa: number; ob: number; cw?: 'below' | 'right' }
+export interface EdgeGeo extends EdgeDef { p: number[] }
+
+const E = (id: string, from: string, sa: Port, to: string, sb: Port, flow: Flow, status: EdgeStatus = 'live', oa = 0, ob = 0, cw?: EdgeDef['cw']): EdgeDef =>
+  ({ id, from, to, flow, status, sa, sb, oa, ob, cw });
 
 export const EDGES: EdgeDef[] = [
   E('sched-ingest', 'sched', 'r', 'ingest', 'l', 'ingest'),
-  E('ingest-s3', 'ingest', 'r', 's3', 't', 'ingest', 'live', 0, -40),
+  E('ingest-s3', 'ingest', 'r', 's3', 't', 'ingest', 'live', 0, -0.25),
   E('scheduler-ec2', 'scheduler', 'r', 'ec2', 'l', 'ingest'),
-  E('ec2-s3', 'ec2', 'r', 's3', 'b', 'ingest', 'live', 0, -40),
+  E('ec2-s3', 'ec2', 'r', 's3', 'b', 'ingest', 'live', 0, -0.25),
   E('s3-api', 's3', 'r', 'api', 'l', 'curated'),
-  E('api-apigw', 'api', 'r', 'apigw', 'l', 'api', 'live', 6, 6),
-  E('apigw-vercel', 'apigw', 'r', 'vercel', 'l', 'api', 'live', 6, 6),
-  E('api-bedrock', 'api', 'b', 'bedrock', 'l', 'ai', 'pending', 40),
-  E('api-cf', 'api', 't', 'cf', 'l', 'api', 'pending', 40),
-  E('cf-vercel', 'cf', 'r', 'vercel', 't', 'api', 'pending', 0, 0),
-  E('ingest-cw', 'ingest', 'r', 'cw', 't', 'metrics', 'live', 30, 0, cwTop(C(1) + NW + 20)),
-  E('ec2-cw', 'ec2', 'b', 'cw', 't', 'metrics', 'live', -40, 0, cwTop(C(1) + NW / 2 - 40)),
-  E('api-cw', 'api', 'b', 'cw', 't', 'metrics', 'live', -30, 0, cwTop(C(3) + NW / 2 - 30)),
-  E('apigw-cw', 'apigw', 'r', 'cw', 't', 'metrics', 'live', 30, 0, cwTop(C(4) + NW + 20)),
+  E('api-apigw', 'api', 'r', 'apigw', 'l', 'api'),
+  E('apigw-vercel', 'apigw', 'r', 'vercel', 'l', 'api'),
+  E('api-bedrock', 'api', 'b', 'bedrock', 'l', 'ai', 'pending', 0.25),
+  E('api-cf', 'api', 't', 'cf', 'l', 'api', 'pending', 0.25),
+  E('cf-vercel', 'cf', 'r', 'vercel', 't', 'api', 'pending'),
+  E('ingest-cw', 'ingest', 'r', 'cw', 't', 'metrics', 'live', 0.3, 0, 'right'),
+  E('ec2-cw', 'ec2', 'b', 'cw', 't', 'metrics', 'live', -0.25, 0, 'below'),
+  E('api-cw', 'api', 'b', 'cw', 't', 'metrics', 'live', -0.25, 0, 'below'),
+  E('apigw-cw', 'apigw', 'r', 'cw', 't', 'metrics', 'live', 0.3, 0, 'right'),
 
   E('sensor-edgeu', 'sensor', 'r', 'edgeu', 'l', 'plan', 'planned'),
   E('edgeu-ps3', 'edgeu', 'r', 'ps3', 'l', 'plan', 'planned'),
   E('edgeu-beacon', 'edgeu', 'b', 'beacon', 't', 'plan', 'planned'),
-  E('edgeu-health', 'edgeu', 'b', 'health', 'l', 'plan', 'planned', 50),
+  E('edgeu-health', 'edgeu', 'b', 'health', 'l', 'plan', 'planned', 0.3),
   E('ps3-pconf', 'ps3', 'r', 'pconf', 'l', 'plan', 'planned'),
   E('pconf-papi', 'pconf', 'r', 'papi', 'l', 'plan', 'planned'),
   E('papi-pdash', 'papi', 'r', 'pdash', 'l', 'plan', 'planned'),
 ];
+
+/** Port position; offsets are fractions of the side length so they follow the measured node size. */
+function port(r: Rect, side: Port, off = 0): [number, number] {
+  if (side === 'r') return [r.x + r.w, r.y + r.h / 2 + off * r.h];
+  if (side === 'l') return [r.x, r.y + r.h / 2 + off * r.h];
+  if (side === 't') return [r.x + r.w / 2 + off * r.w, r.y];
+  return [r.x + r.w / 2 + off * r.w, r.y + r.h];
+}
+/** Smooth cubic between two ports with tangents matching the port sides. */
+function curve(a: [number, number], sa: Port, b: [number, number], sb: Port, k = 0.5): number[] {
+  const dx = Math.abs(b[0] - a[0]), dy = Math.abs(b[1] - a[1]);
+  const hx = Math.max(24, dx * k), vy = Math.max(20, dy * k);
+  const c1 = sa === 'r' ? [a[0] + hx, a[1]] : sa === 'l' ? [a[0] - hx, a[1]] : sa === 'b' ? [a[0], a[1] + vy] : [a[0], a[1] - vy];
+  const c2 = sb === 'l' ? [b[0] - hx, b[1]] : sb === 'r' ? [b[0] + hx, b[1]] : sb === 't' ? [b[0], b[1] - vy] : [b[0], b[1] + vy];
+  return [a[0], a[1], c1[0], c1[1], c2[0], c2[1], b[0], b[1]];
+}
+/** Edge curves from measured node rectangles (px, relative to the diagram canvas). */
+export function layoutEdges(rects: Record<string, Rect>, gap: number): EdgeGeo[] {
+  const out: EdgeGeo[] = [];
+  for (const e of EDGES) {
+    const a = rects[e.from], b = rects[e.to];
+    if (!a || !b) continue;
+    const pa = port(a, e.sa, e.oa);
+    let pb: [number, number];
+    if (e.cw === 'below') pb = [pa[0], b.y];
+    else if (e.cw === 'right') pb = [a.x + a.w + Math.min(28, gap * 0.45), b.y];
+    else pb = port(b, e.sb, e.ob);
+    out.push({ ...e, p: curve(pa, e.sa, pb, e.sb) });
+  }
+  return out;
+}
 
 // ---------- cubic Bézier helpers (pure, no DOM) ----------
 export const pathD = (p: number[]) => `M${p[0]} ${p[1]} C${p[2]} ${p[3]} ${p[4]} ${p[5]} ${p[6]} ${p[7]}`;
@@ -269,6 +286,8 @@ export function deriveLive(d: PlatformStatus | undefined, nowMs = Date.now()): L
   const apiInv = m('api', 'invocations'), apiErr = m('api', 'errors'), apiP95 = m('api', 'duration_p95_ms');
   const ingInv = m('ingest', 'invocations'), ingErr = m('ingest', 'errors'), ingP95 = m('ingest', 'duration_p95_ms');
   const li = latest('ingest'), lt = latest('trajectories');
+  const liOk = runs.filter((r) => job(r) === 'ingest' && r.detail?.status === 'succeeded').sort((a, b) => Date.parse(finished(b)) - Date.parse(finished(a)))[0];
+  const liSched = runs.filter((r) => job(r) === 'ingest' && r.detail?.trigger !== 'manual').sort((a, b) => Date.parse(finished(b)) - Date.parse(finished(a)))[0];
   const cwSrc = `CloudWatch GetMetricData, last ${win} d`;
   const nodes: Record<string, NodeLive> = {};
   const set = (id: string, v: NodeLive) => { nodes[id] = v; };
@@ -276,24 +295,30 @@ export function deriveLive(d: PlatformStatus | undefined, nowMs = Date.now()): L
 
   set('iam', { state: 'ok', chip: '4 roles · least privilege', metrics: [['Roles', 'API, ingest, worker, scheduler'], ['Scope', 'S3 prefixes per role']], source: 'Stack definition (infra/cdk)' });
   set('sched', { state: 'ok', chip: `Next ${fmtShort(wk)}`,
-    metrics: [['Next run', fmtUtc(wk)], ['Last fired', li ? ago(finished(li), nowMs) : '—']], source: 'Cron expression in the stack; last run from S3 run records' });
+    metrics: [['Next run', fmtUtc(wk)], ['Last scheduled run', liSched ? ago(finished(liSched), nowMs) : '—']], source: 'Cron expression in the stack; last run from S3 run records' });
   set('scheduler', { state: 'ok', chip: `Next ${fmtShort(mo)}`,
     metrics: [['Next run', fmtUtc(mo)], ['Last worker job', lt ? ago(finished(lt), nowMs) : '—']], source: 'Cron expression in the stack; last job from S3 run records' });
 
   // Ingest Lambda
   {
-    const failed = li?.detail?.status === 'failed';
+    const st = li?.detail?.status as string | undefined;
+    const stale = st === 'running' && hrs(li?.detail?.started_at ?? finished(li), nowMs) * 60 > 16;
+    const failed = st === 'failed' || stale;
+    const running = st === 'running' && !stale;
     const met: [string, string][] = [];
     if (ingInv != null) met.push([`Invocations (${win} d)`, compact(ingInv)]);
     if (ingErr != null) met.push([`Errors (${win} d)`, compact(ingErr)]);
     if (ingP95 != null) met.push(['p95 duration', `${(ingP95 / 1000).toFixed(1)} s`]);
-    if (li) met.push(['Last run', `${li.detail?.status ?? '—'} · ${ago(finished(li), nowMs)}`]);
-    if (pubRec != null) met.push(['Records per run', compact(pubRec)]);
-    const chip = failed ? `Failed · ${ago(finished(li), nowMs)}`
+    if (li) met.push(['Last run', `${stale ? 'no finish recorded' : st ?? '—'}${li.detail?.trigger ? ` (${li.detail.trigger})` : ''} · ${ago(running ? li.detail?.started_at : finished(li), nowMs)}`]);
+    if (typeof li?.detail?.records === 'number') met.push(['Records, last run', compact(li.detail.records)]);
+    if (pubRec != null) met.push(['Records in manifest', compact(pubRec)]);
+    const chip = running ? `Running · started ${ago(li?.detail?.started_at, nowMs)}`
+      : stale ? 'Run did not finish'
+      : failed ? `Failed · ${ago(finished(li), nowMs)}`
       : ingInv != null ? `${compact(ingInv)} runs · p95 ${((ingP95 ?? 0) / 1000).toFixed(1)}s`
       : li ? `OK · ${ago(finished(li), nowMs)}`
       : pub.length ? `Fetched ${ago(pub.map((s) => s.fetched_at).sort().at(-1), nowMs)}` : 'No run recorded';
-    set('ingest', { state: failed ? 'down' : (ingErr ?? 0) > 0 ? 'warn' : li || ingInv != null || pub.length ? 'ok' : 'idle', chip, metrics: met,
+    set('ingest', { state: failed ? 'down' : running ? 'ok' : (ingErr ?? 0) > 0 ? 'warn' : li || ingInv != null || pub.length ? 'ok' : 'idle', chip, metrics: met,
       source: ingInv != null ? `${cwSrc}; run record ${li?.detail?.run_id ?? ''}` : local ? 'Local manifest (data/curated)' : 'S3 run records' });
   }
   // EC2 worker
@@ -327,8 +352,8 @@ export function deriveLive(d: PlatformStatus | undefined, nowMs = Date.now()): L
     metrics: [['Throttle', '20 req/s, burst 40'], [`Requests (${win} d)`, apiInv != null ? `${compact(apiInv)} (= API Lambda invocations)` : '—']],
     source: local ? 'Dev server proxies /api straight to uvicorn' : 'Stage settings; requests counted from Lambda invocations' });
   set('vercel', { state: 'ok', chip: local ? 'Vite dev server' : 'Deployment live', metrics: [['Host', local ? 'localhost' : 'roadscope-ai-demo.vercel.app']], source: 'This page' });
-  set('cf', { state: 'pending', sub: 'Awaiting AWS verification', chip: 'Defined in CDK', metrics: [['Status', 'In CDK, not deployed'], ['Enable with', 'cdk deploy -c edge=cloudfront']], source: 'Stack definition' });
-  set('bedrock', { state: 'pending', sub: 'Awaiting AWS verification', chip: 'Fallback active', metrics: [['Model', 'Claude Haiku 4.5 (inference profile)'], ['Answers now from', 'Deterministic analyst in the API Lambda']], source: 'Deployment record (docs/DEPLOY.md)' });
+  set('cf', { state: 'pending', chip: 'Not deployed · awaiting AWS', metrics: [['Status', 'In CDK, not deployed'], ['Enable with', 'cdk deploy -c edge=cloudfront']], source: 'Stack definition' });
+  set('bedrock', { state: 'pending', chip: 'Fallback active · awaiting AWS', metrics: [['Model', 'Claude Haiku 4.5 (inference profile)'], ['Answers now from', 'Deterministic analyst in the API Lambda']], source: 'Deployment record (docs/DEPLOY.md)' });
   set('cw', { state: d?.metrics ? 'ok' : 'idle', chip: d?.metrics ? `Dashboard + 4 alarms · ${win}-day window` : local ? 'AWS only · not in local mode' : 'Metrics unavailable',
     metrics: [['Dashboard', 'RoadScope'], ['Alarms', 'API errors ≥ 5/5 min, ingest errors ≥ 1, DLQ ≥ 1, worker idle 1 h'], ['Log retention', '14 days']], source: d?.metrics ? cwSrc : 'Stack definition' });
   for (const n of NODES) if (n.lane === 'pilot') set(n.id, { state: 'planned', chip: 'Planned', metrics: [], source: 'Design only' });
@@ -377,7 +402,7 @@ export function deriveLive(d: PlatformStatus | undefined, nowMs = Date.now()): L
     : warn.length ? { s: 'warn', text: `Errors on ${warn.map((id) => NODE[id].title).join(', ')}` }
     : local ? { s: 'idle', text: 'Local mode, no AWS metrics' }
     : { s: 'ok', text: 'All deployed stages up' };
-  const lastIngestH = li ? hrs(finished(li), nowMs) : pub.length ? hrs(pub.map((s) => s.fetched_at).sort().at(-1), nowMs) : null;
+  const lastIngestH = liOk ? hrs(finished(liOk), nowMs) : pub.length ? hrs(pub.map((s) => s.fetched_at).sort().at(-1), nowMs) : null;
 
   return { local, nodes, edges, recovery: findRecovery(runs), cost: { total, lines, metered },
     readouts: { up, of: liveIds.length, lastIngestH: lastIngestH != null && Number.isFinite(lastIngestH) ? lastIngestH : null, p95: apiP95 },

@@ -685,7 +685,7 @@ def build_corridors(segs, idx, step=0.25):
     # 82nd St is an off-system city street (Roadway Inventory RIA_RTE_ID 252663, no HWY) and has
     # no segments in Segment_Crash__Results, so it is substituted by the highest-crash route left.
     years = next((s["crash_years"] for s in segs if s.get("crash_years")), None)
-    totals = {r: sum(x["crashes_per_yr"] or 0 for x in ss) for r, ss in by_route.items() if r not in listed}
+    totals = {r: sum(x["crashes_total"] for x in ss) / years for r, ss in by_route.items() if r not in listed}
     sub = max(totals, key=totals.get)
     defs.append((display_route(sub).lower().replace(" ", "-").replace(".", ""), display_route(sub), [sub]))
     note = (f"82nd St is off-system (city street; Roadway Inventory RIA_RTE_ID 252663) and absent from the "
@@ -720,7 +720,8 @@ def build_corridors(segs, idx, step=0.25):
                         "speed_am": sp["a"].get("AMALLSPEED") if sp else None,
                         "speed_md": sp["a"].get("MDALLSPEED") if sp else None,
                         "speed_pm": sp["a"].get("PMALLSPEED") if sp else None,
-                        "crashes_per_mi": round(seg["crashes_per_yr"] / seg["len_mi"], 2) if seg and seg["crashes_per_yr"] is not None else None,
+                        # from the integer count, not the rounded crashes_per_yr
+                        "crashes_per_mi": round(seg["crashes_total"] / years / seg["len_mi"], 2) if seg and years and seg["len_mi"] else None,
                         "seg_id": seg["seg_id"] if seg else None,
                     })
                 d = round(d + step, 6)
@@ -730,8 +731,11 @@ def build_corridors(segs, idx, step=0.25):
         out.append({
             "id": cid, "name": name, "routes": routes, "len_mi": round(total_len, 2), "stations": stations,
             "summary": {
-                "segments": len(cs), "crashes_per_yr": round(sum(x["crashes_per_yr"] or 0 for x in cs), 2),
-                "crashes_total": sum(x["crashes_total"] for x in cs), "crash_years": years,
+                # per-year figures from the integer 3-year count (summing rounded per-segment rates drifts)
+                "segments": len(cs), "crashes_per_yr": round(sum(x["crashes_total"] for x in cs) / years, 2) if years else None,
+                "crashes_total": sum(x["crashes_total"] for x in cs), "crashes_ka": sum(x["crashes_ka"] for x in cs),
+                "crash_years": years, "seg_len_mi": round(sum(x["len_mi"] for x in cs), 2),
+                "crashes_per_mi_yr": round(sum(x["crashes_total"] for x in cs) / years / sum(x["len_mi"] for x in cs), 3) if years and cs else None,
                 "aadt_mean": round(float(np.mean(vals("aadt")))) if vals("aadt") else None,
                 "aadt_max": max(vals("aadt")) if vals("aadt") else None,
                 "speed_all_mean": round(float(np.mean(vals("speed_all"))), 1) if vals("speed_all") else None,

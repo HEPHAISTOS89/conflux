@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useApi } from '../lib/api';
 import type { Manifest } from '../lib/types';
@@ -25,11 +25,25 @@ export default function Shell() {
   const [theme, toggleTheme] = useTheme();
   const themeBtn = (
     <button className="theme-btn" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`${theme === 'dark' ? 'Light' : 'Dark'} mode`}>
-      <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={17} />
+      <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} />
     </button>
   );
   const loc = useLocation();
+  const menuBtn = useRef<HTMLButtonElement>(null);
+  const rail = useRef<HTMLElement>(null);
   useEffect(() => { setOpen(false); window.scrollTo(0, 0); }, [loc.pathname]);
+  // Disclosure (≤ 1100 px): Esc closes and returns focus, the page behind does not scroll, focus moves into the menu.
+  useEffect(() => {
+    if (!open) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); menuBtn.current?.focus(); } };
+    const wide = () => { if (window.innerWidth > 1100) setOpen(false); };
+    document.addEventListener('keydown', esc);
+    window.addEventListener('resize', wide);
+    const prev = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    requestAnimationFrame(() => (rail.current?.querySelector<HTMLElement>('.rail-link.active') ?? rail.current?.querySelector<HTMLElement>('.rail-link'))?.focus());
+    return () => { document.removeEventListener('keydown', esc); window.removeEventListener('resize', wide); document.documentElement.style.overflow = prev; };
+  }, [open]);
 
   const asOf = meta.data?.generated_at ? new Date(meta.data.generated_at) : null;
 
@@ -40,14 +54,19 @@ export default function Shell() {
         <NavLink to="/" className="brand" aria-label="RoadScope home">
           <Mark /> <span>RoadScope</span>
         </NavLink>
-        <div className="topbar-act">{themeBtn}
-        <button className="menu-btn" aria-expanded={open} aria-controls="rail" onClick={() => setOpen((o) => !o)}>
-          <Icon name={open ? 'close' : 'menu'} /> <span className="sr-only">Menu</span>
-        </button>
+        <div className="topbar-act">
+          <button type="button" className="icon-btn" aria-label="Jump to a sheet, corridor, segment or intersection" title="Jump to (⌘K)"
+            onClick={() => window.dispatchEvent(new Event('rs:palette'))}>
+            <Icon name="search" size={16} />
+          </button>
+          {themeBtn}
+          <button ref={menuBtn} type="button" className="menu-btn" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} aria-controls="rail" onClick={() => setOpen((o) => !o)}>
+            <Icon name={open ? 'close' : 'menu'} size={16} /><span className="menu-btn-label">{open ? 'Close' : 'Menu'}</span>
+          </button>
         </div>
       </header>
 
-      <nav id="rail" className="rail" aria-label="Main navigation">
+      <nav id="rail" ref={rail} className="rail" aria-label="Main navigation">
         <NavLink to="/" className="brand rail-brand" aria-label="RoadScope home">
           <Mark /> <span>RoadScope</span>
         </NavLink>
@@ -55,15 +74,13 @@ export default function Shell() {
           {NAV.map((n) => (
             <li key={n.to}>
               <NavLink to={n.to} end={n.to === '/'} className="rail-link">
-                <Icon name={n.icon} />
-                <span className="rail-text">
-                  <span>{n.label}</span>
-                </span>
+                <Icon name={n.icon} size={16} />
+                <span className="rail-text">{n.label}</span>
               </NavLink>
             </li>
           ))}
         </ul>
-        <button className="cmdk-trigger" onClick={() => window.dispatchEvent(new Event('rs:palette'))}>
+        <button type="button" className="cmdk-trigger" onClick={() => window.dispatchEvent(new Event('rs:palette'))}>
           <span>Jump to…</span><kbd>⌘K</kbd>
         </button>
         <div className="rail-theme">{themeBtn}<span>{theme === 'dark' ? 'Dark' : 'Light'} mode</span></div>

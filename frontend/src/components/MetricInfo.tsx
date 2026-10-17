@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
+import { useFloatFit } from './useFloatFit';
 
 export type Provenance = 'observed' | 'derived' | 'simulated' | 'public';
 
@@ -31,21 +32,24 @@ export default function MetricInfo({ spec, align = 'left' }: { spec: MetricSpec;
   const [open, setOpen] = useState(false);
   const id = useId();
   const box = useRef<HTMLSpanElement>(null);
+  const pop = useRef<HTMLSpanElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  useFloatFit(pop, open);
   useEffect(() => {
     if (!open) return;
     const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); btn.current?.focus(); } };
     document.addEventListener('pointerdown', away);
     document.addEventListener('keydown', esc);
     return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
   }, [open]);
   return (
     <span className="mi" ref={box}>
-      <button type="button" className="mi-btn" aria-expanded={open} aria-controls={id} aria-label={`How ${spec.name} is computed`} onClick={() => setOpen((o) => !o)}>
-        <Icon name="info" size={15} />
+      <button ref={btn} type="button" className="mi-btn" aria-expanded={open} aria-controls={id} aria-label={`How ${spec.name} is computed`} onClick={() => setOpen((o) => !o)}>
+        <Icon name="info" size={16} />
       </button>
       {open && (
-        <span id={id} role="dialog" aria-label={`${spec.name} methodology`} className="mi-pop" data-align={align}>
+        <span ref={pop} id={id} role="dialog" aria-label={`${spec.name} methodology`} className="mi-pop" data-align={align}>
           <span className="mi-head"><b>{spec.name}</b><ProvChip kind={spec.provenance} /></span>
           {spec.formula && <span className="mi-row"><span>Formula</span><span className="mi-formula">{spec.formula}</span></span>}
           {spec.threshold && <span className="mi-row"><span>Threshold</span><span>{spec.threshold}</span></span>}

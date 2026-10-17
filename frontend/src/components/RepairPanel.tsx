@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApi } from '../lib/api';
 import { nf } from '../lib/format';
+import Select from './Select';
+
+const FT = 3.28084;
 import { useReveal } from '../lib/motion';
 
 type P3 = [number, number, number];
@@ -56,18 +59,15 @@ export default function RepairPanel({ id }: { id: string }) {
             </div>
             {pv && <p className="muted rep-desc">{ops(pv.occlusion ? pv.description.replace(/\.\s*$/, '') : pv.description)}{pv.occlusion ? `. ${pv.occlusion.gaps} real gaps, mean ${pv.occlusion.gap_len_mean_s.toFixed(2)} s.` : ''}</p>}
             <div className="rep-plot-h">
-              <label className="select"><span>Occluded track</span>
-                <select value={pick} onChange={(e) => setPick(Number(e.target.value))}>
-                  {shown.map((t, i) => <option key={t.id} value={i}>#{t.id} · {(t.truth.length / 10).toFixed(1)} s missing · {t.method === 'linear' ? 'linear' : 'Kalman'} {t.rmse_m.toFixed(2)} m</option>)}
-                </select>
-              </label>
+              <Select<string> label="Occluded track" icon="vehicle" value={String(Math.min(pick, shown.length - 1))} onChange={(v) => setPick(Number(v))}
+                options={shown.map((t, i) => ({ value: String(i), label: `#${t.id} · ${(t.truth.length / 10).toFixed(1)} s missing`, hint: `${t.method === 'linear' ? 'linear' : 'Kalman'} ${(t.rmse_m * FT).toFixed(2)} ft` }))} />
             </div>
             <PathPlot t={tr} />
             <ErrPlot t={tr} />
           </div>
           <div className="panel rep-table">
             <table className="data">
-              <caption className="sr-only">Position and speed RMSE by method and gap length</caption>
+              <caption className="sr-only">Position RMSE (ft) and speed RMSE (ft/s) by method and gap length</caption>
               <thead><tr><th>Gap length</th>{methods.map((m) => <th key={m} className="r">{m === 'linear' ? 'Linear' : m === 'kf_ca' ? 'KF-CA' : 'KF-CA path'}</th>)}</tr></thead>
               <tbody>
                 {s.by_gap?.map((b) => {
@@ -75,24 +75,24 @@ export default function RepairPanel({ id }: { id: string }) {
                   return (
                     <tr key={b.gap_s.join()}>
                       <td className="num">{b.gap_s[0]}–{b.gap_s[1]} s <span className="muted">({(b.linear as M)?.gaps})</span></td>
-                      {methods.map((m) => <td key={m} className={`r num ${(b[m] as M)?.rmse_m === best ? 'best' : ''}`}>{nf((b[m] as M)?.rmse_m, 3)}</td>)}
+                      {methods.map((m) => <td key={m} className={`r num ${(b[m] as M)?.rmse_m === best ? 'best' : ''}`}>{nf((b[m] as M)?.rmse_m != null ? (b[m] as M).rmse_m * FT : null, 2)}</td>)}
                     </tr>
                   );
                 })}
                 <tr className="tot">
                   <td>All test gaps <span className="muted num">({s.gaps})</span></td>
-                  {methods.map((m) => <td key={m} className="r num">{nf(s.methods![m].rmse_m, 3)}</td>)}
+                  {methods.map((m) => <td key={m} className="r num">{nf(s.methods![m].rmse_m * FT, 2)}</td>)}
                 </tr>
                 {truth === 'smoothed' && <tr>
-                  <td>Speed RMSE (m/s)</td>
-                  {methods.map((m) => <td key={m} className="r num">{nf(s.methods![m].speed_rmse, 3)}</td>)}
+                  <td>Speed RMSE (ft/s)</td>
+                  {methods.map((m) => <td key={m} className="r num">{nf(s.methods![m].speed_rmse * FT, 2)}</td>)}
                 </tr>}
               </tbody>
             </table>
             <dl className="rep-facts num">
-              <dt>Position RMSE (m)</dt><dd>gap frames only, vs held-out truth</dd>
+              <dt>Position RMSE (ft)</dt><dd>gap frames only, vs held-out truth</dd>
               <dt>Selected on validation</dt><dd>{NAME[s.validation?.selected ?? s.selected_method ?? ''] ?? s.selected_method} ({s.validation?.tracks} tracks)</dd>
-              {s.params?.kf_ca && <><dt>KF noise</dt><dd>q = {s.params.kf_ca.q} m²/s⁵, R = {s.params.kf_ca.r} m²</dd></>}
+              {s.params?.kf_ca && <><dt>KF noise</dt><dd>q = {s.params.kf_ca.q} m²/s⁵, R = {s.params.kf_ca.r} m² (filter runs in SI)</dd></>}
               {s.better_than_linear_share && <><dt>Tracks KF beats linear</dt><dd>{Math.round((s.better_than_linear_share.kf_ca ?? 0) * 100)}%</dd></>}
               <dt>Truth</dt><dd>{(s.truth ?? 'smoothed NGSIM track').replace(/\s*See summary\.protocols[^.]*\.?/, '')}</dd>
             </dl>
@@ -148,10 +148,10 @@ function ErrPlot({ t }: { t: RTrack }) {
     return () => ro.disconnect();
   }, []);
   const H = 120, L = 48, B = 12;
-  const err = (arr: P3[]) => arr.map((p, i) => [p[0], Math.hypot(p[1] - t.truth[i][1], p[2] - t.truth[i][2])] as [number, number]);
+  const err = (arr: P3[]) => arr.map((p, i) => [p[0], Math.hypot(p[1] - t.truth[i][1], p[2] - t.truth[i][2]) * FT] as [number, number]);
   const el = err(t.linear), ek = err(t.repaired);
   const t0 = t.truth[0][0], t1 = t.truth[t.truth.length - 1][0] + 0.1;
-  const ym = Math.max(0.2, ...el.map((e) => e[1]), ...ek.map((e) => e[1]));
+  const ym = Math.max(0.6, ...el.map((e) => e[1]), ...ek.map((e) => e[1]));
   const X = (v: number) => L + ((v - t0) / (t1 - t0 || 1)) * (W - L - 8), Y = (v: number) => H - B - (v / ym) * (H - B - 8);
   const pl = (e: [number, number][]) => e.map(([a, b], i) => `${i && e[i][0] - e[i - 1][0] < 0.15 ? 'L' : 'M'}${X(a)},${Y(b)}`).join('');
   return (
@@ -162,7 +162,7 @@ function ErrPlot({ t }: { t: RTrack }) {
       <text x={L - 6} y={H - B + 4} className="tk" textAnchor="end">0</text>
       <path d={pl(el)} className="lin" /><path d={pl(ek)} className="kf" />
     </svg>
-    <figcaption className="muted">Position error (m) across the missing frames</figcaption>
+    <figcaption className="muted">Position error (ft) across the missing frames</figcaption>
     </figure>
   );
 }
@@ -179,10 +179,10 @@ function QCurve({ c: raw, chosen }: { c: ({ q: number; rmse_m: number } | [numbe
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Validation position RMSE against Kalman process noise q">
         <path d={c.map((p, i) => `${i ? 'L' : 'M'}${X(p.q)},${Y(p.rmse_m)}`).join('')} className="kf" />
         {c.map((p) => <circle key={p.q} cx={X(p.q)} cy={Y(p.rmse_m)} r={p.q === chosen ? 4 : 2} className={p.q === chosen ? 'chosen' : 'obs'} />)}
-        <text x={L - 4} y={Y(ym) + 4} className="tk" textAnchor="end">{ym.toFixed(2)}</text>
-        <text x={L - 4} y={Y(yn) + 4} className="tk" textAnchor="end">{yn.toFixed(2)}</text>
+        <text x={L - 4} y={Y(ym) + 4} className="tk" textAnchor="end">{(ym * FT).toFixed(2)}</text>
+        <text x={L - 4} y={Y(yn) + 4} className="tk" textAnchor="end">{(yn * FT).toFixed(2)}</text>
       </svg>
-      <figcaption className="muted">Validation RMSE (m) against q, log scale {c[0].q} to {c[c.length - 1].q}; filled marker is the chosen q</figcaption>
+      <figcaption className="muted">Validation RMSE (ft) against q, log scale {c[0].q} to {c[c.length - 1].q}; filled marker is the chosen q</figcaption>
     </figure>
   );
 }
