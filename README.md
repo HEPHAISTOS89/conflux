@@ -4,20 +4,22 @@ RoadScope AI is an evidence-first road-safety intelligence prototype: synchroniz
 
 ## Prototype scope
 
-- **Web:** React + TypeScript + Vite, with an interactive replay surface and analytical dashboard.
-- **API:** FastAPI + Pydantic, deterministic demo trajectory data, risk events, and health checks.
-- **Data contract:** provenance-labelled demo data; observed/simulated values are kept explicit.
-- **Deployment-ready:** Docker and AWS/Vercel configuration are prepared separately from live cloud mutations.
+- **Web:** React + Vite with an interactive replay surface, dashboard, playback, filters, and responsive macOS-inspired visual system.
+- **API:** FastAPI + Pydantic with deterministic demo trajectories, risk events, summaries, and health checks.
+- **Data contract:** provenance-labelled synthetic fixture; observed and simulated values are kept explicit.
+- **Deployment-ready:** Vercel configuration, Docker API image, AWS target architecture, CI checks, and environment template.
 
 ## Local quick start
 
 ```bash
-# web
-cd apps/web && npm install && npm run dev
+# frontend
+npm ci --prefix frontend
+npm run dev --prefix frontend
 
-# api
-cd services/api && python3 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt && uvicorn app.main:app --reload --port 8000
+# API (Python 3.13 recommended)
+python3.13 -m venv backend/.venv313
+backend/.venv313/bin/pip install -r backend/requirements.txt
+backend/.venv313/bin/uvicorn app.main:app --reload --port 8000 --app-dir backend
 ```
 
-See each app's README for commands and verification details. No production or AWS proof is claimed by local tests.
+The frontend runs with a deterministic local fixture when `VITE_API_BASE_URL` is unset. Copy `.env.example` for deployment configuration. See [`infra/README.md`](infra/README.md) for Vercel/AWS readiness and evidence boundaries.
