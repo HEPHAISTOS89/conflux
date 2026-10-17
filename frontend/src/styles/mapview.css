@@ -1,0 +1,2 @@
+.mapview { position: absolute; inset: 0; }
+.mapview canvas { outline: none; }

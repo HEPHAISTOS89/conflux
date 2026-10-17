@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './styles/base.css';
 import './styles/shell.css';
+import './styles/interactions.css';
 import Shell from './components/Shell';
 import Atlas from './pages/Atlas';
 

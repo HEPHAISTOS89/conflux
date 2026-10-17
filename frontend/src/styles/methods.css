@@ -1,25 +1,25 @@
 .methods-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: var(--s6); align-items: start; }
 .methods-toc { position: sticky; top: var(--s5); font-size: 13.5px; }
-.methods-toc ol { list-style: none; margin: 0; padding: 0 0 0 var(--s3); border-left: 1px solid var(--rule); display: grid; gap: 6px; }
-.methods-toc a { color: var(--ink-2); text-decoration: none; }
-.methods-toc a:hover { color: var(--ink); text-decoration: underline; }
+.methods-toc ol { list-style: none; margin: 0; padding: var(--s3); background: var(--sheet); border-radius: 6px; display: grid; gap: 2px; }
+.methods-toc a { display: block; padding: 4px 8px; border-radius: 4px; color: var(--ink-2); text-decoration: none; }
+.methods-toc a:hover { color: var(--ink); background: var(--raise); }
 
 .methods-body { display: grid; gap: var(--s7); max-width: 860px; min-width: 0; }
 .methods-body section { scroll-margin-top: var(--s5); }
-.methods-body p, .methods-body li, .methods-body dd { font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif; font-size: 16px; line-height: 1.6; max-width: 72ch; }
-.methods-body h3 { font-size: 16px; font-weight: 700; letter-spacing: 0; margin-top: var(--s2); }
-.methods-body code { font-family: var(--f-num); font-size: 0.9em; background: var(--paper-2); padding: 0 4px; border-radius: 2px; }
+.methods-body p, .methods-body li, .methods-body dd { font-size: 16px; line-height: 1.6; max-width: 72ch; color: var(--ink-2); }
+.methods-body h3 { font-size: 16px; font-weight: 500; letter-spacing: 0; margin-top: var(--s2); }
+.methods-body code { font-family: var(--f-num); font-size: 0.9em; background: var(--raise); color: var(--ink); padding: 0 4px; border-radius: 3px; }
 .methods-body a { color: var(--ink); }
 
 .m-eq { overflow-x: auto; padding: var(--s3) 0; font-size: 18px; }
 .m-eq math { font-family: 'STIX Two Math', 'Latin Modern Math', 'Cambria Math', serif; }
 .m-scroll { overflow-x: auto; }
-.m-lic { min-width: 220px; font-size: 12.5px; }
+.m-lic { min-width: 220px; font-size: 13px; }
 .m-skel { min-height: 140px; }
 .m-small, .methods-body p.m-small { font-family: var(--f-ui); font-size: 13px; }
 
 .m-defs { margin: 0; display: grid; gap: var(--s4); }
-.m-defs dt { font-weight: 700; font-family: var(--f-head); }
+.m-defs dt { font-weight: 500; font-family: var(--f-head); color: var(--ink); }
 .m-defs dd { margin: 0; }
 .m-steps, .m-list, .m-refs { margin: 0; padding-left: 1.4em; display: grid; gap: var(--s2); }
 .m-refs li { font-size: 15px; }

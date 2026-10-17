@@ -1,4 +1,6 @@
+import '../styles/timespace.css';
 import { useEffect, useRef } from 'react';
+import { CHART, conflictColor } from '../lib/format';
 import { fitCanvas, poseAt, useClock, useClockFrame, type ConflictT, type IntersectionT } from '../lib/traj';
 
 interface Props {
@@ -16,7 +18,7 @@ const PAD = { l: 44, r: 12, t: 12, b: 26 };
 
 /**
  * Time–space diagram along the corridor axis (+y). Each line is one vehicle; slope is speed,
- * horizontal runs are queues at the signal; amber ticks are surrogate-safety conflicts.
+ * horizontal runs are queues at the signal; amber and red ticks are surrogate-safety conflicts.
  */
 export default function TimeSpace({ data, conflicts, dir, selected, label, compact, reveal }: Props) {
   const base = useRef<HTMLCanvasElement>(null);
@@ -38,8 +40,8 @@ export default function TimeSpace({ data, conflicts, dir, selected, label, compa
     const ctx = fitCanvas(c);
     const { W, H, X, Y } = geom(c);
     ctx.clearRect(0, 0, W, H);
-    ctx.font = '10.5px "Overpass Mono", monospace';
-    ctx.fillStyle = '#5a636b'; ctx.strokeStyle = '#e1e4de'; ctx.lineWidth = 1;
+    ctx.font = '12px Switzer, system-ui, sans-serif';
+    ctx.fillStyle = CHART.axis; ctx.strokeStyle = CHART.graticule; ctx.lineWidth = 1;
     for (let s = 0; s <= T; s += 10) {
       ctx.beginPath(); ctx.moveTo(X(s), PAD.t); ctx.lineTo(X(s), H - PAD.b); ctx.stroke();
       if (!compact || s % 30 === 0) ctx.fillText(`${s}s`, X(s) - 8, H - 8);
@@ -50,9 +52,9 @@ export default function TimeSpace({ data, conflicts, dir, selected, label, compa
       ctx.fillText(`${f}`, 6, Y(m) + 3);
     }
     // stop line (intersection centre, y = 0)
-    ctx.strokeStyle = '#14171a'; ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = CHART.axis; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(PAD.l, Y(0)); ctx.lineTo(W - PAD.r, Y(0)); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#14171a'; ctx.fillText('stop line', W - PAD.r - 58, Y(0) - 4);
+    ctx.fillStyle = CHART.ink2; ctx.fillText('stop line', W - PAD.r - 58, Y(0) - 4);
 
     for (const tr of tracks) {
       const sel = selected === String(tr.id);
@@ -64,7 +66,7 @@ export default function TimeSpace({ data, conflicts, dir, selected, label, compa
         started ? ctx.lineTo(X(p[0]), Y(p[2])) : ctx.moveTo(X(p[0]), Y(p[2]));
         started = true;
       }
-      ctx.strokeStyle = sel ? '#c98a00' : tr.dir === 'SB' ? 'rgba(70,97,122,0.75)' : 'rgba(20,23,26,0.8)';
+      ctx.strokeStyle = sel ? CHART.accent : tr.dir === 'SB' ? 'rgba(143,179,201,0.75)' : 'rgba(230,231,227,0.7)';
       ctx.lineWidth = sel ? 2.4 : 1;
       ctx.stroke();
     }
@@ -73,7 +75,7 @@ export default function TimeSpace({ data, conflicts, dir, selected, label, compa
       const A = tracks.find((r) => String(r.id) === String(k.a));
       const p = A && poseAt(A, k.t, data.hz);
       if (!p) continue;
-      ctx.fillStyle = k.severity === 'critical' ? '#b3261e' : '#c98a00';
+      ctx.fillStyle = conflictColor(k.severity);
       ctx.beginPath(); ctx.moveTo(X(k.t), Y(p.y) - 6); ctx.lineTo(X(k.t) + 5, Y(p.y)); ctx.lineTo(X(k.t), Y(p.y) + 6); ctx.lineTo(X(k.t) - 5, Y(p.y)); ctx.closePath(); ctx.fill();
     }
   };
@@ -93,9 +95,9 @@ export default function TimeSpace({ data, conflicts, dir, selected, label, compa
     const ctx = fitCanvas(c);
     const { W, H, X } = geom(c);
     ctx.clearRect(0, 0, W, H);
-    ctx.strokeStyle = '#c98a00'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = CHART.accent; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(X(t), PAD.t); ctx.lineTo(X(t), H - PAD.b); ctx.stroke();
-    ctx.fillStyle = '#14171a'; ctx.font = '600 11px "Overpass Mono", monospace';
+    ctx.fillStyle = CHART.ink; ctx.font = '500 12px Switzer, system-ui, sans-serif';
     ctx.fillText(`t = ${t.toFixed(1)} s`, Math.min(X(t) + 6, W - 70), PAD.t + 12);
     c.setAttribute('aria-valuenow', String(Math.round(t * 10) / 10));
     c.setAttribute('aria-valuetext', `${t.toFixed(1)} seconds`);

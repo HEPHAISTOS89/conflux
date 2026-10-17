@@ -67,9 +67,7 @@ export default function Methods() {
       <header className="page-head">
         <h1>Methods</h1>
         <p>
-          How every number in RoadScope is produced: sources and their provenance, the HSM Part B screening of
-          on-system pedestrian and cyclist crashes (2021–2023), the site-type negative binomial safety performance functions, the surrogate safety measures computed on
-          trajectories, and the occluded-track repair evaluation. Limitations are stated where they bind.
+          How every number is produced, from source provenance to screening, SPFs, surrogate measures and track repair, with limitations where they bind.
         </p>
       </header>
 
@@ -80,7 +78,7 @@ export default function Methods() {
 
         <article className="methods-body">
           <section id="m-data" className="section" aria-labelledby="m-data-h">
-            <div className="section-head"><h2 id="m-data-h">1. Data sources</h2>{meta.data && <p>Manifest generated <span className="num">{date(meta.data.generated_at)}</span></p>}</div>
+            <div className="section-head"><h2 id="m-data-h">Data sources</h2>{meta.data && <p>Manifest generated <span className="num">{date(meta.data.generated_at)}</span></p>}</div>
             {meta.error && <div className="error-box">{meta.error}</div>}
             {meta.loading && <div className="skeleton m-skel" />}
             {meta.data && (
@@ -104,32 +102,26 @@ export default function Methods() {
           </section>
 
           <section id="m-screen" className="section" aria-labelledby="m-screen-h">
-            <div className="section-head"><h2 id="m-screen-h">2. Network screening</h2></div>
-            <p>State-system roadway in Lubbock County is divided into <span className="num">443</span> segments of about one
-              mile by DFO. The screened outcome is <strong>{spf.data?.outcome ?? 'on-system pedestrian, cyclist and e-scooter crashes (TxDOT CRIS via the Active Transportation Crashes layer), all KABCO severities'}</strong>,
-              over <span className="num">{spf.data?.crash_period ?? '2021–2023'}</span>, so the record period is
-              <i> Y</i> = <span className="num">{spf.data?.crash_years ?? 3}</span> years. Each crash point is snapped
-              (≤ 5 m) to the nearest segment polyline; each segment receives the length-weighted AADT of the overlapping
-              TxDOT count records and its site type from the Roadway Inventory (urban/rural × functional-class group).
-              This is a vulnerable-road-user screening: vehicle-only crashes are not in the outcome. Three HSM (2010)
-              Part B performance measures are computed.</p>
+            <div className="section-head"><h2 id="m-screen-h">Network screening</h2></div>
+            <p>Lubbock County state-system roadway is split by DFO into <span className="num">443</span> segments of about one mile.
+              Outcome: <strong>{spf.data?.outcome ?? 'on-system pedestrian, cyclist and e-scooter crashes (TxDOT CRIS via the Active Transportation Crashes layer), all KABCO severities'}</strong>,
+              <span className="num"> {spf.data?.crash_period ?? '2021–2023'}</span> (<i>Y</i> = <span className="num">{spf.data?.crash_years ?? 3}</span> years).
+              Crashes snap (≤ 5 m) to the nearest segment; each segment takes length-weighted AADT and its Roadway Inventory site type
+              (urban/rural × functional class). Vehicle-only crashes are not in the outcome. Three HSM (2010) Part B measures follow.</p>
             <h3>Crash rate</h3>
             <Eq label="Crash rate per 100 million vehicle-miles">
               <math display="block">
                 <mrow><mi>R</mi><mo>=</mo><mfrac><mrow><mi>N</mi><mo>·</mo><msup><mn>10</mn><mn>8</mn></msup></mrow><mrow><mn>365</mn><mo>·</mo><mi>Y</mi><mo>·</mo><mi>AADT</mi><mo>·</mo><mi>L</mi></mrow></mfrac></mrow>
               </math>
             </Eq>
-            <p><i>N</i> is observed ped/bike crashes over <i>Y</i> years, <i>L</i> segment length in miles; <i>R</i> is in
-              crashes per 100 MVMT.</p>
+            <p><i>N</i>: observed crashes over <i>Y</i> years; <i>L</i>: length (mi); <i>R</i> in crashes per 100 MVMT.</p>
             <h3>Critical rate</h3>
             <Eq label="Critical crash rate">
               <math display="block">
                 <mrow><msub><mi>R</mi><mi>c</mi></msub><mo>=</mo><msub><mi>R</mi><mi>a</mi></msub><mo>+</mo><mi>k</mi><msqrt><mfrac><msub><mi>R</mi><mi>a</mi></msub><mi>M</mi></mfrac></msqrt><mo>+</mo><mfrac><mn>1</mn><mrow><mn>2</mn><mi>M</mi></mrow></mfrac></mrow>
               </math>
             </Eq>
-            <p><i>R<sub>a</sub></i> is the exposure-weighted average rate of the reference population (the segment's site
-              type), <i> M</i> the segment's exposure in 100 MVMT, and <i>k</i> = 1.645 for 95 % confidence. The
-              critical-rate ratio <i> R</i>/<i>R<sub>c</sub></i> &gt; 1 flags a segment.</p>
+            <p><i>R<sub>a</sub></i>: exposure-weighted site-type average; <i>M</i>: exposure (100 MVMT); <i>k</i> = 1.645 (95 %). <i>R</i>/<i>R<sub>c</sub></i> &gt; 1 flags a segment.</p>
             <h3>Empirical Bayes expected crashes</h3>
             <Eq label="Empirical Bayes weight and expected crashes">
               <math display="block">
@@ -140,137 +132,99 @@ export default function Methods() {
                   <mi>E</mi><mo>=</mo><mi>w</mi><mo>·</mo><msub><mi>μ</mi><mi>Y</mi></msub><mo>+</mo><mo>(</mo><mn>1</mn><mo>−</mo><mi>w</mi><mo>)</mo><mo>·</mo><mi>N</mi></mrow>
               </math>
             </Eq>
-            <p><i>μ</i><sub>Y</sub> is the site-type SPF prediction over the same <i>Y</i>-year period as <i>N</i>, and
-              <i> k</i> is the fitted NB overdispersion per mile, converted to the segment as <i>k</i><sub>seg</sub> = <i>k</i>/<i>L</i>
-              (HSM Part C segment convention). Segments are ranked by excess expected crashes,
-              (<i>E</i> − <i>μ</i><sub>Y</sub>)/<i>Y</i>, reported in ped/bike crashes per year (Hauer 1997; Hauer et al.
-              2002; HSM 2010, Ch. 4). EPDO is not computed: there are no sourced Texas severity cost weights in the data,
-              so the <code>epdo</code> field is null.</p>
+            <p><i>μ</i><sub>Y</sub>: site-type SPF prediction over the same <i>Y</i> years; <i>k</i>: NB overdispersion per mile,
+              <i> k</i><sub>seg</sub> = <i>k</i>/<i>L</i> (HSM Part C). Ranking is by excess expected crashes,
+              (<i>E</i> − <i>μ</i><sub>Y</sub>)/<i>Y</i>, per year (Hauer 1997; Hauer et al. 2002; HSM 2010, Ch. 4).
+              EPDO is not computed (no sourced Texas severity weights), so <code>epdo</code> is null.</p>
           </section>
 
           <section id="m-spf" className="section" aria-labelledby="m-spf-h">
-            <div className="section-head"><h2 id="m-spf-h">3. Safety performance functions</h2></div>
+            <div className="section-head"><h2 id="m-spf-h">Safety performance functions</h2></div>
             <Eq label="Site-type SPF with length and period offset">
               <math display="block">
                 <mrow><mi>ln</mi><msub><mi>μ</mi><mi>Y</mi></msub><mo>=</mo><msub><mi>β</mi><mn>0</mn></msub><mo>+</mo><msub><mi>β</mi><mn>1</mn></msub><mi>ln</mi><mi>AADT</mi><mo>+</mo><mo>∑</mo><msub><mi>β</mi><mi>j</mi></msub><msub><mi>x</mi><mi>j</mi></msub><mo>+</mo><mi>ln</mi><mi>L</mi><mo>+</mo><mi>ln</mi><mi>Y</mi></mrow>
               </math>
             </Eq>
-            <p>{spf.data?.estimation ?? 'NB2 maximum likelihood with offset ln L + ln Y'}. Candidate covariates
-              <i> x<sub>j</sub></i> are lanes, divided and posted speed; each site type's specification is chosen by AIC
-              with at most one covariate per 10 crashes. Site types with fewer than 30 segments or 20 crashes use a pooled
-              site-type model (ln AADT, urban, lanes, speed) fitted on all screened segments. Goodness of fit is reported as
-              the mean absolute deviation (MAD) of observed minus predicted crashes, the Pearson χ² per degree of freedom,
-              and the share of the cumulative-residual (CURE) curve outside ±2σ* (Hauer and Bamfo 1997); the CURE plots
-              themselves are drawn on the screening page. Segments without matched AADT or site type are excluded.</p>
+            <p>{spf.data?.estimation ?? 'NB2 maximum likelihood with offset ln L + ln Y'}. Covariates <i>x<sub>j</sub></i> (lanes, divided,
+              posted speed) are chosen by AIC, at most one per 10 crashes. Site types under 30 segments or 20 crashes use a pooled model
+              (ln AADT, urban, lanes, speed). Fit: MAD, Pearson χ²/df and CURE share outside ±2σ* (Hauer and Bamfo 1997).
+              Segments without AADT or site type are excluded.</p>
             {spf.error && <div className="error-box">{spf.error}</div>}
             {spf.loading && <div className="skeleton m-skel" />}
             {spf.data && <SpfTable s={spf.data} />}
-            <p className="muted m-small">Coefficients are on ln μ; speed is posted mph, lanes the through-lane count. With
-              24–56 crashes per fitted site type, standard errors are wide and the urban minor arterial ln AADT
-              coefficient is not distinguishable from zero; read the SPFs as screening baselines, not causal models.
-              GOF on the fallback site types is shown for completeness: with 0–2 crashes it is not informative.</p>
+            <p className="muted m-small">Coefficients on ln μ; speed in posted mph. With 24–56 crashes per site type, standard errors are wide
+              and the urban minor arterial ln AADT term is not distinguishable from zero: screening baselines, not causal models.
+              Fallback GOF (0–2 crashes) is not informative.</p>
           </section>
 
           <section id="m-ssm" className="section" aria-labelledby="m-ssm-h">
-            <div className="section-head"><h2 id="m-ssm-h">4. Surrogate safety measures</h2></div>
-            <p>Computed on 10 Hz trajectories following FHWA Surrogate Safety Assessment Model (SSAM) conventions and its
-              default detection thresholds (Gettman et al. 2008). An event is a <em>traffic conflict</em> in the
-              surrogate-safety sense: an interaction whose measures fall below threshold, not an observed crash.</p>
+            <div className="section-head"><h2 id="m-ssm-h">Surrogate safety measures</h2></div>
+            <p>10 Hz trajectories, FHWA SSAM conventions and default thresholds (Gettman et al. 2008). A <em>traffic conflict</em> is an
+              interaction below threshold, not an observed crash.</p>
             <dl className="m-defs">
               <dt>Time to collision (TTC)</dt>
               <dd>
                 <Eq label="Time to collision"><math display="block"><mrow><mi>TTC</mi><mo>=</mo><mfrac><mrow><mi>Δ</mi><mi>x</mi></mrow><mrow><msub><mi>v</mi><mi>f</mi></msub><mo>−</mo><msub><mi>v</mi><mi>l</mi></msub></mrow></mfrac><mspace width="1em" /><mtext>for </mtext><msub><mi>v</mi><mi>f</mi></msub><mo>&gt;</mo><msub><mi>v</mi><mi>l</mi></msub></mrow></math></Eq>
-                Measure introduced by Hayward (1972). Rear-end and lane-change interactions; Δ<i>x</i> is the
-                front-to-rear gap. Detection: TTC ≤ <span className="num">1.5</span> s held for at least 0.3 s, the SSAM
-                default. Severity bins: ≤ 0.5 s critical, 0.5–1.0 s serious, 1.0–1.5 s moderate (study-specific bins
-                within the SSAM detection range).
+                Hayward (1972). Rear-end and lane-change; Δ<i>x</i> is the front-to-rear gap. Detection: TTC ≤ <span className="num">1.5</span> s
+                for ≥ 0.3 s (SSAM default). Severity: ≤ 0.5 s critical, 0.5–1.0 s serious, 1.0–1.5 s moderate (study-specific).
               </dd>
               <dt>Post-encroachment time (PET)</dt>
               <dd>
-                Measure introduced by Allen, Shin and Cooper (1978): the time between the rear of the first road user
-                leaving the shared conflict zone and the front of the second entering it. Each vehicle is a length × width
-                bounding box swept along its path (0.5 m raster, 50 Hz); the conflict zone is the intersection of the two
-                swept footprints, for conflicting approaches at ≥ 30°. Detection: PET ≤ <span className="num">5.0</span> s,
-                the SSAM default. Severity bins: ≤ 1 s critical, 1–2.5 s serious, 2.5–5 s moderate (study-specific; there
-                is no FHWA/SSAM PET severity standard). Simultaneous occupancy is kept with PET = 0 and flagged as overlap
-                rather than discarded; at NGSIM position accuracy an overlap is most likely a data error (Punzo et al.
-                2011), not an observed near-collision.
+                Allen, Shin and Cooper (1978): time from the first road user leaving the conflict zone to the second entering it. Footprints
+                are length × width boxes swept along each path (0.5 m raster, 50 Hz); approaches conflict at ≥ 30°. Detection:
+                PET ≤ <span className="num">5.0</span> s (SSAM default). Severity: ≤ 1 s critical, 1–2.5 s serious, 2.5–5 s moderate
+                (study-specific; no SSAM standard). Simultaneous occupancy is kept as PET = 0 and flagged as overlap, most likely
+                NGSIM position error (Punzo et al. 2011).
               </dd>
               <dt>Deceleration rate to avoid crash (DRAC)</dt>
               <dd>
                 <Eq label="Deceleration rate to avoid crash"><math display="block"><mrow><mi>DRAC</mi><mo>=</mo><mfrac><msup><mrow><mo>(</mo><msub><mi>v</mi><mi>f</mi></msub><mo>−</mo><msub><mi>v</mi><mi>l</mi></msub><mo>)</mo></mrow><mn>2</mn></msup><mrow><mn>2</mn><mo>·</mo><mi>Δ</mi><mi>x</mi></mrow></mfrac></mrow></math></Eq>
-                Reported as a flag alongside TTC events, not a detection criterion: DRAC ≥ <span className="num">11.2</span> ft/s²
-                (3.4 m/s²), the AASHTO (2018) deceleration rate for stopping sight distance. Values above about
-                26 ft/s² (8 m/s²) exceed tyre–road friction and indicate position error in the source data.
+                A flag on TTC events, not a detection criterion: DRAC ≥ <span className="num">11.2</span> ft/s² (3.4 m/s²), the AASHTO (2018)
+                stopping-sight-distance rate. Above about 26 ft/s² (8 m/s²) exceeds tyre–road friction: position error.
               </dd>
             </dl>
             <SsmRules sites={ssm} />
           </section>
 
           <section id="m-repair" className="section" aria-labelledby="m-repair-h">
-            <div className="section-head"><h2 id="m-repair-h">5. Trajectory repair</h2></div>
-            <p>Roadside LiDAR loses tracks when vehicles are occluded by other vehicles. To evaluate repair methods
-              without field ground truth, gaps are cut into complete NGSIM tracks and the repaired positions are scored
-              against the held-out points, under two gap protocols and against two truths.</p>
+            <div className="section-head"><h2 id="m-repair-h">Trajectory repair</h2></div>
+            <p>Gaps are cut into complete NGSIM tracks and repairs scored on the held-out points, under two gap protocols and two truths.</p>
             <ol className="m-steps">
-              <li><strong>Uniform protocol:</strong> seeded random gaps of 0.5–5.0 s, one or two per track, at least 1.0 s
-                from the track ends.</li>
-              <li><strong>Occluder protocol:</strong> gaps are the real line-of-sight occlusion intervals of each track
-                from a virtual roadside sensor, in 2D: a track is hidden while a nearer vehicle's footprint lies on the
-                sensor ray. Intervals of 0.5–5.0 s are kept; visible flickers of ≤ 2 frames are merged.</li>
-              <li><strong>Truths:</strong> <em>smoothed</em> (Savitzky–Golay, 15 frames, order 2, as input and truth) and
-                <em> raw</em> (unsmoothed NGSIM positions, NGSIM-interpolated frames excluded from scoring). Speed is
-                scored against smoothed truth only.</li>
-              <li><strong>Methods:</strong> linear interpolation; a constant-acceleration Kalman filter with a
-                Rauch–Tung–Striebel smoother (prediction only inside the gap); and a path-constrained variant. Noise
-                parameters (<i>q</i>, <i>r</i>) are chosen by grid search on a separate validation set, and the method with
-                lower validation RMSE is selected before test scoring.</li>
+              <li><strong>Uniform:</strong> seeded random gaps of 0.5–5.0 s, one or two per track, ≥ 1.0 s from the ends.</li>
+              <li><strong>Occluder:</strong> real 2D line-of-sight occlusion intervals from a virtual roadside sensor, 0.5–5.0 s, flickers of ≤ 2 frames merged.</li>
+              <li><strong>Truths:</strong> <em>smoothed</em> (Savitzky–Golay, 15 frames, order 2) and <em>raw</em> (NGSIM-interpolated frames excluded). Speed scored on smoothed only.</li>
+              <li><strong>Methods:</strong> linear interpolation; constant-acceleration Kalman with RTS smoother; a path-constrained variant. <i>q</i>, <i>r</i> and the method are chosen on a separate validation set.</li>
             </ol>
             <div className="m-repair-grid">
               {repairs.map((r, i) => <RepairCard key={SITES[i][0]} name={SITES[i][1]} r={r.data?.summary} err={r.error} />)}
             </div>
-            <p>Result: for gaps shorter than 2 s scored against raw truth, linear interpolation ties with or beats the
-              Kalman smoother at Peachtree (pooled RMSE 0.23 vs 0.31 m uniform, 0.14 vs 0.16 m occluder), while Kalman
-              stays ahead at Lankershim (0.31 vs 0.23 m, 0.24 vs 0.20 m). Against smoothed truth Kalman is lower for short
-              gaps too, partly because the smoother spreads in-gap information into the context. For gaps of 2 s and
-              longer, Kalman RMSE is lower in all eight site × protocol × truth cases, by a factor of 1.3–2.8 (1.8–2.8
-              at Lankershim; 1.3–2.5 at Peachtree, where the uniform protocol has only 14 such gaps).</p>
+            <p>Result: under 2 s against raw truth, linear ties or beats Kalman at Peachtree (0.23 vs 0.31 m uniform, 0.14 vs 0.16 m occluder)
+              while Kalman leads at Lankershim (0.31 vs 0.23 m, 0.24 vs 0.20 m). For gaps ≥ 2 s Kalman is lower in all eight
+              site × protocol × truth cases, by 1.3–2.8× (Peachtree uniform has only 14 such gaps).</p>
             <RepairNotes notes={repairs.map((r) => r.data?.summary).find((s) => s?.notes)?.notes} />
-            <p className="muted m-small">Reconstruction and validation of noisy NGSIM trajectories follow Punzo, Borzacchiello
-              and Ciuffo (2011) and Montanino and Punzo (2015). This evaluation is a generic baseline; it does not
-              reproduce or compare against the full-occlusion repair method of Luo et al. (2025).</p>
+            <p className="muted m-small">Follows Punzo, Borzacchiello and Ciuffo (2011) and Montanino and Punzo (2015); a generic baseline,
+              not a comparison with Luo et al. (2025).</p>
           </section>
 
           <section id="m-limits" className="section" aria-labelledby="m-limits-h">
-            <div className="section-head"><h2 id="m-limits-h">6. Limitations</h2></div>
+            <div className="section-head"><h2 id="m-limits-h">Limitations</h2></div>
             <ul className="m-list">
-              <li>The TxDOT segment layer's <code>SUM_CRASH_</code> field is undocumented (empty item description, aliases
-                equal field names, no years). It is published only in the Statewide Active Transportation Plan web map and
-                behaves as an injury-weighted pedestrian/cyclist score for 2021–2023: it correlates
-                r = <span className="num">{nf(spf.data?.diagnostics?.crash_field?.evidence?.corr_with_matched_crashes ?? 0.945, 3)}</span> with
-                the CRIS ped/bike crashes snapped to the same segments, and a least-squares fit weights K/A/B crashes about
-                ten times C/O crashes. It is therefore not an all-crash count and is not used as the SPF outcome (kept as
-                <code> satp_crash_score</code>). Screening covers ped/bike crashes only until full CRIS all-crash records
-                are obtained.</li>
-              <li><code>TxDOT_AADT.AADT_CUR</code> has no published count year. It differs from the Roadway Inventory 2024
-                ADT on most on-system records, so it is presumably a later count than the 2021–2023 crash period.</li>
-              <li>Only three urban site types have enough ped/bike crashes for their own SPF; the five others (including
-                all rural types, with 0–2 crashes) use the pooled fallback model, and their EB estimates rest almost
-                entirely on that model.</li>
+              <li>The TxDOT segment field <code>SUM_CRASH_</code> is undocumented and behaves as an injury-weighted ped/bike score for 2021–2023
+                (r = <span className="num">{nf(spf.data?.diagnostics?.crash_field?.evidence?.corr_with_matched_crashes ?? 0.945, 3)}</span> with
+                snapped CRIS crashes; K/A/B weighted about 10× C/O). It is not an all-crash count and not the SPF outcome
+                (kept as <code>satp_crash_score</code>).</li>
+              <li><code>TxDOT_AADT.AADT_CUR</code> has no published count year and differs from Roadway Inventory 2024 ADT; presumably later than 2021–2023.</li>
+              <li>Only three urban site types support their own SPF; the other five (all rural, 0–2 crashes) rest on the pooled fallback.</li>
               <li>EPDO is not computed: no sourced severity weights. Severity analysis is confined to the VRU and FARS layers.</li>
-              <li>The trajectories are NGSIM (Los Angeles, California and Atlanta, Georgia; 2005–2006), used as a stand-in
-                for roadside LiDAR trajectories. They are not Lubbock data and the conflict counts are not Lubbock findings.</li>
-              <li>The occluder protocol is 2D (sensor height ignored), so it over-states occlusion by cars relative to a
-                4.5 m pole; it is a realistic gap-placement protocol, not a LiDAR visibility model. Raw NGSIM truth carries
-                measurement noise that bounds achievable RMSE from below.</li>
+              <li>Trajectories are NGSIM (Los Angeles and Atlanta, 2005–2006), a stand-in for roadside LiDAR; conflict counts are not Lubbock findings.</li>
+              <li>The 2D occluder protocol ignores sensor height and over-states occlusion versus a 4.5 m pole. Raw truth noise bounds RMSE from below.</li>
               <li>Screening ranks identify sites for investigation; they do not establish cause or countermeasure need.</li>
-              <li>TxDOT data are provided for informational purposes; TxDOT makes no warranty of accuracy or completeness,
-                and crash records are protected from discovery under 23 U.S.C. §407.</li>
+              <li>TxDOT data are informational, without warranty; crash records are protected under 23 U.S.C. §407.</li>
             </ul>
           </section>
 
           <section id="m-refs" className="section" aria-labelledby="m-refs-h">
-            <div className="section-head"><h2 id="m-refs-h">7. References</h2></div>
+            <div className="section-head"><h2 id="m-refs-h">References</h2></div>
             <ol className="m-refs">
               <li>AASHTO (2010). <i>Highway Safety Manual</i>, 1st ed. American Association of State Highway and Transportation Officials, Washington, DC.</li>
               <li>Hauer, E., Bamfo, J. (1997). Two tools for finding what function links the dependent variable to the explanatory variables. <i>Proceedings of the ICTCT 1997 Workshop</i>, Lund, Sweden.</li>

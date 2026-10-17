@@ -42,9 +42,9 @@ export default function ScreeningPage() {
     return [{
       id: 'net', data: data as any,
       layers: [
-        { id: 'net-base', type: 'line', paint: { 'line-color': '#c9cfc6', 'line-width': 1.4 } } as any,
-        { id: 'net-top', type: 'line', filter: ['<=', ['get', '_rank'], 25], paint: { 'line-color': ['interpolate', ['linear'], ['get', '_rank'], 1, '#6e120d', 8, '#b3261e', 25, '#d9a038'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 13, 7] }, layout: { 'line-cap': 'round' } } as any,
-        { id: 'net-hl', type: 'line', filter: ['==', ['get', 'seg_id'], '__none__'], paint: { 'line-color': '#14171a', 'line-width': 10, 'line-opacity': 0.3 } } as any,
+        { id: 'net-base', type: 'line', paint: { 'line-color': '#4a4c48', 'line-width': 1.4 } } as any,
+        { id: 'net-top', type: 'line', filter: ['<=', ['get', '_rank'], 25], paint: { 'line-color': ['interpolate', ['linear'], ['get', '_rank'], 1, '#ff5a4f', 8, '#f08159', 25, '#e9a35f'], 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 13, 7] }, layout: { 'line-cap': 'round' } } as any,
+        { id: 'net-hl', type: 'line', filter: ['==', ['get', 'seg_id'], '__none__'], paint: { 'line-color': '#8fa68e', 'line-width': 10, 'line-opacity': 0.45 } } as any,
       ],
     }];
   }, [net.data, rankOf]);
@@ -54,8 +54,7 @@ export default function ScreeningPage() {
       <header className="page-head">
         <h1>Network screening</h1>
         <p>
-          {nf(scr.data?.total)} one-mile state-system segments in Lubbock County, screened for pedestrian, cyclist and e-scooter crashes reported in CRIS for 2021–2023 and ranked by the performance measure you choose.
-          Agencies screen with more than one measure because each is biased differently; segments that stay near the top under all of them are the strongest candidates for diagnosis.
+          {nf(scr.data?.total)} one-mile state-system segments ranked by CRIS pedestrian, cyclist and e-scooter crashes, 2021–2023, under the measure you choose.
         </p>
       </header>
 
@@ -115,7 +114,6 @@ export default function ScreeningPage() {
       <section className="section" aria-labelledby="spf-h">
         <div className="section-head">
           <h2 id="spf-h">Safety performance functions by site type</h2>
-          <p>Locally estimated NB2 models for {spf.data?.outcome ?? 'pedestrian and cyclist crashes'}</p>
         </div>
         {spf.data ? <SiteTypes spf={spf.data} /> : <div className="skeleton" style={{ height: 360 }} />}
       </section>
@@ -211,7 +209,6 @@ function Cure({ pts, label }: { pts: [number, number, number][]; label: string }
         <text x={(W + P.l) / 2} y={H - 6} className="axis" textAnchor="middle">AADT (veh/day, log scale)</text>
         <text transform={`translate(14 ${(H - P.b) / 2}) rotate(-90)`} className="axis" textAnchor="middle">cumulative residual</text>
       </svg>
-      <figcaption className="muted">Residuals cumulated in order of AADT; staying inside the dashed ±2σ* envelope indicates no systematic bias over the AADT range.</figcaption>
     </figure>
   );
 }

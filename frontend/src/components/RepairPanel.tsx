@@ -37,11 +37,7 @@ export default function RepairPanel({ id }: { id: string }) {
         <h2 id="rep-h">Trajectory repair under occlusion</h2>
         <p>{proto === 'occluder' ? 'Gaps placed where a nearer vehicle blocks a virtual roadside sensor' : 'Gaps of uniform random length'}, 0.5–5 s · scored against {truth === 'raw' ? 'raw' : 'smoothed'} NGSIM positions</p>
       </div>
-      <p className="rep-intro">
-        Roadside sensors lose vehicles behind other vehicles, poles and turning trucks, and broken tracks corrupt speed profiles and conflict measures.
-        Here gaps are cut out of complete tracks, refilled by each method using {s?.context_s ?? 3} s of observations either side, and scored against the held-out positions.
-        Noise parameters are chosen on a separate validation set of tracks, never on the scored gaps.
-      </p>
+      <p className="rep-intro">Gaps cut from complete tracks, refilled from {s?.context_s ?? 3} s of context either side, scored on held-out positions; noise tuned on separate validation tracks.</p>
       {r.error && <div className="error-box">{r.error}</div>}
       {s && tr && (
         <div className="rep-grid">
@@ -56,7 +52,7 @@ export default function RepairPanel({ id }: { id: string }) {
                 <button aria-pressed={truth === 'raw'} onClick={() => setTruth('raw')}>Raw NGSIM truth</button>
               </div>
             </div>
-            {pv && <p className="muted rep-desc">{pv.description}{pv.occlusion ? ` — ${pv.occlusion.gaps} real gaps, mean ${pv.occlusion.gap_len_mean_s.toFixed(2)} s.` : ''}</p>}
+            {pv && <p className="muted rep-desc">{pv.occlusion ? pv.description.replace(/\.\s*$/, '') : pv.description}{pv.occlusion ? `. ${pv.occlusion.gaps} real gaps, mean ${pv.occlusion.gap_len_mean_s.toFixed(2)} s.` : ''}</p>}
             <div className="rep-plot-h">
               <label className="select"><span>Occluded track</span>
                 <select value={pick} onChange={(e) => setPick(Number(e.target.value))}>
@@ -169,7 +165,7 @@ function QCurve({ c: raw, chosen }: { c: ({ q: number; rmse_m: number } | [numbe
         <text x={L - 4} y={Y(ym) + 4} className="tk" textAnchor="end">{ym.toFixed(2)}</text>
         <text x={L - 4} y={Y(yn) + 4} className="tk" textAnchor="end">{yn.toFixed(2)}</text>
       </svg>
-      <figcaption className="muted">Validation RMSE (m) vs process noise; filled marker is the chosen q.</figcaption>
+      <figcaption className="muted">Validation RMSE (m); filled marker is the chosen q</figcaption>
     </figure>
   );
 }

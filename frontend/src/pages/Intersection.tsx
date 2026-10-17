@@ -35,9 +35,7 @@ export default function IntersectionPage() {
       <header className="page-head">
         <h1>Intersection lab</h1>
         <p>
-          Proactive safety from trajectories rather than crash history. Vehicle tracks at 10 Hz from the FHWA NGSIM arterial datasets, a stand-in for the
-          roadside-LiDAR trajectories a pole-mounted sensor produces, are screened for rear-end, crossing and lane-change traffic conflicts (surrogate safety events) with time-to-collision,
-          post-encroachment time and deceleration rate to avoid crash.
+          Rear-end, crossing and lane-change conflicts screened by TTC, PET and DRAC on 10 Hz FHWA NGSIM vehicle tracks.
         </p>
       </header>
 
@@ -93,7 +91,7 @@ export default function IntersectionPage() {
                     </tbody>
                   </table>
                 </div>
-                <p className="ix-foot muted">Click a conflict to jump 1.5 s before it. DRAC above 26 ft/s² (8 m/s²) exceeds tyre–road friction and flags NGSIM position error rather than a real manoeuvre.</p>
+                <p className="ix-foot muted">DRAC above 26 ft/s² (8 m/s²) exceeds tyre–road friction: NGSIM position error, not a real manoeuvre.</p>
               </div>
             </aside>
           </section>
@@ -101,7 +99,6 @@ export default function IntersectionPage() {
           <section className="section" aria-labelledby="ts-h">
             <div className="section-head">
               <h2 id="ts-h">Time–space diagram</h2>
-              <p>Northbound and southbound through traffic along the corridor axis; drag or use ← → to scrub, space to play.</p>
             </div>
             <div className="panel ix-ts"><TimeSpace data={ix.data!} conflicts={cf.data!} selected={selected} label="Time–space diagram; drag to scrub time" /></div>
           </section>
@@ -132,7 +129,7 @@ function VehicleReadout({ data, id, onClear }: { data: IntersectionT; id: string
             <dt>Position (x, y)</dt><dd>{p ? `${(p.x * 3.281).toFixed(0)}, ${(p.y * 3.281).toFixed(0)} ft` : '—'}</dd>
           </dl>
         </>
-      ) : <p className="muted">Select a vehicle in the plan or a conflict in the list to inspect its speed, acceleration and lane.</p>}
+      ) : <p className="muted">No vehicle selected</p>}
     </div>
   );
 }

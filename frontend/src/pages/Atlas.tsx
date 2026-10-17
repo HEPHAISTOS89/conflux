@@ -4,169 +4,245 @@ import MapView, { type MapLayer } from '../components/MapView';
 import TimeSpace from '../components/TimeSpace';
 import { Icon } from '../components/Icon';
 import { useApi } from '../lib/api';
+import { useReveal, useTween } from '../lib/motion';
 import { ClockCtx, useClockState, type ConflictT, type IntersectionT } from '../lib/traj';
-import { EB_STOPS, nf } from '../lib/format';
+import { nf } from '../lib/format';
 import type { FC, SegmentProps } from '../lib/types';
 import '../styles/atlas.css';
 
-const ebColor: any = ['interpolate', ['linear'], ['coalesce', ['get', 'eb_excess'], -1], ...EB_STOPS.flat()];
-// legend ramp: colour stops placed at their EB values so the ticks line up with the map colours
-const EB_MIN = EB_STOPS[0][0], EB_MAX = EB_STOPS[EB_STOPS.length - 1][0];
-const ebPct = (v: number) => ((v - EB_MIN) / (EB_MAX - EB_MIN)) * 100;
-const EB_RAMP = `linear-gradient(90deg, ${EB_STOPS.map(([v, c]) => `${c} ${ebPct(v).toFixed(1)}%`).join(', ')})`;
-const EB_TICKS: [number, string][] = [[0, '≤0'], [0.4, '0.4'], [0.8, '0.8'], [1.5, '1.5+']];
+type Seg = SegmentProps & { fc_group?: string; crashes_per_yr?: number; dfo_from?: number; dfo_to?: number; speed_all?: number; site_type?: string };
+interface Ssm { sensitivity: { ttc: Record<string, Record<string, number>> }; scatter: [number, number, string, string | null][] }
+interface CorridorCard { id: string; name: string }
+
+const TTC_STEPS = ['0.5', '1.0', '1.5', '2.0', '3.0'] as const;
+const METRICS = [
+  { id: 'eb_excess', label: 'EB excess' },
+  { id: 'crit_ratio', label: 'Critical ratio' },
+  { id: 'rate', label: 'Rate' },
+] as const;
+const PLACES = [
+  { src: '/photos/interstate-27-and-marsha-sharp.webp', w: 1600, h: 619, cap: 'I-27 at Marsha Sharp Freeway, Lubbock', credit: 'Fredlyfish4, CC BY-SA 3.0' },
+  { src: '/photos/marsha-sharp-freeway-lubbock-tx-img-0231.webp', w: 1600, h: 1200, cap: 'Marsha Sharp Freeway, US 62/82', credit: 'Billy Hathorn, CC BY-SA 3.0' },
+  { src: '/photos/lankershim-boulevard-los-angeles-16343272011.webp', w: 1600, h: 1068, cap: 'Lankershim Blvd, NGSIM site', credit: 'Matthew Nelson, CC BY 2.0' },
+  { src: '/photos/peachtree-street-in-midtown-atlanta.webp', w: 1600, h: 1077, cap: 'Peachtree St, NGSIM site', credit: 'Sinan, CC BY 2.0' },
+];
 
 export default function Atlas() {
-  const net = useApi<FC<SegmentProps>>('/network');
-  const fatal = useApi<FC<any>>('/fatal');
-  const vru = useApi<{ total: number; by_severity: Record<string, number>; years: number[] }>('/vru/summary');
+  return (
+    <div className="atlas">
+      <Hero />
+      <ThresholdField />
+      <NetworkField />
+      <SegmentPlate />
+      <Places />
+      <Close />
+    </div>
+  );
+}
+
+function Hero() {
+  return (
+    <section className="hero" aria-labelledby="hero-h">
+      <div className="hero-copy">
+        <h1 id="hero-h" className="hero-h">
+          <span className="mask-line"><span>Read the road</span></span>
+          <span className="mask-line"><span>before the crash.</span></span>
+        </h1>
+        <p className="hero-lede after-mask">HSM network screening and surrogate safety measures for Lubbock County, on real data.</p>
+        <div className="hero-act after-mask">
+          <Link to="/intersections/peachtree-10th" className="btn">Open the intersection lab <Icon name="arrow" size={16} /></Link>
+          <Link to="/screening">Screen the network</Link>
+        </div>
+      </div>
+      <figure className="hero-photo">
+        <img src="/photos/marsha-sharp-freeway-light-trails.webp" width={1600} height={1067} alt="Long exposure of night traffic on the Marsha Sharp Freeway in Lubbock, headlights drawn as trails." fetchPriority="high" />
+        <figcaption>Marsha Sharp Freeway at FM 2255. Every trail is a trajectory.</figcaption>
+      </figure>
+    </section>
+  );
+}
+
+function ThresholdField() {
+  const ref = useReveal<HTMLElement>();
   const ix = useApi<IntersectionT>('/intersections/peachtree-10th');
   const cf = useApi<ConflictT[]>('/intersections/peachtree-10th/conflicts');
-  const [hover, setHover] = useState<SegmentProps | null>(null);
-  const [layers, setLayers] = useState({ fatal: true });
-  const nav = useNavigate();
+  const ssm = useApi<Ssm>('/intersections/peachtree-10th/ssm');
+  const [step, setStep] = useState<(typeof TTC_STEPS)[number]>('1.5');
+  const T = Number(step);
+  const count = useMemo(() => {
+    const s = ssm.data;
+    if (!s) return 0;
+    if (s.sensitivity.ttc[step]) return s.sensitivity.ttc[step].rear_end ?? 0;
+    return s.scatter.filter(([ttc, , type]) => type === 'rear_end' && ttc <= T).length;
+  }, [ssm.data, step, T]);
+  const shown = useTween(count);
+  const visible = useMemo(() => (cf.data ?? []).filter((c) => c.type === 'crossing' || (c.ttc_min ?? 99) <= T), [cf.data, T]);
+  const clock = useClockState(ix.data?.window_s ?? 90);
+  useEffect(() => { if (ix.data) clock.setT(ix.data.window_s); /* eslint-disable-next-line */ }, [ix.data]);
 
-  const stats = useMemo(() => {
-    const f = net.data?.features ?? [];
-    const crashes = f.reduce((s, x) => s + (x.properties.crashes_total ?? 0), 0);
-    const flagged = f.filter((x) => (x.properties.eb_excess ?? 0) > 0.25).length;
-    const withCrash = f.filter((x) => (x.properties.crashes_total ?? 0) > 0).length;
-    const deaths = (fatal.data?.features ?? []).reduce((s, x) => s + (x.properties.fatals ?? 1), 0);
-    return { segs: f.length, crashes, flagged, withCrash, deaths };
-  }, [net.data, fatal.data]);
+  return (
+    <section ref={ref} className="field field-control" aria-labelledby="ttc-h">
+      <div className="fc-copy">
+        <h2 id="ttc-h" data-r="1"><span className="num">{Math.round(shown)}</span> rear-end conflicts in 90 seconds</h2>
+        <p data-r="2">Peachtree St at 10th St. SSAM detects at 1.5 s.</p>
+      </div>
+      <div className="ttc-control" role="radiogroup" aria-label="Time-to-collision threshold" data-ui data-r="3">
+        <span className="ttc-label">TTC ≤</span>
+        {TTC_STEPS.map((s) => (
+          <button key={s} type="button" role="radio" aria-checked={step === s} onClick={() => setStep(s)}>{s}<small>s</small></button>
+        ))}
+      </div>
+      <div className="fc-ts" data-ui data-r="4">
+        {ix.data && cf.data ? (
+          <ClockCtx.Provider value={clock}>
+            <TimeSpace data={ix.data} conflicts={visible} label="Time–space diagram of Peachtree St trajectories with conflicts at the chosen threshold" compact />
+          </ClockCtx.Provider>
+        ) : <div className="skeleton" style={{ height: 300 }} />}
+      </div>
+    </section>
+  );
+}
+
+function NetworkField() {
+  const ref = useReveal<HTMLElement>();
+  const net = useApi<FC<Seg>>('/network');
+  const nav = useNavigate();
+  const [metric, setMetric] = useState<(typeof METRICS)[number]['id']>('eb_excess');
+  const [hover, setHover] = useState<Seg | null>(null);
+  const flagged = (net.data?.features ?? []).filter((f) => (f.properties.eb_excess ?? 0) > 0.25).length;
 
   const sources = useMemo<MapLayer[]>(() => {
-    const out: MapLayer[] = [];
-    if (net.data) out.push({
+    if (!net.data) return [];
+    const color: any = metric === 'eb_excess'
+      ? ['interpolate', ['linear'], ['coalesce', ['get', 'eb_excess'], -1], -0.3, '#5d5f5b', 0, '#6d6f6a', 0.1, '#e9c46a', 0.4, '#f08159', 0.8, '#ff5a4f', 1.5, '#ff3b5c']
+      : metric === 'crit_ratio'
+        ? ['interpolate', ['linear'], ['coalesce', ['get', 'crit_ratio'], 0], 0, '#5d5f5b', 0.8, '#e9a35f', 1.2, '#f08159', 2, '#ff5a4f']
+        : ['interpolate', ['linear'], ['coalesce', ['get', 'rate_100mvmt'], 0], 0, '#5d5f5b', 5, '#e9a35f', 15, '#f08159', 40, '#ff5a4f'];
+    return [{
       id: 'net', data: net.data as any,
       layers: [
-        { id: 'net-case', type: 'line', paint: { 'line-color': '#fbfbf9', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 4.5, 13, 10] }, layout: { 'line-cap': 'round' } } as any,
-        { id: 'net-line', type: 'line', paint: { 'line-color': ebColor, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2.6, 13, 7] }, layout: { 'line-cap': 'round' } } as any,
-        { id: 'net-hl', type: 'line', filter: ['==', ['get', 'seg_id'], '__none__'], paint: { 'line-color': '#14171a', 'line-width': 8, 'line-opacity': 0.25 } } as any,
+        { id: 'net-line', type: 'line', paint: { 'line-color': color, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 13, 8] }, layout: { 'line-cap': 'round' } } as any,
+        { id: 'net-hl', type: 'line', filter: ['==', ['get', 'seg_id'], '__none__'], paint: { 'line-color': '#f1f1ef', 'line-width': 9, 'line-opacity': 0.35 } } as any,
       ],
-    });
-    if (fatal.data) out.push({
-      id: 'fatal', data: fatal.data as any,
-      layers: [{ id: 'fatal-pt', type: 'circle', paint: { 'circle-radius': 2.4, 'circle-color': '#6e120d', 'circle-stroke-color': '#fbfbf9', 'circle-stroke-width': 0.8, 'circle-opacity': layers.fatal ? 0.75 : 0, 'circle-stroke-opacity': layers.fatal ? 1 : 0 } } as any],
-    });
-    return out;
-  }, [net.data, fatal.data, layers.fatal]);
-
-  const clock = useClockState(ix.data?.window_s ?? 90);
-  useEffect(() => {
-    if (!ix.data || matchMedia('(prefers-reduced-motion: reduce)').matches) { clock.setT(ix.data?.window_s ?? 90); return; }
-    clock.setT(0); clock.setRate(4); clock.play();
-    // stop after one full pass so the finished diagram stays legible
-    const stop = setTimeout(() => { clock.pause(); clock.setRate(1); clock.setT(ix.data!.window_s); }, (ix.data.window_s / 4) * 1000 - 120);
-    return () => clearTimeout(stop);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ix.data]);
+    }];
+  }, [net.data, metric]);
 
   return (
-    <div className="page atlas">
-      <header className="page-head atlas-head">
-        <h1>Where Lubbock's pedestrian and cyclist crashes concentrate, and what the trajectories say before they happen</h1>
-        <p>
-          A proactive safety workbench for the TxDOT Lubbock District: HSM Part B screening of every state-system mile in
-          Lubbock County for on-system pedestrian, cyclist and e-scooter crashes (TxDOT CRIS, 2021–2023), corridor
-          straight-line diagrams, vulnerable-road-user crash patterns, and surrogate safety measures computed from vehicle
-          trajectories at signalised intersections. The county map is a ped/bike screening, not an all-crash one.
-        </p>
-      </header>
-
-      {[net, fatal, vru, ix, cf].some((r) => r.error) && <div className="error-box">Some data could not be loaded: {[net, fatal, vru, ix, cf].map((r) => r.error).filter(Boolean).join(' · ')}</div>}
-
-      <section className="atlas-grid" aria-label="County overview">
-        <div className="atlas-map panel">
-          <MapView
-            label="Lubbock County state-system segments coloured by Empirical Bayes excess expected pedestrian and cyclist crashes per year, 2021–2023"
-            sources={sources}
-            interactiveLayers={['net-line']}
-            highlight={{ source: 'net', key: 'seg_id', value: hover?.seg_id ?? null }}
-            onHover={(f) => setHover((f?.properties as SegmentProps) ?? null)}
-            onClick={(_, f) => nav(`/screening?seg=${encodeURIComponent((f.properties as any).seg_id)}`)}
-          />
-          <div className="map-legend">
-            <div className="legend-title">Excess expected ped/bike crashes / yr (EB − SPF)</div>
-            <div className="legend-ramp" style={{ background: EB_RAMP }} />
-            <div className="legend-ticks num" style={{ position: 'relative', height: 14 }} aria-label="Ticks at 0, 0.4, 0.8 and 1.5 or more">
-              {EB_TICKS.map(([v, l], i) => (
-                <span key={l} style={{ position: 'absolute', left: `${ebPct(v)}%`, transform: i === EB_TICKS.length - 1 ? 'translateX(-100%)' : 'translateX(-50%)' }}>{l}</span>
-              ))}
-            </div>
-            <label className="legend-toggle">
-              <input type="checkbox" checked={layers.fatal} onChange={(e) => setLayers({ fatal: e.target.checked })} />
-              <span className="dot-k" /> Fatal crashes, FARS 2018–2023
-            </label>
-          </div>
-          <div className="map-readout" aria-live="polite">
-            {hover ? (
-              <>
-                <strong>{hover.name}</strong> <span className="num muted">{hover.seg_id}</span>
-                <dl className="readout-grid num">
-                  <dt>AADT</dt><dd>{nf(hover.aadt)}</dd>
-                  <dt>Ped/bike crashes 2021–23</dt><dd>{nf(hover.crashes_total)}</dd>
-                  <dt>Rate /100 MVMT</dt><dd>{nf(hover.rate_100mvmt, 1)}</dd>
-                  <dt>EB excess</dt><dd>{nf(hover.eb_excess, 2)}</dd>
-                </dl>
-              </>
-            ) : <span className="muted">Hover a segment for its screening values; click to open it in the ranking.</span>}
-          </div>
+    <section ref={ref} className="field field-map" aria-labelledby="net-h">
+      <div className="fm-copy">
+        <h2 id="net-h" data-r="1">443 miles, ranked</h2>
+        <p data-r="2"><span className="num">{nf(flagged)}</span> segments exceed their predicted ped/bike crashes by over 0.25 a year.</p>
+        <div className="seg" role="group" aria-label="Screening measure" data-r="3">
+          {METRICS.map((m) => <button key={m.id} type="button" aria-pressed={metric === m.id} onClick={() => setMetric(m.id)}>{m.label}</button>)}
         </div>
-
-        <div className="atlas-ts panel">
-          <div className="ts-head">
-            <h2>Peachtree St at 10th St — 90 s, northbound + southbound</h2>
-            <p className="muted">Every line is one vehicle. Slope is speed; flat runs are queues at the stop line; diamonds are traffic conflicts (surrogate safety events) detected with FHWA SSAM thresholds.</p>
-          </div>
-          {ix.data && cf.data ? (
-            <ClockCtx.Provider value={clock}>
-              <TimeSpace data={ix.data} conflicts={cf.data} label="Time–space diagram, drag to scrub time" reveal />
-            </ClockCtx.Provider>
-          ) : <div className="skeleton ts-skel" />}
-          <Link to="/intersections/peachtree-10th" className="btn ghost ts-cta">Open the intersection lab <Icon name="arrow" size={16} /></Link>
-        </div>
-      </section>
-
-      <section className="atlas-figures" aria-label="Key figures">
-        <Figure v={nf(stats.segs)} u="one-mile segments" d="State-system mileage in Lubbock County screened with HSM Part B methods; 395 have AADT and a site type and enter the SPFs." />
-        <Figure v={nf(stats.crashes)} u="on-system ped/bike crashes, 2021–23" d={`TxDOT CRIS pedestrian, cyclist and e-scooter crashes snapped to those segments (all KABCO); ${nf(stats.withCrash)} segments have at least one.`} />
-        <Figure v={nf(stats.flagged)} u="segments with EB excess > 0.25 / yr" d="Candidates for detailed ped/bike diagnosis after Empirical Bayes adjustment against site-type SPFs." />
-        <Figure v={vru.data ? nf((vru.data.by_severity.K ?? 0) + (vru.data.by_severity.A ?? 0)) : '…'} u={`KA pedestrian & cyclist crashes, ${vru.data?.years.join('–') ?? ''}`} d="Fatal and suspected-serious injuries to vulnerable road users, countywide (on- and off-system)." />
-        <Figure v={nf(stats.deaths)} u="deaths, FARS 2018–2023" d="All public roads in Lubbock County (FIPS 48303)." />
-      </section>
-
-      <section className="section" aria-labelledby="path">
-        <div className="section-head"><h2 id="path">Work through it the way a safety study does</h2></div>
-        <ol className="path">
-          <PathStep to="/screening" title="Screen the network" body="Rank segments by ped/bike crash frequency, rate, critical-rate ratio and EB excess using locally estimated, site-type-specific negative binomial SPFs (2021–2023)." />
-          <PathStep to="/corridors/us-84" title="Diagnose a corridor" body="Read lanes, posted and operating speed, AADT, truck share and ped/bike crash density against DFO on a straight-line diagram." />
-          <PathStep to="/vru" title="Look at who is hit" body="Pedestrian and cyclist crashes by PBCAT type, lighting and hour, the population behind failure-to-yield countermeasures." />
-          <PathStep to="/intersections/peachtree-10th" title="Measure conflicts, not just crashes" body="TTC, PET and DRAC on 10 Hz trajectories, a roadside-LiDAR view, and occluded-track repair evaluated against held-out truth." />
-        </ol>
-      </section>
-    </div>
+        <dl className="fm-read" aria-live="polite" data-r="4">
+          {hover ? (<>
+            <dt>{hover.name}</dt><dd className="num">DFO {nf(hover.dfo_from, 1)}</dd>
+            <dt>AADT</dt><dd className="num">{nf(hover.aadt)}</dd>
+            <dt>EB excess</dt><dd className="num">{nf(hover.eb_excess, 2)} /yr</dd>
+            <dt>Critical ratio</dt><dd className="num">{nf(hover.crit_ratio, 2)}</dd>
+          </>) : <><dt>Hover a segment</dt><dd /></>}
+        </dl>
+      </div>
+      <div className="fm-map">
+        <MapView
+          label="Lubbock County state-system segments coloured by the selected screening measure"
+          sources={sources}
+          interactiveLayers={['net-line']}
+          highlight={{ source: 'net', key: 'seg_id', value: hover?.seg_id ?? null }}
+          onHover={(f) => setHover((f?.properties as Seg) ?? null)}
+          onClick={(_, f) => nav(`/screening?seg=${encodeURIComponent((f.properties as any).seg_id)}`)}
+        />
+      </div>
+    </section>
   );
 }
 
-function Figure({ v, u, d }: { v: string; u: string; d: string }) {
+const NOTES: { key: string; name: string; text: string }[] = [
+  { key: 'aadt', name: 'Exposure', text: 'TxDOT AADT joined on route and DFO.' },
+  { key: 'speed', name: 'Speed', text: 'Posted limit against 2024 operating speed.' },
+  { key: 'obs', name: 'Observed', text: 'CRIS ped/bike crashes, 2021–2023.' },
+  { key: 'spf', name: 'Predicted', text: 'Site-type negative binomial SPF.' },
+  { key: 'eb', name: 'Expected', text: 'Empirical Bayes, w = 1 / (1 + k·μ).' },
+  { key: 'crit', name: 'Critical ratio', text: 'Observed over 95% critical rate.' },
+];
+
+function SegmentPlate() {
+  const ref = useReveal<HTMLElement>();
+  const top = useApi<{ items: Seg[] }>('/screening?method=eb_excess&limit=1');
+  const s = top.data?.items[0];
+  const [focus, setFocus] = useState<string | null>(null);
+  const row = (key: string, label: string, value: string) => (
+    <div className="pl-row" data-on={focus === key ? '' : undefined}><span>{label}</span><b className="num">{value}</b></div>
+  );
   return (
-    <div className="figure">
-      <div className="figure-v num">{v}</div>
-      <div className="figure-u">{u}</div>
-      <p className="figure-d muted">{d}</p>
-    </div>
+    <section ref={ref} className="plate" aria-labelledby="plate-h">
+      <h2 id="plate-h" data-r="1">Rank one, read in full</h2>
+      <ul className="notes notes-l" data-r="2">
+        {NOTES.slice(0, 3).map((n) => <Note key={n.key} n={n} setFocus={setFocus} />)}
+      </ul>
+      <div className="panel-ui" data-ui data-r="3">
+        {s ? (<>
+          <div className="pl-head"><b>{s.name}</b><span className="num">DFO {nf(s.dfo_from, 2)}–{nf(s.dfo_to, 2)}</span></div>
+          <div className="pl-type">{s.site_type ?? s.fc_group} · {nf(s.lanes)} lanes</div>
+          {row('aadt', 'AADT', nf(s.aadt))}
+          {row('speed', 'Posted / operating', `${nf(s.speed_limit)} / ${nf(s.speed_all, 1)} mph`)}
+          {row('obs', 'Observed', `${nf(s.crashes_per_yr, 2)} /yr`)}
+          {row('spf', 'SPF predicted', `${nf(s.spf_pred, 2)} /yr`)}
+          {row('eb', 'EB expected', `${nf(s.eb_expected, 2)} /yr`)}
+          {row('crit', 'Critical ratio', nf(s.crit_ratio, 2))}
+          <div className="pl-total"><span>Excess</span><b className="num">{nf(s.eb_excess, 2)} /yr</b></div>
+          <Link to={`/screening?seg=${encodeURIComponent(s.seg_id)}`} className="btn">Open in the screening</Link>
+        </>) : <div className="skeleton" style={{ height: 420 }} />}
+      </div>
+      <ul className="notes notes-r" data-r="4">
+        {NOTES.slice(3).map((n) => <Note key={n.key} n={n} setFocus={setFocus} />)}
+      </ul>
+    </section>
   );
 }
 
-function PathStep({ to, title, body }: { to: string; title: string; body: string }) {
+function Note({ n, setFocus }: { n: (typeof NOTES)[number]; setFocus: (k: string | null) => void }) {
   return (
-    <li>
-      <Link to={to} className="path-step">
-        <h3>{title}</h3>
-        <p className="muted">{body}</p>
-        <span className="path-go"><Icon name="arrow" size={16} /></span>
-      </Link>
+    <li tabIndex={0} onMouseEnter={() => setFocus(n.key)} onMouseLeave={() => setFocus(null)} onFocus={() => setFocus(n.key)} onBlur={() => setFocus(null)}>
+      <b>{n.name}</b><span>{n.text}</span>
     </li>
+  );
+}
+
+function Places() {
+  const ref = useReveal<HTMLElement>();
+  return (
+    <section ref={ref} className="places" aria-labelledby="places-h">
+      <h2 id="places-h" data-r="1">Where the data comes from</h2>
+      <div className="places-grid">
+        {PLACES.map((p, i) => (
+          <figure key={p.src} data-r={String(Math.min(5, i + 2))}>
+            <img src={p.src} width={p.w} height={p.h} alt={p.cap} loading="lazy" />
+            <figcaption>{p.cap}</figcaption>
+          </figure>
+        ))}
+      </div>
+      <p className="sources" data-r="5">TxDOT Roadway Inventory · TxDOT AADT · TxDOT Statewide Speed · CRIS · NHTSA FARS · FHWA NGSIM</p>
+    </section>
+  );
+}
+
+function Close() {
+  const ref = useReveal<HTMLElement>();
+  const list = useApi<CorridorCard[]>('/corridors');
+  const [id, setId] = useState('us-84');
+  const nav = useNavigate();
+  return (
+    <section ref={ref} className="close" aria-label="Open a corridor">
+      <form className="close-line" data-r="1" onSubmit={(e) => { e.preventDefault(); nav(`/corridors/${id}`); }}>
+        <span>Diagnose</span>
+        <select value={id} onChange={(e) => setId(e.target.value)} aria-label="Corridor">
+          {(list.data ?? [{ id: 'us-84', name: 'US 84' }]).map((c) => <option key={c.id} value={c.id}>{c.name.split(' (')[0]}</option>)}
+        </select>
+        <button type="submit">now</button>
+      </form>
+      <p className="credits" data-r="2">Photographs, Wikimedia Commons: Marsha Sharp Freeway light trails (Ihavenoidea49, CC0); {PLACES.map((p) => `${p.cap} (${p.credit})`).join('; ')}.</p>
+    </section>
   );
 }

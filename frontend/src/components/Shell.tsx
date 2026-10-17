@@ -40,7 +40,6 @@ export default function Shell() {
         <NavLink to="/" className="brand rail-brand" aria-label="RoadScope home">
           <Mark /> <span>RoadScope</span>
         </NavLink>
-        <p className="rail-sub">Proactive safety · Lubbock County, TX</p>
         <ul>
           {NAV.map((n) => (
             <li key={n.to}>
@@ -48,7 +47,6 @@ export default function Shell() {
                 <Icon name={n.icon} />
                 <span className="rail-text">
                   <span>{n.label}</span>
-                  <small>{n.hint}</small>
                 </span>
               </NavLink>
             </li>
@@ -86,7 +84,7 @@ function Mark() {
     <svg className="mark" viewBox="0 0 32 32" aria-hidden="true">
       <rect width="32" height="32" rx="6" fill="currentColor" />
       <path d="M6 26 L14 6 M12 26 L20 6 M18 26 L26 6" stroke="var(--paper)" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="17.2" cy="13" r="2.6" fill="var(--caution)" />
+      <circle cx="17.2" cy="13" r="2.6" fill="var(--accent)" />
     </svg>
   );
 }

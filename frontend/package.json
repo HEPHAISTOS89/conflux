@@ -9,9 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@fontsource/overpass": "^5.1.0",
-    "@fontsource/overpass-mono": "^5.1.0",
-    "@fontsource/public-sans": "^5.1.0",
     "d3-array": "^3.2.4",
     "d3-scale": "^4.0.2",
     "d3-shape": "^3.2.0",

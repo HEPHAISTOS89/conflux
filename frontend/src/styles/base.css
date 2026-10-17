@@ -1,44 +1,55 @@
-@import '@fontsource/overpass/400.css';
-@import '@fontsource/overpass/600.css';
-@import '@fontsource/overpass/800.css';
-@import '@fontsource/public-sans/400.css';
-@import '@fontsource/public-sans/500.css';
-@import '@fontsource/public-sans/600.css';
-@import '@fontsource/overpass-mono/400.css';
-@import '@fontsource/overpass-mono/600.css';
+@font-face {
+  font-family: 'Switzer';
+  src: url('/fonts/switzer-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --paper: #f3f4f1;
-  --paper-2: #e8eae5;
-  --sheet: #fbfbf9;
-  --ink: #14171a;
-  --ink-2: #3a4148;
-  --ink-3: #5a636b;
-  --rule: #c5cac2;
-  --grid: #dde0d9;
-  --go: #1f7a4d;
-  --caution: #c98a00;
-  --caution-ink: #8a5d00;
-  --stop: #b3261e;
-  --sev-k: #6e120d;
-  --sev-a: #b3261e;
-  --sev-b: #d4612a;
-  --sev-c: #d9a038;
-  --sev-o: #98a1a7;
-  --night: #0b0e11;
-  --night-2: #151a1f;
-  --night-ink: #d7dde2;
-  --night-dim: #7d8a95;
+  /* Charcoal & sage: one ground, one ink, one action accent; amber and the KABCO ramp carry data meaning only */
+  --paper: #161716;
+  --paper-2: #232422;
+  --sheet: #1d1e1d;
+  --raise: #2a2b29;
+  --ink: #f1f1ef;
+  --ink-2: #c8c9c4;
+  --ink-3: #9a9b96;
+  --rule: #353634;
+  --grid: #262725;
+  --accent: #8fa68e;
+  --accent-ink: #161716;
+  --field: #c8c5ba;
+  --field-ink: #161716;
+  --go: #7fb38a;
+  --caution: #e0a83a;
+  --caution-ink: #e0a83a;
+  --stop: #ef6a5a;
+  --sev-k: #ff5a4f;
+  --sev-a: #f08159;
+  --sev-b: #e9a35f;
+  --sev-c: #d9c66f;
+  --sev-o: #7c817c;
+  --night: #0d0e0d;
+  --night-2: #161716;
+  --night-ink: #e6e7e3;
+  --night-dim: #8b8d88;
 
-  --f-head: 'Overpass', 'Public Sans', system-ui, sans-serif;
-  --f-ui: 'Public Sans', system-ui, sans-serif;
-  --f-num: 'Overpass Mono', ui-monospace, monospace;
+  --f-head: 'Switzer', system-ui, sans-serif;
+  --f-ui: 'Switzer', system-ui, sans-serif;
+  --f-num: 'Switzer', system-ui, sans-serif;
+
+  --step-small: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
+  --step-body: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+  --step-lead: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+  --step-head: clamp(2rem, 1.3rem + 3.2vw, 4rem);
+  --step-display: clamp(3.25rem, 1rem + 7.2vw, 8.5rem);
 
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
   --r: 4px;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --rail: 232px;
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -47,22 +58,23 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font: 400 15px/1.5 var(--f-ui);
-  font-feature-settings: 'tnum' 1;
+  font: 400 var(--step-body)/1.5 var(--f-ui);
+  letter-spacing: -0.01em;
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
   -webkit-font-smoothing: antialiased;
 }
-h1, h2, h3, h4 { font-family: var(--f-head); font-weight: 800; letter-spacing: -0.015em; line-height: 1.1; margin: 0; text-wrap: balance; }
-h1 { font-size: clamp(30px, 3.4vw, 48px); }
-h2 { font-size: clamp(22px, 2vw, 28px); }
-h3 { font-size: 17px; font-weight: 600; letter-spacing: 0; }
+h1, h2, h3, h4 { font-family: var(--f-head); font-weight: 500; letter-spacing: -0.03em; line-height: 1.05; margin: 0; text-wrap: balance; }
+h1 { font-size: var(--step-head); }
+h2 { font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem); }
+h3 { font-size: 1.125rem; font-weight: 500; letter-spacing: -0.01em; }
 p { margin: 0; max-width: 68ch; text-wrap: pretty; }
 a { color: inherit; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
-::selection { background: var(--caution); color: var(--ink); }
-:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 2px; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
 * { scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
-.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.num { font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .muted { color: var(--ink-3); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

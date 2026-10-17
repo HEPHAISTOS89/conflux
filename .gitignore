@@ -16,3 +16,4 @@ data/raw/
 **/.venv/
 build/
 docs/APPLICATION_EMAIL.md
+.taste-skill/

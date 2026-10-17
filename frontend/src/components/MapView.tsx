@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { LayerSpecification, Map as MLMap, StyleSpecification, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import '../styles/mapview.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
 maplibregl.setWorkerUrl(workerUrl);
@@ -18,12 +19,16 @@ function baseStyle(): Promise<StyleSpecification> {
       const layers = s.layers.filter((l) => KEEP.test(l.id)).map((l) => {
         const L = structuredClone(l) as any;
         L.paint ??= {};
-        if (l.id === 'background') L.paint['background-color'] = '#eef0ec';
-        if (l.id === 'water') L.paint['fill-color'] = '#d9e1e4';
-        if (l.id === 'park') L.paint['fill-color'] = '#e3e8df';
-        if (l.id === 'building') L.paint['fill-color'] = '#e4e6e1';
-        if (l.type === 'line' && l.id.startsWith('highway')) L.paint['line-color'] = l.id.includes('casing') ? '#d3d7d0' : '#fbfbf9';
-        if (l.type === 'symbol') { L.paint['text-color'] = '#5a636b'; L.paint['text-halo-color'] = '#eef0ec'; }
+        // Charcoal restyle of the OpenFreeMap positron layers
+        if (l.id === 'background') L.paint['background-color'] = '#121312';
+        if (l.id === 'water') L.paint['fill-color'] = '#1b2226';
+        if (l.id === 'park') L.paint['fill-color'] = '#161a16';
+        if (l.id === 'landuse_residential') L.paint['fill-color'] = '#151615';
+        if (l.id === 'building') { L.paint['fill-color'] = '#1a1b1a'; L.paint['fill-outline-color'] = '#1a1b1a'; }
+        if (l.type === 'line' && (l.id.startsWith('highway') || l.id.startsWith('road_') || l.id.startsWith('tunnel_'))) L.paint['line-color'] = l.id.includes('casing') ? '#2c2d2b' : /motorway|major|trunk|primary/.test(l.id) ? '#3a3b39' : '#2c2d2b';
+        if (l.type === 'line' && l.id.startsWith('railway')) L.paint['line-color'] = '#2c2d2b';
+        if (l.type === 'line' && l.id.startsWith('boundary_')) L.paint['line-color'] = '#3a3b39';
+        if (l.type === 'symbol') { L.paint['text-color'] = '#8b8d88'; L.paint['text-halo-color'] = '#121312'; }
         return L as LayerSpecification;
       });
       return { ...s, layers };

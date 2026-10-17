@@ -81,10 +81,7 @@ export default function Platform() {
       <header className="page-head">
         <h1>The AWS system behind the data</h1>
         <p>
-          Public sources are pulled on a schedule by a Lambda function, curated into S3, and served through API Gateway
-          by a FastAPI Lambda. The trajectory build is too heavy for Lambda and runs on an EC2 worker that starts on a
-          schedule, runs one job through Systems Manager and stops itself. Every role is scoped to the prefixes and
-          actions its job needs.
+          Scheduled Lambda ingest into S3, an EC2 trajectory worker, and a FastAPI Lambda behind API Gateway, each on a scoped IAM role.
         </p>
       </header>
 
@@ -98,7 +95,7 @@ export default function Platform() {
       {d?.errors.length ? <div className="error-box">{d.errors.join('; ')}</div> : null}
 
       <section className="section" aria-labelledby="pf-arch">
-        <div className="section-head"><h2 id="pf-arch">Architecture</h2><p>Solid lines carry data; dashed lines carry metrics and logs</p></div>
+        <div className="section-head"><h2 id="pf-arch">Architecture</h2><p>Solid: data · dashed: metrics and logs</p></div>
         <div className="panel pf-fig" ref={figRef}>
           <svg viewBox="0 0 1000 490" role="img" aria-labelledby="pf-svg-t pf-svg-d" className={flow ? 'pf-flow' : ''}>
             <title id="pf-svg-t">RoadScope AWS architecture</title>
@@ -128,7 +125,6 @@ export default function Platform() {
                   <rect width={W} height={H} rx={3} />
                   <text x={12} y={26} className="pf-t">{n.t}</text>
                   <text x={12} y={46} className="pf-s">{n.s}</text>
-                  <line x1={12} x2={W - 12} y1={62} y2={62} className="pf-rule" />
                   <circle cx={17} cy={80} r={4} className={s ? 'pf-ok' : 'pf-na'} />
                   <text x={28} y={84} className={`pf-st ${s ? 'num' : ''}`}>{s ?? (st.loading ? 'Checking…' : local ? 'No local signal' : 'No data')}</text>
                 </g>
@@ -140,8 +136,8 @@ export default function Platform() {
 
       <div className="pf-cols">
         <section className="section" aria-labelledby="pf-runs">
-          <div className="section-head"><h2 id="pf-runs">Pipeline runs</h2><p>Newest first, from curated/runs/</p></div>
-          {d && d.runs.length === 0 && <p className="muted">No run records{local ? ' in the local data directory. Runs are written by the ingest Lambda and the EC2 job when deployed.' : '.'}</p>}
+          <div className="section-head"><h2 id="pf-runs">Pipeline runs</h2></div>
+          {d && d.runs.length === 0 && <p className="muted">No run records{local ? ' in local mode.' : '.'}</p>}
           {st.loading && <div className="skeleton pf-skel" />}
           {d && d.runs.length > 0 && (
             <div className="pf-scroll">
@@ -164,7 +160,7 @@ export default function Platform() {
         </section>
 
         <section className="section" aria-labelledby="pf-fresh">
-          <div className="section-head"><h2 id="pf-fresh">Data freshness</h2><p>Fetch time per source, from the manifest</p></div>
+          <div className="section-head"><h2 id="pf-fresh">Data freshness</h2></div>
           {sources.length > 0 && (
             <div className="pf-scroll">
               <table className="data">
@@ -188,12 +184,12 @@ export default function Platform() {
       <section className="section" aria-labelledby="pf-cost">
         <div className="section-head"><h2 id="pf-cost">Cost guardrails</h2></div>
         <dl className="pf-guard">
-          <div><dt>Error alarms</dt><dd>CloudWatch alarms on API errors, ingest errors and ingest dead-letter queue depth.</dd></div>
-          <div><dt>Throttling and caching</dt><dd>The HTTP API stage throttles at 20 requests/s (burst 40). GET responses carry ETags and a 300 s Cache-Control, so browsers and the Vercel edge revalidate instead of re-downloading. A CloudFront distribution with origin access control is defined in the stack (<code>-c edge=cloudfront</code>) and will replace the HTTP API once AWS completes account verification.</dd></div>
-          <div><dt>Ask limits</dt><dd>Per-client rate limit (10 per minute) and a daily question budget; beyond either the endpoint returns 429.</dd></div>
-          <div><dt>Batch compute</dt><dd>The EC2 worker runs for the duration of one job and shuts itself down, so idle hours cost nothing.</dd></div>
-          <div><dt>Budget</dt><dd>An account-level AWS Budget (<code>roadscope-transtech-cap</code>, US$40 per month) tracks spend; it sits outside the stack so tearing the stack down never removes the guardrail.</dd></div>
-          <div><dt>Concurrency</dt><dd>The account&rsquo;s Lambda concurrency limit is 10, which already caps simultaneous executions; reserving concurrency becomes meaningful once AWS raises the quota.</dd></div>
+          <div><dt>Error alarms</dt><dd>CloudWatch alarms on API errors, ingest errors and dead-letter queue depth.</dd></div>
+          <div><dt>Throttling and caching</dt><dd>HTTP API throttled at 20 requests/s (burst 40); GET responses carry ETags and a 300 s Cache-Control. A CloudFront edge (<code>-c edge=cloudfront</code>) replaces it once AWS verifies the account.</dd></div>
+          <div><dt>Ask limits</dt><dd>10 per minute per client plus a daily budget; beyond either, 429.</dd></div>
+          <div><dt>Batch compute</dt><dd>The EC2 worker runs one job, then stops itself.</dd></div>
+          <div><dt>Budget</dt><dd>Account-level AWS Budget (<code>roadscope-transtech-cap</code>, US$40 per month), kept outside the stack.</dd></div>
+          <div><dt>Concurrency</dt><dd>Account Lambda concurrency limit of 10 caps simultaneous executions.</dd></div>
         </dl>
       </section>
     </div>

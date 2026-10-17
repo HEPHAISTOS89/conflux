@@ -1,15 +1,17 @@
 .vru-filters { display: flex; flex-wrap: wrap; gap: var(--s3) var(--s5); }
 .vru-filter { display: grid; gap: 4px; }
-.vru-flabel { font-size: 12px; font-weight: 600; color: var(--ink-3); }
+.vru-flabel { font-size: 13px; font-weight: 500; color: var(--ink-3); }
 .vru-filter .seg { flex-wrap: wrap; }
 .vru-filter .seg button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
-.vru-sw { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px var(--sheet); }
+.vru-sw { width: 9px; height: 9px; border-radius: 50%; }
 
 .vru-map { position: relative; min-height: 520px; overflow: hidden; }
 .vru-map .mapview { position: absolute; inset: 0; }
 .vru-legend, .vru-readout {
-  position: absolute; z-index: 2; background: rgba(251, 251, 249, 0.96); border: 1px solid var(--rule);
-  border-radius: var(--r); padding: 8px 12px; font-size: 12.5px;
+  /* floats over the map, so it may lift off it */
+  position: absolute; z-index: 2; background: var(--raise);
+  border-radius: 6px; padding: 10px 12px; font-size: 13px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4); /* taste-skill-ignore */
 }
 .vru-legend { left: 12px; bottom: 12px; display: grid; gap: 3px; }
 .vru-legend span { display: flex; align-items: center; gap: 8px; }
@@ -20,22 +22,22 @@
 .vru-heat { margin: 0; display: grid; gap: var(--s2); align-content: start; }
 .vru-heat-scroll { overflow-x: auto; }
 .vru-heat svg { width: 100%; min-width: 480px; height: auto; display: block; }
-.vru-ax { font: 500 10.5px var(--f-ui); fill: var(--ink-3); }
+.vru-ax { font: 500 12px var(--f-ui); fill: var(--ink-3); }
 .vru-ax.num { font-family: var(--f-num); }
-.vru-heat-legend { display: flex; align-items: center; gap: 8px; font-size: 12px; flex-wrap: wrap; }
-.vru-steps { display: inline-flex; border: 1px solid var(--rule); }
+.vru-heat-legend { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
+.vru-steps { display: inline-flex; border-radius: 3px; overflow: hidden; }
 .vru-steps i { width: 20px; height: 10px; }
-.vru-note { font-size: 12.5px; }
+.vru-note { font-size: 13px; }
 
 .vru-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .vru-bars li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(60px, 1fr) 3ch; gap: var(--s3); align-items: center; font-size: 13.5px; }
 .vru-bar-l { overflow-wrap: anywhere; }
-.vru-bar-t { height: 10px; background: var(--paper-2); }
+.vru-bar-t { height: 10px; background: var(--raise); border-radius: 2px; overflow: hidden; }
 .vru-bar { display: block; height: 100%; background: var(--sev-a); }
 .vru-bar-v { text-align: right; }
 
 .vru-table-wrap { overflow-x: auto; max-width: 720px; }
-.vru-source { font-size: 12.5px; max-width: 920px; }
+.vru-source { font-size: 13px; max-width: 920px; }
 
 @media (max-width: 960px) {
   .vru-cols { grid-template-columns: 1fr; }
@@ -43,5 +45,5 @@
 }
 @media (max-width: 480px) {
   .vru-readout { right: 12px; max-width: none; }
-  .vru-legend { font-size: 11.5px; }
+  .vru-legend { font-size: 13px; }
 }

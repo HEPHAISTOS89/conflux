@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import MapView, { type MapLayer } from '../components/MapView';
 import { useApi } from '../lib/api';
-import { nf } from '../lib/format';
+import { CHART, nf } from '../lib/format';
 import '../styles/corridor.css';
 
 interface St { dfo: number; route: string; lon: number; lat: number; lanes: number | null; speed_limit: number | null; aadt: number | null; truck_pct: number | null; speed_all: number | null; speed_am: number | null; speed_md: number | null; speed_pm: number | null; crashes_per_mi: number | null; seg_id?: string }
@@ -27,9 +27,9 @@ export default function CorridorPage() {
     const dots = { type: 'FeatureCollection' as const, features: st.map((s, i) => ({ type: 'Feature', properties: { i, c: s.crashes_per_mi ?? 0 }, geometry: { type: 'Point', coordinates: [s.lon, s.lat] } })) };
     const marker = { type: 'FeatureCollection' as const, features: at ? [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [at.lon, at.lat] } }] : [] };
     return [
-      { id: 'cor', data: line as any, layers: [{ id: 'cor-line', type: 'line', paint: { 'line-color': '#14171a', 'line-width': 2.5 } } as any] },
-      { id: 'cor-dots', data: dots as any, layers: [{ id: 'cor-dot', type: 'circle', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'c'], 0, 1.5, 8, 7], 'circle-color': '#b3261e', 'circle-opacity': ['case', ['>', ['get', 'c'], 0], 0.75, 0] } } as any] },
-      { id: 'cor-mk', data: marker as any, layers: [{ id: 'cor-mk-c', type: 'circle', paint: { 'circle-radius': 7, 'circle-color': '#c98a00', 'circle-stroke-color': '#14171a', 'circle-stroke-width': 2 } } as any] },
+      { id: 'cor', data: line as any, layers: [{ id: 'cor-line', type: 'line', paint: { 'line-color': CHART.ink, 'line-width': 2.5 } } as any] },
+      { id: 'cor-dots', data: dots as any, layers: [{ id: 'cor-dot', type: 'circle', paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'c'], 0, 1.5, 8, 7], 'circle-color': CHART.critical, 'circle-opacity': ['case', ['>', ['get', 'c'], 0], 0.75, 0] } } as any] },
+      { id: 'cor-mk', data: marker as any, layers: [{ id: 'cor-mk-c', type: 'circle', paint: { 'circle-radius': 7, 'circle-color': CHART.accent, 'circle-stroke-color': CHART.ground, 'circle-stroke-width': 2 } } as any] },
     ];
   }, [st, at]);
 
@@ -49,14 +49,14 @@ export default function CorridorPage() {
     { key: 'speed', title: 'Speed', unit: 'mph · posted vs 2024 operating', h: 92, render: (h) => (
       <>
         {step(st, 'speed_limit', X, h, 80, 'var(--ink)', true)}
-        {line(st, 'speed_am', X, h, 80, '#46617a')}
-        {line(st, 'speed_md', X, h, 80, '#5b6b4d')}
-        {line(st, 'speed_pm', X, h, 80, '#c98a00')}
+        {line(st, 'speed_am', X, h, 80, CHART.sb)}
+        {line(st, 'speed_md', X, h, 80, CHART.midday)}
+        {line(st, 'speed_pm', X, h, 80, CHART.pm)}
       </>
     ) },
-    { key: 'aadt', title: 'AADT', unit: `veh/day · max ${nf(max('aadt'))}`, h: 72, render: (h) => area(st, 'aadt', X, h, max('aadt'), '#c5cac2') },
-    { key: 'truck', title: 'Trucks', unit: '% of AADT', h: 46, render: (h) => area(st, 'truck_pct', X, h, Math.max(20, max('truck_pct')), '#d9c79a') },
-    { key: 'crash', title: 'Ped/bike crash density', unit: 'ped/bike crashes / mi / yr (2021–23)', h: 72, render: (h) => bars(st, 'crashes_per_mi', X, h, Math.max(1, max('crashes_per_mi')), '#b3261e') },
+    { key: 'aadt', title: 'AADT', unit: `veh/day · max ${nf(max('aadt'))}`, h: 72, render: (h) => area(st, 'aadt', X, h, max('aadt'), CHART.areaFill) },
+    { key: 'truck', title: 'Trucks', unit: '% of AADT', h: 46, render: (h) => area(st, 'truck_pct', X, h, Math.max(20, max('truck_pct')), CHART.truckFill) },
+    { key: 'crash', title: 'Ped/bike crash density', unit: 'ped/bike crashes / mi / yr (2021–23)', h: 72, render: (h) => bars(st, 'crashes_per_mi', X, h, Math.max(1, max('crashes_per_mi')), CHART.critical) },
   ];
   let y = 26;
   const layout = strips.map((s) => { const o = { ...s, y }; y += s.h + 22; return o; });
@@ -71,8 +71,7 @@ export default function CorridorPage() {
       <header className="page-head">
         <h1>{cor.data?.name ?? 'Corridor'}</h1>
         <p>
-          Straight-line diagram along the TxDOT distance-from-origin (DFO) reference, stationed every quarter mile: geometry, posted and 2024 operating speeds by period,
-          volume, heavy-vehicle share and on-system pedestrian/cyclist crash density (TxDOT CRIS, 2021–2023) on one axis, so a ped/bike crash cluster can be read against what the road is doing at that point.
+          Geometry, speeds, volume, trucks and ped/bike crash density (CRIS 2021–2023) on one TxDOT DFO axis, stationed every quarter mile.
         </p>
       </header>
 
@@ -111,10 +110,10 @@ export default function CorridorPage() {
           ) : <div className="skeleton" style={{ height: 420 }} />}
           <figcaption className="sld-legend">
             <span><i className="k solid" /> posted limit</span>
-            <span><i className="k" style={{ background: '#46617a' }} /> AM peak</span>
-            <span><i className="k" style={{ background: '#5b6b4d' }} /> midday</span>
-            <span><i className="k" style={{ background: '#c98a00' }} /> PM peak</span>
-            <span className="muted">Top axis: DFO (mi). Operating speeds: TxDOT Statewide Speed 2024, average weekday.</span>
+            <span><i className="k" style={{ background: CHART.sb }} /> AM peak</span>
+            <span><i className="k" style={{ background: CHART.midday }} /> midday</span>
+            <span><i className="k" style={{ background: CHART.pm }} /> PM peak</span>
+            <span className="muted">Top axis: DFO (mi). Speeds: TxDOT Statewide Speed 2024.</span>
           </figcaption>
         </figure>
 
@@ -144,7 +143,6 @@ export default function CorridorPage() {
                 <dt>Mean truck share</dt><dd>{nf(cor.data.summary.truck_pct_mean, 1)}%</dd>
               </dl>
             ) : null}
-            {!at && <p className="muted hint">Move across the diagram to read any station.</p>}
           </div>
         </aside>
       </section>

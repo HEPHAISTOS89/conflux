@@ -2,14 +2,14 @@
 .cor-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--s4); margin-top: calc(-1 * var(--s4)); }
 .sld { margin: 0; padding: var(--s4); display: grid; gap: var(--s3); }
 .sld svg { width: 100%; height: auto; cursor: crosshair; touch-action: pan-y; }
-.sld-grid { stroke: var(--grid); }
-.sld-tick { font: 10.5px var(--f-num); fill: var(--ink-3); }
-.sld-route { font: 600 10.5px var(--f-num); fill: var(--ink-2); }
-.sld-title { font: 600 12.5px var(--f-ui); fill: var(--ink); }
-.sld-unit { font: 10.5px var(--f-ui); fill: var(--ink-3); }
-.sld-base { stroke: var(--ink); stroke-width: 1; }
-.sld-cursor { stroke: var(--caution); stroke-width: 1.5; }
-.sld-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; }
+.sld-grid { stroke: #2a2b29; }
+.sld-tick { font: 12px var(--f-num); fill: var(--ink-3); }
+.sld-route { font: 500 12px var(--f-num); fill: var(--ink-2); }
+.sld-title { font: 500 13px var(--f-ui); fill: var(--ink); }
+.sld-unit { font: 12px var(--f-ui); fill: var(--ink-3); }
+.sld-base { stroke: var(--rule); stroke-width: 1; }
+.sld-cursor { stroke: var(--accent); stroke-width: 1.5; }
+.sld-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; }
 .sld-legend .k { display: inline-block; width: 16px; height: 2px; vertical-align: middle; margin-right: 6px; }
 .sld-legend .k.solid { border-top: 2px dashed var(--ink); height: 0; }
 .cor-side { display: grid; gap: var(--s4); align-content: start; }
@@ -19,6 +19,6 @@
 .cor-read dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
 .cor-read dt { color: var(--ink-3); font-family: var(--f-ui); }
 .cor-read dd { margin: 0; text-align: right; }
-.hint { font-size: 12.5px; }
+.hint { font-size: 13px; }
 @media (max-width: 1100px) { .cor-grid { grid-template-columns: 1fr; } .cor-side { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { .cor-side { grid-template-columns: 1fr; } }

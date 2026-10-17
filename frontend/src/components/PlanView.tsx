@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { DIR_COLOR, fitCanvas, poseAt, useClockFrame, type ConflictT, type IntersectionT, type TrackT } from '../lib/traj';
+import { CHART, conflictColor } from '../lib/format';
+import { fitCanvas, poseAt, useClockFrame, type ConflictT, type IntersectionT, type TrackT } from '../lib/traj';
 
 interface Props {
   data: IntersectionT;
@@ -27,11 +28,12 @@ export default function PlanView({ data, conflicts, selected, onSelect, occlusio
     const ox = vertical ? (W - (x1 - x0) * s) / 2 - x0 * s : (W - (y1 - y0) * s) / 2 - y0 * s;
     const oy = vertical ? (H - (y1 - y0) * s) / 2 + y1 * s : (H - (x1 - x0) * s) / 2 + x1 * s;
     view.current = { s, ox, oy, vertical };
+    const DIR: Record<string, string> = { NB: CHART.nb, SB: CHART.sb, EB: CHART.eb, WB: CHART.wb };
     const P = (x: number, y: number): [number, number] => (vertical ? [ox + x * s, oy - y * s] : [ox + y * s, oy - x * s]);
 
     ctx.clearRect(0, 0, W, H);
     // metre graticule every 10 m
-    ctx.strokeStyle = '#e1e4de'; ctx.lineWidth = 1;
+    ctx.strokeStyle = CHART.graticule; ctx.lineWidth = 1;
     ctx.beginPath();
     const seg = (a: [number, number], b: [number, number]) => { ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); };
     for (let g = Math.ceil(y0 / 10) * 10; g <= y1; g += 10) seg(P(x0 - 4, g), P(x1 + 4, g));
@@ -45,14 +47,14 @@ export default function PlanView({ data, conflicts, selected, onSelect, occlusio
       l.p10.forEach(([x, y], i) => { const [a, b] = P(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); });
       [...l.p90].reverse().forEach(([x, y]) => { const [a, b] = P(x, y); ctx.lineTo(a, b); });
       ctx.closePath();
-      ctx.fillStyle = 'rgba(20,23,26,0.045)'; ctx.fill();
-      ctx.setLineDash([6, 6]); ctx.strokeStyle = '#c5cac2';
+      ctx.fillStyle = 'rgba(230,231,227,0.04)'; ctx.fill();
+      ctx.setLineDash([6, 6]); ctx.strokeStyle = CHART.rule;
       ctx.beginPath();
       l.centre.forEach(([x, y], i) => { const [a, b] = P(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); });
       ctx.stroke(); ctx.setLineDash([]);
     }
     // stop-bar reference at intersection centre
-    ctx.strokeStyle = '#14171a'; ctx.lineWidth = 1.25;
+    ctx.strokeStyle = CHART.axis; ctx.lineWidth = 1.25;
     const [cx, cy] = P(0, 0);
     ctx.beginPath(); ctx.moveTo(cx - 6, cy); ctx.lineTo(cx + 6, cy); ctx.moveTo(cx, cy - 6); ctx.lineTo(cx, cy + 6); ctx.stroke();
 
@@ -70,22 +72,22 @@ export default function PlanView({ data, conflicts, selected, onSelect, occlusio
       ctx.beginPath();
       const i1 = Math.round((t - tr.pts[0][0]) * data.hz), i0 = Math.max(0, i1 - 30);
       for (let i = i0; i <= i1 && i < tr.pts.length; i++) { const [a, b] = P(tr.pts[i][1], tr.pts[i][2]); i === i0 ? ctx.moveTo(a, b) : ctx.lineTo(a, b); }
-      ctx.strokeStyle = sel ? '#c98a00' : 'rgba(58,65,72,0.28)'; ctx.lineWidth = sel ? 2 : 1; ctx.stroke();
+      ctx.strokeStyle = sel ? CHART.accent : 'rgba(200,201,196,0.22)'; ctx.lineWidth = sel ? 2 : 1; ctx.stroke();
       // footprint
       const [a, b] = P(p.x, p.y);
       ctx.save(); ctx.translate(a, b); ctx.rotate(vertical ? -p.h : Math.atan2(-Math.cos(p.h), Math.sin(p.h)));
       const L = tr.len_m * s, Wd = Math.max(tr.w_m * s, 3);
       ctx.globalAlpha = hidden ? 0.25 : 1;
-      ctx.fillStyle = hot.has(id) ? '#c98a00' : sel ? '#14171a' : DIR_COLOR[tr.dir ?? 'NB'] ?? '#3a4148';
+      ctx.fillStyle = hot.has(id) ? CHART.caution : sel ? CHART.accent : DIR[tr.dir ?? 'NB'] ?? CHART.ink2;
       ctx.fillRect(-L / 2, -Wd / 2, L, Wd);
-      if (hidden) { ctx.strokeStyle = '#14171a'; ctx.setLineDash([2, 2]); ctx.strokeRect(-L / 2, -Wd / 2, L, Wd); ctx.setLineDash([]); }
+      if (hidden) { ctx.strokeStyle = CHART.ink; ctx.setLineDash([2, 2]); ctx.strokeRect(-L / 2, -Wd / 2, L, Wd); ctx.setLineDash([]); }
       ctx.restore(); ctx.globalAlpha = 1;
       if (sel) {
-        ctx.font = '600 11px "Overpass Mono", monospace'; ctx.fillStyle = '#14171a';
+        ctx.font = '500 12px Switzer, system-ui, sans-serif'; ctx.fillStyle = CHART.ink;
         ctx.fillText(`#${id} · ${(p.v * 2.236936).toFixed(1)} mph`, a + 10, b - 10);
       }
     }
-    // conflict markers: amber ring at midpoint of the two road users
+    // conflict markers: severity-coloured ring at midpoint of the two road users
     for (const k of active) {
       const A = data.tracks.find((r) => String(r.id) === String(k.a));
       const B = data.tracks.find((r) => String(r.id) === String(k.b));
@@ -94,11 +96,11 @@ export default function PlanView({ data, conflicts, selected, onSelect, occlusio
       const [a, b] = P((pa.x + pb.x) / 2, (pa.y + pb.y) / 2);
       const age = Math.max(0, t - k.t);
       ctx.beginPath(); ctx.arc(a, b, 10 + age * 14, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(201,138,0,${Math.max(0, 0.9 - age)})`; ctx.lineWidth = 2; ctx.stroke();
+      ctx.globalAlpha = Math.max(0, 0.9 - age); ctx.strokeStyle = conflictColor(k.severity); ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1;
     }
     // scale bar
-    ctx.fillStyle = '#14171a'; ctx.fillRect(12, H - 18, 9.144 * s, 2);
-    ctx.font = '11px "Overpass Mono", monospace'; ctx.fillText('30 ft', 12, H - 24);
+    ctx.fillStyle = CHART.axis; ctx.fillRect(12, H - 18, 9.144 * s, 2);
+    ctx.font = '12px Switzer, system-ui, sans-serif'; ctx.fillText('30 ft', 12, H - 24);
   };
 
   useClockFrame(draw, [data, conflicts, selected, occlusion]);

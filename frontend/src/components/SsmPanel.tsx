@@ -1,4 +1,5 @@
 import { useApi } from '../lib/api';
+import { CHART } from '../lib/format';
 
 interface Rule { rule?: string; citation?: string; note?: string; threshold_mps2?: number }
 interface Ssm {
@@ -60,7 +61,7 @@ function Scatter({ pts, note }: { pts: Ssm['scatter']; note?: string }) {
   const yMax = 40; // ft/s²; larger values are NGSIM position errors and are clipped to the top edge
   const X = (t: number) => P.l + (t / 3) * (W - P.l - P.r);
   const Y = (d: number) => H - P.b - (Math.min(d, yMax) / yMax) * (H - P.t - P.b);
-  const col: Record<string, string> = { critical: '#b3261e', serious: '#d4612a', moderate: '#d9a038' };
+  const col: Record<string, string> = { critical: CHART.critical, serious: CHART.serious, moderate: CHART.moderate };
   return (
     <figure className="ssm-fig">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Minimum TTC against maximum DRAC for each rear-end and lane-change event">
@@ -74,14 +75,14 @@ function Scatter({ pts, note }: { pts: Ssm['scatter']; note?: string }) {
         <text x={W - P.r - 4} y={Y(11.2) - 4} className="lbl" textAnchor="end">AASHTO 11.2 ft/s²</text>
         <text x={W - P.r - 4} y={Y(26.2) - 4} className="lbl" textAnchor="end">≈ friction limit, 26 ft/s²</text>
         {pts.map(([ttc, drac, type, sev], i) => (
-          <circle key={i} cx={X(Math.min(3, ttc))} cy={Y(drac * FT)} r={3.6} fill={sev ? col[sev] : 'none'} stroke={sev ? '#fbfbf9' : '#5a636b'} strokeWidth={sev ? 0.8 : 1.2}>
+          <circle key={i} cx={X(Math.min(3, ttc))} cy={Y(drac * FT)} r={3.6} fill={sev ? col[sev] : 'none'} stroke={sev ? CHART.ground : CHART.axis} strokeWidth={sev ? 0.8 : 1.2}>
             <title>{`${type.replace('_', ' ')} · TTC ${ttc.toFixed(2)} s · DRAC ${(drac * FT).toFixed(1)} ft/s²`}</title>
           </circle>
         ))}
         <text x={(W + P.l) / 2} y={H - 6} className="axis" textAnchor="middle">minimum TTC (s)</text>
         <text transform={`translate(14 ${(H - P.b) / 2}) rotate(-90)`} className="axis" textAnchor="middle">maximum DRAC (ft/s²)</text>
       </svg>
-      <figcaption className="muted">Filled: detected events coloured by TTC severity; hollow: interactions between 1.5 and 3.0 s, below detection. {note}</figcaption>
+      <figcaption className="muted">Filled: detected, by TTC severity · hollow: TTC 1.5–3.0 s, below detection. {note}</figcaption>
     </figure>
   );
 }

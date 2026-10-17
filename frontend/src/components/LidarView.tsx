@@ -7,6 +7,8 @@ interface Props { data: IntersectionT; conflicts: ConflictT[]; selected: string 
 
 const SENSOR = new THREE.Vector3(-12, 12, 4.5); // pole-mounted roadside LiDAR at the SW corner, 4.5 m
 const RANGE = 80;
+/** Point colours, shared by the materials and the legend. */
+const PT = { car: '#8fb3c9', truck: '#d9c66f', sel: '#8fa68e', hot: '#ff5a4f' };
 
 /** Sample a vehicle's visible surface as a point cloud: only faces turned toward the sensor return. */
 function vehicleCloud(len: number, wid: number, hgt: number, n = 900): Float32Array {
@@ -35,8 +37,8 @@ export default function LidarView({ data, conflicts, selected, label }: Props) {
     renderer.setPixelRatio(Math.min(2, devicePixelRatio));
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#0b0e11');
-    scene.fog = new THREE.Fog('#0b0e11', 70, 150);
+    scene.background = new THREE.Color('#0d0e0d');
+    scene.fog = new THREE.Fog('#0d0e0d', 70, 150);
     const cam = new THREE.PerspectiveCamera(42, 1, 0.5, 400);
     cam.position.set(-38, 34, 44);
     const controls = new OrbitControls(cam, renderer.domElement);
@@ -58,7 +60,7 @@ export default function LidarView({ data, conflicts, selected, label }: Props) {
         const x = SENSOR.x + Math.cos(a) * r, y = SENSOR.y + Math.sin(a) * r;
         g.push(x, 0, -y);
         const inten = 0.24 + 0.34 * Math.exp(-r / 35);
-        gc.push(inten * 0.7, inten * 0.85, inten);
+        gc.push(inten * 0.86, inten * 0.9, inten * 0.86);
       }
     }
     const gg = new THREE.BufferGeometry();
@@ -67,25 +69,25 @@ export default function LidarView({ data, conflicts, selected, label }: Props) {
     scene.add(new THREE.Points(gg, new THREE.PointsMaterial({ size: 0.12, vertexColors: true, sizeAttenuation: true })));
 
     // Lane centrelines as faint painted lines
-    const laneMat = new THREE.LineDashedMaterial({ color: '#3d4a55', dashSize: 1.5, gapSize: 2 });
+    const laneMat = new THREE.LineDashedMaterial({ color: '#3a3b39', dashSize: 1.5, gapSize: 2 });
     for (const l of data.lanes_geom) {
       const geo = new THREE.BufferGeometry().setFromPoints(l.centre.map(([x, y]) => W(x, y, 0.02)));
       const line = new THREE.Line(geo, laneMat); line.computeLineDistances(); scene.add(line);
     }
 
     // Sensor pole and field-of-view ring
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, SENSOR.z, 8), new THREE.MeshBasicMaterial({ color: '#5d6b77' }));
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, SENSOR.z, 8), new THREE.MeshBasicMaterial({ color: '#6b6d68' }));
     pole.position.set(SENSOR.x, SENSOR.z / 2, -SENSOR.y); scene.add(pole);
-    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.4, 16), new THREE.MeshBasicMaterial({ color: '#d7dde2' }));
+    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.4, 16), new THREE.MeshBasicMaterial({ color: '#c8c9c4' }));
     head.position.set(SENSOR.x, SENSOR.z + 0.2, -SENSOR.y); scene.add(head);
-    const fov = new THREE.Mesh(new THREE.RingGeometry(RANGE - 0.3, RANGE, 128), new THREE.MeshBasicMaterial({ color: '#2a333b', side: THREE.DoubleSide }));
+    const fov = new THREE.Mesh(new THREE.RingGeometry(RANGE - 0.3, RANGE, 128), new THREE.MeshBasicMaterial({ color: '#2a2b29', side: THREE.DoubleSide }));
     fov.rotation.x = -Math.PI / 2; fov.position.set(SENSOR.x, 0.01, -SENSOR.y); scene.add(fov);
 
     // One point cloud per road user (template geometry, placed per frame)
     const sensorWorld = new THREE.Vector3(SENSOR.x, SENSOR.z, -SENSOR.y);
     const clouds = new Map<string, THREE.Points>();
     const baseMat = (c: string) => new THREE.PointsMaterial({ size: 0.2, color: c, sizeAttenuation: true, transparent: true, opacity: 0.95 });
-    const mats = { car: baseMat('#9fd4e8'), truck: baseMat('#e8d79f'), sel: baseMat('#ffb21a'), hot: baseMat('#ff5a4a') };
+    const mats = { car: baseMat(PT.car), truck: baseMat(PT.truck), sel: baseMat(PT.sel), hot: baseMat(PT.hot) };
     for (const tr of data.tracks) {
       const h = tr.cls === 'truck' ? 3.2 : tr.cls === 'motorcycle' ? 1.3 : 1.5;
       const geo = new THREE.BufferGeometry();
@@ -136,10 +138,11 @@ export default function LidarView({ data, conflicts, selected, label }: Props) {
   return (
     <div ref={host} className="lidar" role="img" aria-label={label}>
       <div className="lidar-legend">
-        <span><i style={{ background: '#9fd4e8' }} /> passenger car returns</span>
-        <span><i style={{ background: '#e8d79f' }} /> heavy vehicle</span>
-        <span><i style={{ background: '#ff5a4a' }} /> in conflict</span>
-        <span className="muted">Simulated roadside LiDAR view (4.5 m pole, 80 m range) rendered from NGSIM tracks. Drag to orbit.</span>
+        <span><i style={{ background: PT.car }} /> passenger car returns</span>
+        <span><i style={{ background: PT.truck }} /> heavy vehicle</span>
+        <span><i style={{ background: PT.hot }} /> in conflict</span>
+        <span><i style={{ background: PT.sel }} /> selected</span>
+        <span className="muted">Simulated from NGSIM tracks: 4.5 m pole, 80 m range</span>
       </div>
     </div>
   );

@@ -65,10 +65,7 @@ export default function Ask() {
       <header className="page-head">
         <h1>Ask the data</h1>
         <p>
-          Questions are answered by a model that can only read RoadScope's curated tables through named tools
-          (screening, SPF, VRU, conflicts, repair). Every answer lists the tools it called and the tables it cites, so
-          numbers can be checked against the source pages. If the model is unavailable, a deterministic rule-based
-          answerer responds instead and says so.
+          A model answers from RoadScope's curated tables through named tools, and lists every tool call and cited table.
         </p>
       </header>
 
@@ -95,7 +92,7 @@ export default function Ask() {
       </section>
 
       <section className="section" aria-labelledby="ask-hist" aria-live="polite" aria-busy={busy}>
-        <div className="section-head"><h2 id="ask-hist">Answers</h2>{turns.length > 0 && <p>This session only; not stored</p>}</div>
+        <div className="section-head"><h2 id="ask-hist">Answers</h2></div>
         {turns.length === 0 && <p className="muted">No questions yet.</p>}
         <ol className="ask-turns">
           {turns.map((t) => <TurnView key={t.id} t={t} />)}
@@ -117,8 +114,7 @@ function TurnView({ t }: { t: Turn }) {
         <>
           {r.fallback && (
             <p className="ask-fallback" role="note">
-              <strong>Deterministic fallback.</strong> The language model was not used; this answer comes from a fixed
-              rule-based matcher over the same tools and may address the question only partly.
+              <strong>Deterministic fallback.</strong> Rule-based answer over the same tools; the model was not used.
             </p>
           )}
           <div className="ask-answer">{r.answer.split(/\n{2,}/).map((p, i) => <p key={i}>{p}</p>)}</div>

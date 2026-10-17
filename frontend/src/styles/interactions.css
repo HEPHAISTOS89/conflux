@@ -1,0 +1,57 @@
+/* Interaction layer: pointer, press, focus and reveal behaviour shared by every sheet. */
+
+:root { --press: cubic-bezier(0.3, 0.7, 0.4, 1); --spring: cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Press feedback: every real control acknowledges the click before the result arrives. */
+button, .btn, [role='button'], select, .seg button {
+  transition: transform 110ms var(--press), background-color 160ms var(--spring), color 160ms var(--spring), opacity 160ms;
+  -webkit-tap-highlight-color: transparent;
+}
+button:active:not(:disabled), .btn:active, [role='button']:active { transform: scale(0.97); }
+
+/* Links: the underline arrives with the pointer instead of sitting there at rest. */
+a:not(.btn):not(.rail-link):not(.brand):not(.path-step) {
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 30%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  transition: text-decoration-color 180ms var(--spring), text-underline-offset 180ms var(--spring), color 160ms;
+}
+a:not(.btn):not(.rail-link):not(.brand):not(.path-step):hover { text-decoration-color: currentColor; text-underline-offset: 0.16em; }
+
+/* Arrow nudge on actions that move somewhere. */
+.btn .icon:last-child { transition: transform 220ms var(--spring); }
+.btn:hover .icon:last-child { transform: translateX(3px); }
+
+/* Measurement surfaces get a precise crosshair; the reticle overlay adds the readout. */
+.measure, .ts-over, .sld svg, .plan-canvas, .mapview canvas { cursor: crosshair; }
+.reticle { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 140ms; z-index: 3; }
+.reticle[data-on] { opacity: 1; }
+.reticle i { position: absolute; background: color-mix(in srgb, var(--accent) 70%, transparent); }
+.reticle .rx { left: 0; right: 0; height: 1px; }
+.reticle .ry { top: 0; bottom: 0; width: 1px; }
+.reticle .rl {
+  position: absolute; padding: 3px 7px; border-radius: 4px; background: var(--accent); color: var(--accent-ink);
+  font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; transform: translate(10px, -130%);
+}
+
+/* Reveal: children marked data-r rise in sequence once their section is armed and enters the viewport. */
+[data-armed] [data-r] { opacity: 0; transform: translateY(22px); transition: opacity 700ms var(--spring), transform 800ms var(--spring); }
+[data-armed][data-in] [data-r] { opacity: 1; transform: none; }
+[data-armed][data-in] [data-r='2'] { transition-delay: 80ms; }
+[data-armed][data-in] [data-r='3'] { transition-delay: 160ms; }
+[data-armed][data-in] [data-r='4'] { transition-delay: 240ms; }
+[data-armed][data-in] [data-r='5'] { transition-delay: 320ms; }
+
+/* Masked headline: each authored line rises from behind its own baseline. */
+.mask-line { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.mask-line > span { display: block; animation: mask-rise 950ms var(--spring) both; }
+.mask-line:nth-child(2) > span { animation-delay: 110ms; }
+.after-mask { animation: fade-up 700ms var(--spring) 420ms both; }
+@keyframes mask-rise { from { transform: translateY(105%); } to { transform: none; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mask-line > span, .after-mask { animation: none; }
+  [data-armed] [data-r] { opacity: 1; transform: none; }
+}

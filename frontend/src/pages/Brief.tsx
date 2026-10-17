@@ -38,7 +38,7 @@ export default function Brief() {
         <header className="sheet-head">
           <div>
             <h1 id="brief-h">Lubbock County state system: sites for detailed pedestrian and cyclist safety diagnosis</h1>
-            <p className="muted">Vulnerable-road-user network screening summary in the format of a district safety brief: on-system pedestrian, cyclist and e-scooter crashes (TxDOT CRIS, 2021–2023, all KABCO) on one-mile segments. Data build {date ?? '…'}.</p>
+            <p className="muted">On-system ped/bike crashes, TxDOT CRIS 2021–2023, one-mile segments. Data build {date ?? '…'}.</p>
           </div>
           <dl className="sheet-tb num">
             <div><dt>District</dt><dd>Lubbock (05)</dd></div>
@@ -50,7 +50,7 @@ export default function Brief() {
         </header>
 
         <section>
-          <h2>1. Ranked by excess expected average ped/bike crash frequency (crashes / yr, 2021–2023)</h2>
+          <h2>Ranked by excess expected average ped/bike crash frequency (crashes / yr, 2021–2023)</h2>
           <table className="data">
             <thead><tr><th className="r">Rank</th><th>Route · DFO</th><th>Facility</th><th className="r">AADT</th><th className="r">Obs./yr</th><th className="r">SPF/yr</th><th className="r">EB/yr</th><th className="r">Excess</th><th className="r">R/Rc</th></tr></thead>
             <tbody>
@@ -73,7 +73,7 @@ export default function Brief() {
 
         <section className="sheet-two">
           <div>
-            <h2>2. What to examine first</h2>
+            <h2>What to examine first</h2>
             <ol className="sheet-diag">
               {(scr.data?.items ?? []).slice(0, 5).map((r) => (
                 <li key={r.seg_id}><b>{r.name}, DFO {nf(r.dfo_from, 1)}</b><ul>{prompts(r).map((t) => <li key={t}>{t}</li>)}</ul></li>
@@ -81,23 +81,23 @@ export default function Brief() {
             </ol>
           </div>
           <div>
-            <h2>3. Vulnerable road users</h2>
+            <h2>Vulnerable road users</h2>
             <p>
               {nf(vru.data?.total)} pedestrian, cyclist and e-scooter crashes countywide (on- and off-system) in {vru.data?.years.join('–')}, of which <b className="num">{nf(ka)}</b> were fatal or suspected serious (KA).
-              {ftyCount ? <> The most frequent PBCAT type is pedestrian failed to yield (<b className="num">{ftyCount}</b>), the population that warning and crossing-control countermeasures target.</> : null}
+              {ftyCount ? <> The most frequent PBCAT type is pedestrian failed to yield (<b className="num">{ftyCount}</b>).</> : null}
             </p>
-            <h2>4. Next steps</h2>
+            <h2>Next steps</h2>
             <ul className="sheet-next">
-              <li>Request the full CRIS all-crash records (all modes, not only ped/bike) for the ranked sites, to add vehicle-only crashes, collision type and intersection relation, and to re-screen against all-crash SPFs.</li>
-              <li>Confirm the AADT count year for TxDOT_AADT.AADT_CUR, which the service does not publish, before treating the SPF exposure as contemporaneous with 2021–2023.</li>
-              <li>Select pedestrian and cyclist countermeasures from the FHWA CMF Clearinghouse by PBCAT crash type, with CMFs matched to site type and AADT range.</li>
-              <li>Where conflicts are observable, add a short roadside-LiDAR or video collection to compare surrogate measures before and after treatment.</li>
+              <li>Request CRIS all-crash records for the ranked sites and re-screen against all-crash SPFs.</li>
+              <li>Confirm the unpublished count year of TxDOT_AADT.AADT_CUR.</li>
+              <li>Select countermeasures from the FHWA CMF Clearinghouse by PBCAT type, site type and AADT range.</li>
+              <li>Collect roadside LiDAR or video to compare surrogate measures before and after treatment.</li>
             </ul>
           </div>
         </section>
 
         <footer className="sheet-foot muted">
-          Sources: TxDOT Roadway Inventory 2024, TxDOT AADT, TxDOT Statewide Speed 2024, TxDOT one-mile segment geometry (SATP segment crash results layer), TxDOT CRIS crashes via the Active Transportation Crashes layer. Informational use only; not an official TxDOT product. Screening covers pedestrian and cyclist crashes only and flags sites for investigation; it does not establish cause.
+          Sources: TxDOT Roadway Inventory 2024, AADT, Statewide Speed 2024, SATP segments, CRIS. Informational use only; not an official TxDOT product. Flags sites for investigation, not cause.
         </footer>
       </article>
     </div>

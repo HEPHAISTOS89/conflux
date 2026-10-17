@@ -11,11 +11,11 @@ const SEVS: Severity[] = ['K', 'A', 'B', 'C', 'O'];
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MODE_LABEL: Record<string, string> = { ped: 'Pedestrian', bike: 'Cyclist', scooter: 'Scooter / other' };
 
-const sevColor: any = ['match', ['get', 'severity'], ...SEVS.flatMap((s) => [s, SEV_HEX[s]]), '#98a1a7'];
+const sevColor: any = ['match', ['get', 'severity'], ...SEVS.flatMap((s) => [s, SEV_HEX[s]]), SEV_HEX.O];
 
-/** Sequential ramp from paper (#f3f4f1) to --sev-a (#b3261e). */
+/** Sequential ramp from --sheet (#1d1e1d) to --sev-a (#f08159). */
 function ramp(t: number): string {
-  const a = [0xf3, 0xf4, 0xf1], b = [0xb3, 0x26, 0x1e];
+  const a = [0x1d, 0x1e, 0x1d], b = [0xf0, 0x81, 0x59];
   return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
 }
 const lightLabel = (s: string) => s.replace(/^\d+\s*-\s*/, '').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
@@ -74,7 +74,7 @@ export default function Vru() {
       id: 'vru-pt', type: 'circle',
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, ['match', ['get', 'severity'], ['K', 'A'], 4, 3], 14, ['match', ['get', 'severity'], ['K', 'A'], 8, 6]],
-        'circle-color': sevColor, 'circle-stroke-color': '#fbfbf9', 'circle-stroke-width': 1, 'circle-opacity': 0.9,
+        'circle-color': sevColor, 'circle-stroke-color': '#121312', 'circle-stroke-width': 1, 'circle-opacity': 0.9,
       },
     } as any],
   }], [feats]);
@@ -87,12 +87,7 @@ export default function Vru() {
       <header className="page-head">
         <h1>Pedestrian and cyclist crashes in Lubbock County</h1>
         <p>
-          Crashes involving people on foot, on bicycles and on e-scooters, from TxDOT CRIS via the Active Transportation
-          crash layer for {years[0]}–{years[years.length - 1]}, on and off the state system. The on-system subset is the
-          outcome of the <Link to="/screening">network screening</Link>. Where and when vulnerable road users are struck, and the PBCAT
-          pre-crash type, is the starting evidence for siting failure-to-yield countermeasures: high-visibility
-          crosswalks, RRFBs, PHBs, leading pedestrian intervals and lighting. Locations here are candidates for field
-          review, not findings of cause.
+          Pedestrian, cyclist and e-scooter crashes from TxDOT CRIS, {years[0]}–{years[years.length - 1]}, on and off the state system: candidates for field review, not findings of cause.
         </p>
       </header>
 
@@ -149,7 +144,7 @@ export default function Vru() {
                 <div className="muted">{hover.pbcat ?? 'PBCAT not recorded'}</div>
                 <div className="muted">{hover.light ? lightLabel(hover.light) : ''}{hover.speed_limit ? <> · <span className="num">{hover.speed_limit}</span> mph posted</> : null}</div>
               </>
-            ) : <span className="muted">Hover a point for crash details.</span>}
+            ) : <span className="muted">Hover a point</span>}
           </div>
         </div>
       </section>
@@ -162,7 +157,7 @@ export default function Vru() {
         </section>
 
         <section className="section" aria-labelledby="vru-pb">
-          <div className="section-head"><h2 id="vru-pb">PBCAT crash type</h2><p>Top 10 under current filter</p></div>
+          <div className="section-head"><h2 id="vru-pb">PBCAT crash type</h2><p>Top 10</p></div>
           <ol className="vru-bars">
             {agg.pbcat.map(([k, v]) => (
               <li key={k}>
@@ -177,7 +172,7 @@ export default function Vru() {
       </div>
 
       <section className="section" aria-labelledby="vru-lt">
-        <div className="section-head"><h2 id="vru-lt">Lighting condition</h2><p>KA share is fatal plus suspected-serious injury over all crashes in the row</p></div>
+        <div className="section-head"><h2 id="vru-lt">Lighting condition</h2></div>
         <div className="vru-table-wrap">
           <table className="data">
             <thead><tr><th>Lighting</th><th className="r">Crashes</th><th className="r">Share</th><th className="r">KA</th><th className="r">KA share</th></tr></thead>
@@ -197,9 +192,7 @@ export default function Vru() {
       </section>
 
       <p className="muted vru-source">
-        Source: TxDOT Crash Records Information System via the Active Transportation Crashes feature service, {years[0]}–{years[years.length - 1]},
-        Lubbock County. Informational use only; TxDOT makes no warranty as to accuracy, and these records are not to be
-        used for litigation (23 U.S.C. §407).
+        Source: TxDOT CRIS, Active Transportation Crashes layer. Informational use only; not for litigation (23 U.S.C. §407).
       </p>
     </div>
   );
@@ -215,8 +208,8 @@ function Heatmap({ grid, max }: { grid: number[][]; max: number }) {
             <g key={d}>
               <text x={L - 6} y={T + d * ch + ch / 2 + 4} textAnchor="end" className="vru-ax">{DOW[d]}</text>
               {row.map((v, h) => (
-                <rect key={h} x={L + h * cw} y={T + d * ch} width={cw - 2} height={ch - 2} rx={1} fill={ramp(v / max)} stroke="var(--grid)" strokeWidth={0.5}>
-                  <title>{`${DOW[d]} ${String(h).padStart(2, '0')}:00 — ${v} crash${v === 1 ? '' : 'es'}`}</title>
+                <rect key={h} x={L + h * cw} y={T + d * ch} width={cw - 2} height={ch - 2} rx={1} fill={ramp(v / max)}>
+                  <title>{`${DOW[d]} ${String(h).padStart(2, '0')}:00, ${v} crash${v === 1 ? '' : 'es'}`}</title>
                 </rect>
               ))}
             </g>
