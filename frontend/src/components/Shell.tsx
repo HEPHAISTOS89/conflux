@@ -28,6 +28,11 @@ export default function Shell() {
   const meta = useApi<Manifest>('/meta');
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readRail);
+  // Peek: hovering the expand button opens the collapsed rail over the page; a click pins it open.
+  const [peek, setPeek] = useState(false);
+  const peekOff = useRef(0);
+  const startPeek = (e: React.PointerEvent) => { if (e.pointerType !== 'mouse' || !collapsed || window.innerWidth <= 1100) return; window.clearTimeout(peekOff.current); setPeek(true); };
+  const endPeek = () => { window.clearTimeout(peekOff.current); peekOff.current = window.setTimeout(() => setPeek(false), 220); };
   const [about, setAbout] = useState(false);
   const [tip, setTip] = useState<{ text: string; kbd?: string; y: number } | null>(null);
   const [theme, toggleTheme] = useTheme();
@@ -40,7 +45,7 @@ export default function Shell() {
   const aboutBtn = useRef<HTMLButtonElement>(null);
   const aboutPop = useRef<HTMLDivElement>(null);
 
-  const toggleRail = useCallback(() => setCollapsed((c) => { writeRail(!c); return !c; }), []);
+  const toggleRail = useCallback(() => { setPeek(false); setCollapsed((c) => { writeRail(!c); return !c; }); }, []);
 
   // "[" collapses or expands the rail. Pages that bind "[" themselves (the intersection lab steps risk events)
   // call preventDefault; the check runs after dispatch so listener order does not matter.
@@ -117,7 +122,7 @@ export default function Shell() {
 
   // Labels for the icon rail: one floating tip, shown on hover or keyboard focus while collapsed.
   const showTip = (e: React.SyntheticEvent) => {
-    if (!collapsed || window.innerWidth <= 1100) return;
+    if (!collapsed || peek || window.innerWidth <= 1100) return;
     const t = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
     if (!t) { setTip(null); return; }
     const r = t.getBoundingClientRect();
@@ -126,10 +131,10 @@ export default function Shell() {
 
   const asOf = meta.data?.generated_at ? new Date(meta.data.generated_at) : null;
   const themeLabel = `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`;
-  const railLabel = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  const railLabel = collapsed ? (peek ? 'Keep sidebar open' : 'Expand sidebar') : 'Collapse sidebar';
 
   return (
-    <div className="shell" data-open={open} data-rail={collapsed ? 'collapsed' : 'expanded'}>
+    <div className="shell" data-open={open} data-rail={collapsed && !peek ? 'collapsed' : 'expanded'} data-peek={(collapsed && peek) || undefined}>
       <a className="skip" href="#main">Skip to content</a>
       <header className="topbar">
         <NavLink to="/" className="brand" aria-label="Conflux home">
@@ -150,13 +155,13 @@ export default function Shell() {
       </header>
 
       <nav id="rail" ref={rail} className="rail" aria-label="Main navigation"
-        onPointerOver={showTip} onPointerLeave={() => setTip(null)} onFocus={showTip} onBlur={() => setTip(null)}>
+        onPointerOver={showTip} onPointerEnter={() => window.clearTimeout(peekOff.current)} onPointerLeave={() => { setTip(null); if (peek) endPeek(); }} onFocus={showTip} onBlur={() => setTip(null)}>
         <div className="rail-in">
           <div className="rail-head">
-            <NavLink to="/" className="brand rail-brand" aria-label="Conflux home" tabIndex={collapsed ? -1 : undefined}>
+            <NavLink to="/" className="brand rail-brand" aria-label="Conflux home" tabIndex={collapsed && !peek ? -1 : undefined}>
               <Mark /> <span>Conflux</span>
             </NavLink>
-            <button type="button" className="rail-toggle" onClick={toggleRail} aria-label={railLabel} aria-expanded={!collapsed} aria-controls="rail-list"
+            <button type="button" className="rail-toggle" onClick={toggleRail} onPointerEnter={startPeek} aria-label={railLabel} aria-expanded={!collapsed} aria-controls="rail-list"
               aria-keyshortcuts="[" data-tip={railLabel} data-kbd="[" title={collapsed ? undefined : `${railLabel} ( [ )`}>
               <Icon name="sidebar" size={16} />
             </button>
