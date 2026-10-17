@@ -1,42 +1,36 @@
-const PATHS = {
-  atlas: 'M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14',
-  rank: 'M4 19V9M10 19V5M16 19v-7M21 19H3',
-  corridor: 'M3 12h18M3 8h18M3 16h18M7 6v2M12 6v2M17 6v2',
-  ped: 'M12 5.5a1.5 1.5 0 1 0 0-.01M10 21l2-6 2 2v4M9 11l3-2 3 3 2 1M12 9v6',
-  lidar: 'M12 20V9M8 9h8M12 9l-7-5M12 9l7-5M5 14a7 7 0 0 0 14 0',
-  methods: 'M5 4h10l4 4v12H5zM15 4v4h4M8 12h8M8 16h5',
-  sheet: 'M4 4h16v16H4zM4 9h16M9 9v11M14 14h3',
-  platform: 'M4 5h16v5H4zM4 14h16v5H4zM7 7.5h.01M7 16.5h.01',
-  ask: 'M4 5h16v11H9l-5 4zM8 10h8M8 13h5',
-  menu: 'M4 7h16M4 12h16M4 17h16',
-  sun: 'M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
-  moon: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5',
-  close: 'M6 6l12 12M18 6L6 18',
-  play: 'M8 5v14l11-7z',
-  pause: 'M8 5v14M16 5v14',
-  arrow: 'M5 12h14M13 6l6 6-6 6',
-  external: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
-} as const;
+import type { Icon as PhIcon, IconWeight } from '@phosphor-icons/react';
+import {
+  ArrowCounterClockwiseIcon as ArrowCounterClockwise, ArrowRightIcon as ArrowRight, ArrowSquareOutIcon as ArrowSquareOut, ArrowsOutSimpleIcon as ArrowsOutSimple, BicycleIcon as Bicycle, BroadcastIcon as Broadcast, CalendarCheckIcon as CalendarCheck, CarIcon as Car, CaretDownIcon as CaretDown, CaretUpDownIcon as CaretUpDown, ChartLineUpIcon as ChartLineUp, ChatTeardropTextIcon as ChatTeardropText, CheckIcon as Check, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClockIcon as Clock, CloudArrowUpIcon as CloudArrowUp, CopyIcon as Copy, CpuIcon as Cpu, CrosshairIcon as Crosshair, CubeIcon as Cube, DatabaseIcon as Database, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, EyeSlashIcon as EyeSlash, FileTextIcon as FileText, FunnelIcon as Funnel, GaugeIcon as Gauge, HardDrivesIcon as HardDrives, InfoIcon as Info, IntersectionIcon as Intersection, KeyboardIcon as Keyboard, LightningIcon as Lightning, LinkSimpleIcon as LinkSimple, ListIcon as List, MagnifyingGlassIcon as MagnifyingGlass, MapTrifoldIcon as MapTrifold, MathOperationsIcon as MathOperations, MoonIcon as Moon, PathIcon as Path, PauseIcon as Pause, PaperPlaneRightIcon as PaperPlaneRight, PersonSimpleWalkIcon as PersonSimpleWalk, PlayIcon as Play, PulseIcon as Pulse, RankingIcon as Ranking, RoadHorizonIcon as RoadHorizon, ScanIcon as Scan, ShieldCheckIcon as ShieldCheck, SignpostIcon as Signpost, StackIcon as Stack, SunIcon as Sun, TargetIcon as Target, TrafficSignalIcon as TrafficSignal, TreeStructureIcon as TreeStructure, TruckIcon as Truck, VideoCameraIcon as VideoCamera, WarningIcon as Warning, XIcon as X, XCircleIcon as XCircle, WifiSlashIcon as WifiSlash, MapPinAreaIcon as MapPinArea, ArrowsInIcon as ArrowsIn, ArrowsOutIcon as ArrowsOut, CompassIcon as Compass, ImageIcon as ImageI, QuestionIcon as Question, CaretRightIcon as CaretRight, CaretLeftIcon as CaretLeft, SkipForwardIcon as SkipForward, SkipBackIcon as SkipBack, FlagIcon as Flag, CircleIcon as Circle,
+} from '@phosphor-icons/react';
 
-export type IconName = keyof typeof PATHS;
+/** One icon family (Phosphor) on one optical grid; names describe the job, not the drawing. */
+const ICONS = {
+  atlas: MapTrifold, rank: Ranking, corridor: RoadHorizon, ped: PersonSimpleWalk, bike: Bicycle, lidar: Broadcast,
+  methods: MathOperations, sheet: FileText, platform: TreeStructure, ask: ChatTeardropText, menu: List, sun: Sun, moon: Moon,
+  close: X, play: Play, pause: Pause, arrow: ArrowRight, external: ArrowSquareOut, download: DownloadSimple, link: LinkSimple,
+  search: MagnifyingGlass, filter: Funnel, layers: Stack, camera: VideoCamera, crosshair: Crosshair, car: Car, truck: Truck,
+  warning: Warning, info: Info, check: Check, ok: CheckCircle, fail: XCircle, spinner: CircleNotch, keyboard: Keyboard,
+  caret: CaretDown, caretUpDown: CaretUpDown, fit: ArrowsOutSimple, reset: ArrowCounterClockwise, clock: Clock, db: Database,
+  lambda: Lightning, ec2: HardDrives, schedule: CalendarCheck, pulse: Pulse, iam: ShieldCheck, bedrock: Cpu, edge: Cube,
+  upload: CloudArrowUp, copy: Copy, gauge: Gauge, trend: ChartLineUp, target: Target, signal: TrafficSignal, scan: Scan,
+  path: Path, sign: Signpost, intersection: Intersection, eye: Eye, eyeOff: EyeSlash, send: PaperPlaneRight,
+  offline: WifiSlash, county: MapPinArea, sensor: Broadcast, pedestrian: PersonSimpleWalk, vehicle: Car, alert: Warning,
+  fullscreen: ArrowsOut, exitFullscreen: ArrowsIn, compass: Compass, image: ImageI, help: Question, next: CaretRight, prev: CaretLeft,
+  stepFwd: SkipForward, stepBack: SkipBack, flag: Flag, dot: Circle,
+} satisfies Record<string, PhIcon>;
 
-export function Icon({ name, size = 18, title }: { name: IconName; size?: number; title?: string }) {
+export type IconName = keyof typeof ICONS;
+
+export function Icon({ name, size = 18, title, weight = 'regular' }: { name: IconName; size?: number; title?: string; weight?: IconWeight }) {
+  const C = ICONS[name];
   return (
-    <svg
+    <C
       className="icon"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      size={size}
+      weight={weight}
       aria-hidden={title ? undefined : true}
       role={title ? 'img' : undefined}
-    >
-      {title && <title>{title}</title>}
-      <path d={PATHS[name]} />
-    </svg>
+      aria-label={title}
+    />
   );
 }

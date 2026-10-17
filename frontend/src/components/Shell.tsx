@@ -15,6 +15,7 @@ const NAV: { to: string; label: string; hint: string; icon: IconName }[] = [
   { to: '/brief', label: 'District brief', hint: 'One-page summary', icon: 'sheet' },
   { to: '/methods', label: 'Methods & data', hint: 'Equations · provenance', icon: 'methods' },
   { to: '/platform', label: 'Platform', hint: 'AWS pipeline', icon: 'platform' },
+  { to: '/roadmap', label: 'Roadmap', hint: 'Built · prototype · planned', icon: 'flag' },
   { to: '/ask', label: 'Ask the data', hint: 'Bedrock analyst', icon: 'ask' },
 ];
 

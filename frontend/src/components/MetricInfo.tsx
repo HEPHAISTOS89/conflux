@@ -1,0 +1,60 @@
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Icon } from './Icon';
+
+export type Provenance = 'observed' | 'derived' | 'simulated' | 'public';
+
+const PROV: Record<Provenance, { label: string; tip: string }> = {
+  observed: { label: 'Observed', tip: 'Measured in the field and reported as recorded (crash reports, counts, trajectories).' },
+  derived: { label: 'Derived', tip: 'Computed in this portal from observed data with the method shown.' },
+  simulated: { label: 'Simulated', tip: 'Synthetic or modelled: not a field observation.' },
+  public: { label: 'Public', tip: 'Published by an agency; used as released.' },
+};
+
+/** Provenance chip: one look everywhere so a reviewer can tell observed from derived or simulated at a glance. */
+export function ProvChip({ kind }: { kind: Provenance }) {
+  return <span className="prov" data-kind={kind} title={PROV[kind].tip}><Icon name="dot" size={8} weight="fill" />{PROV[kind].label}</span>;
+}
+
+export interface MetricSpec {
+  name: string;
+  formula?: ReactNode;
+  threshold?: ReactNode;
+  unit?: string;
+  provenance: Provenance;
+  source?: ReactNode;
+  citation?: ReactNode;
+  note?: ReactNode;
+}
+
+/** "i" button next to a metric that opens its methodology: formula, threshold, unit, provenance, source, citation. */
+export default function MetricInfo({ spec, align = 'left' }: { spec: MetricSpec; align?: 'left' | 'right' }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  return (
+    <span className="mi" ref={box}>
+      <button type="button" className="mi-btn" aria-expanded={open} aria-controls={id} aria-label={`How ${spec.name} is computed`} onClick={() => setOpen((o) => !o)}>
+        <Icon name="info" size={15} />
+      </button>
+      {open && (
+        <span id={id} role="dialog" aria-label={`${spec.name} methodology`} className="mi-pop" data-align={align}>
+          <span className="mi-head"><b>{spec.name}</b><ProvChip kind={spec.provenance} /></span>
+          {spec.formula && <span className="mi-row"><span>Formula</span><span className="mi-formula">{spec.formula}</span></span>}
+          {spec.threshold && <span className="mi-row"><span>Threshold</span><span>{spec.threshold}</span></span>}
+          {spec.unit && <span className="mi-row"><span>Unit</span><span className="measure">{spec.unit}</span></span>}
+          {spec.source && <span className="mi-row"><span>Data</span><span>{spec.source}</span></span>}
+          {spec.citation && <span className="mi-row"><span>Reference</span><span>{spec.citation}</span></span>}
+          {spec.note && <span className="mi-note">{spec.note}</span>}
+        </span>
+      )}
+    </span>
+  );
+}

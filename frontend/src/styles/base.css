@@ -80,15 +80,27 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font: 400 var(--step-body)/1.5 var(--f-ui);
-  letter-spacing: -0.01em;
-  font-feature-settings: 'tnum' 1, 'ss01' 1;
+  font: var(--w-body) var(--step-body)/1.55 var(--f-ui);
+  letter-spacing: -0.006em;
+  font-feature-settings: 'tnum' 1, 'ss01' 1, 'case' 1;
+  font-optical-sizing: auto;
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-h1, h2, h3, h4 { font-family: var(--f-head); font-weight: 500; letter-spacing: -0.03em; line-height: 1.05; margin: 0; text-wrap: balance; }
+/* Light text on dark ground reads heavier (irradiation), so dark mode sets text a touch lighter. */
+:root { --w-body: 380; --w-head: 520; --w-strong: 560; }
+:root[data-theme='light'] { --w-body: 420; --w-head: 560; --w-strong: 600; }
+@media (prefers-color-scheme: light) { :root:not([data-theme='dark']) { --w-body: 420; --w-head: 560; --w-strong: 600; } }
+b, strong, th { font-weight: var(--w-strong); }
+table, .num, input, select, button { font-variant-numeric: tabular-nums lining-nums; }
+h1, h2, h3, h4 { font-family: var(--f-head); font-weight: var(--w-head); letter-spacing: -0.03em; line-height: 1.04; margin: 0; text-wrap: balance; font-feature-settings: 'ss01' 1, 'case' 1; }
+h1 { letter-spacing: -0.04em; } h3 { letter-spacing: -0.012em; }
+p, li, dd { hanging-punctuation: first; }
 h1 { font-size: var(--step-head); }
 h2 { font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem); }
-h3 { font-size: 1.125rem; font-weight: 500; letter-spacing: -0.01em; }
+h3 { font-size: 1.125rem; font-weight: var(--w-head); letter-spacing: -0.012em; }
 p { margin: 0; max-width: 68ch; text-wrap: pretty; }
 a { color: inherit; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 button, input, select { font: inherit; color: inherit; }
