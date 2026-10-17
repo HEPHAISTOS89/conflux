@@ -17,11 +17,13 @@ _day = {"date": "", "count": 0}
 
 
 def client_ip(request: Request) -> str:
-    # Left-most X-Forwarded-For entries are client-supplied and spoofable; the right-most one is
-    # appended by the last trusted proxy (CloudFront), so key the bucket on it.
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[-1].strip()
+    # Key on the caller address API Gateway observed (requestContext.http.sourceIp): it cannot be
+    # set by the client, unlike X-Forwarded-For. Behind the Vercel proxy this groups visitors by
+    # Vercel egress IP, which only makes the limit stricter; the daily cap bounds total spend.
+    event = request.scope.get("aws.event") or {}
+    src = ((event.get("requestContext") or {}).get("http") or {}).get("sourceIp")
+    if src:
+        return src
     return request.client.host if request.client else "unknown"
 
 
