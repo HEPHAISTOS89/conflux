@@ -1,7 +1,7 @@
 from __future__ import annotations
-from math import cos, sin
+from math import sin
 from typing import Literal
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -53,6 +53,21 @@ class Summary(BaseModel):
     high_risk_events: int
     data_quality: float
 
+class ScenarioCard(BaseModel):
+    id: str
+    name: str
+    location: str
+    duration_s: float
+    vehicle_count: int
+    event_count: int
+    provenance: str
+
+class ServiceMetadata(BaseModel):
+    service: str
+    version: str
+    data_mode: Literal["synthetic_fixture", "observed"]
+    provenance: str
+
 
 def _trajectory(vehicle_no: int, lane: int, count: int = 90) -> list[Point]:
     base = 30 * vehicle_no + 8
@@ -81,25 +96,32 @@ SCENARIO=scenario_data()
 @app.get("/health")
 def health(): return {"status":"ok","service":"roadscope-api","version":app.version}
 
-@app.get("/api/v1/scenarios", response_model=list[dict])
+@app.get("/", response_model=ServiceMetadata)
+def metadata():
+    return ServiceMetadata(service="roadscope-api", version=app.version,
+        data_mode="synthetic_fixture", provenance=SCENARIO.provenance)
+
+@app.get("/api/v1/scenarios", response_model=list[ScenarioCard])
 def scenarios():
-    return [{"id":SCENARIO.id,"name":SCENARIO.name,"location":SCENARIO.location,"duration_s":SCENARIO.duration_s,"vehicle_count":SCENARIO.vehicle_count,"event_count":SCENARIO.event_count,"provenance":SCENARIO.provenance}]
+    return [ScenarioCard(id=SCENARIO.id,name=SCENARIO.name,location=SCENARIO.location,
+        duration_s=SCENARIO.duration_s,vehicle_count=SCENARIO.vehicle_count,
+        event_count=SCENARIO.event_count,provenance=SCENARIO.provenance)]
 
 @app.get("/api/v1/scenarios/{scenario_id}", response_model=Scenario)
 def scenario(scenario_id: str):
-    from fastapi import HTTPException
     if scenario_id != SCENARIO.id: raise HTTPException(404,"Scenario not found")
     return SCENARIO
 
 @app.get("/api/v1/scenarios/{scenario_id}/summary", response_model=Summary)
 def summary(scenario_id: str):
-    from fastapi import HTTPException
     if scenario_id != SCENARIO.id: raise HTTPException(404,"Scenario not found")
     speeds=[p.speed for v in SCENARIO.vehicles for p in v.trajectory]
     return Summary(scenario_id=scenario_id,vehicle_count=SCENARIO.vehicle_count,event_count=SCENARIO.event_count,risk_index=.71,avg_speed_mph=round(sum(speeds)/len(speeds),1),max_speed_mph=round(max(speeds),1),high_risk_events=2,data_quality=.98)
 
 @app.get("/api/v1/scenarios/{scenario_id}/events", response_model=list[RiskEvent])
 def events(scenario_id: str, severity: str|None=Query(default=None)):
-    from fastapi import HTTPException
     if scenario_id != SCENARIO.id: raise HTTPException(404,"Scenario not found")
+    allowed={"low","medium","high","critical"}
+    if severity is not None and severity not in allowed:
+        raise HTTPException(422, "severity must be low, medium, high, or critical")
     return [e for e in SCENARIO.events if severity is None or e.severity == severity]
