@@ -4,6 +4,7 @@ import Info from '../components/Info';
 import { Icon, type IconName } from '../components/Icon';
 import { API_BASE } from '../lib/api';
 import { useReveal } from '../lib/motion';
+import { useTyped, useTypedPlaceholder } from '../lib/typing';
 import type { AskResponse } from '../lib/types';
 import '../styles/ask.css';
 
@@ -19,6 +20,9 @@ const SUGGESTED: { q: string; icon: IconName; tool: string }[] = [
   { q: 'Most frequent PBCAT type for pedestrian crashes?', icon: 'ped', tool: 'vru_summary' },
   { q: 'Kalman vs linear repair at Lankershim?', icon: 'path', tool: 'get_repair' },
 ];
+
+const EXAMPLE_LINES = SUGGESTED.map((s) => s.q);
+const clean = (p: string) => p.replace(/\s*\[[a-z_]+:[^\]]+\]/g, '');
 
 type Turn = { id: number; q: string; res?: AskResponse; error?: string; limited?: string; ms?: number };
 type ModelState = 'unknown' | 'fallback' | 'bedrock';
@@ -53,6 +57,7 @@ async function ask(question: string): Promise<{ res?: AskResponse; error?: strin
 
 export default function Ask() {
   const [q, setQ] = useState('');
+  const [focused, setFocused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [model, setModel] = useState<{ state: ModelState; id?: string }>({ state: 'unknown' });
@@ -103,6 +108,8 @@ export default function Ask() {
     </span>
   );
 
+  const placeholder = useTypedPlaceholder(EXAMPLE_LINES, !q && !focused && !busy, 'Ask about crashes, conflicts or SPFs…');
+
   return (
     <div className="page ask" ref={pageRef}>
       <PageHeader
@@ -117,7 +124,8 @@ export default function Ask() {
         <label htmlFor="ask-q" className="sr-only">Question</label>
         <textarea
           id="ask-q" ref={area} rows={2} maxLength={MAX} value={q} disabled={busy}
-          placeholder="Ask about crashes, conflicts or SPFs…"
+          placeholder={placeholder}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           aria-describedby="ask-count ask-keys"
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submit(q); } }}
@@ -170,6 +178,11 @@ function TurnView({ t, busy, onRetry }: { t: Turn; busy: boolean; onRetry: () =>
   // The service appends a standing caveat paragraph; show it as a note, not as part of the answer.
   const paras = r ? r.answer.split(/\n{2,}/) : [];
   const caveat = paras.length > 1 && /^limitations?:/i.test(paras[paras.length - 1]) ? paras.pop() : undefined;
+  const shown = paras.map(clean);
+  const full = shown.join('\n\n');
+  const { n, done } = useTyped(full);
+  let offset = 0;
+  const partial = shown.map((p) => { const v = p.slice(0, Math.max(0, n - offset)); offset += p.length + 2; return v; });
   const copy = async () => {
     if (!r) return;
     const text = `Q: ${t.q}\n\n${r.answer}\n\nCited: ${r.citations.join('; ') || 'none'}\nModel: ${r.model}`;
@@ -192,7 +205,11 @@ function TurnView({ t, busy, onRetry }: { t: Turn; busy: boolean; onRetry: () =>
       {r && (
         <div className="ask-card">
           {/* Inline "[tool: file]" tags are shown as citation chips below, so they are dropped from the prose. */}
-          <div className="ask-answer">{paras.map((p, i) => <Para key={i} text={p.replace(/\s*\[[a-z_]+:[^\]]+\]/g, '')} />)}</div>
+          <p className="sr-only">{full}</p>
+          <div className="ask-answer" aria-hidden="true" data-typing={!done || undefined}>
+            {partial.map((p, i) => p && <Para key={i} text={p} />)}
+          </div>
+          <div className="ask-after" data-wait={!done || undefined}>
           {r.citations.length > 0 && (
             <ul className="ask-cites" aria-label="Cited tables">
               {r.citations.map((c) => (
@@ -220,6 +237,7 @@ function TurnView({ t, busy, onRetry }: { t: Turn; busy: boolean; onRetry: () =>
               </ol>
             </details>
           )}
+          </div>
         </div>
       )}
     </li>

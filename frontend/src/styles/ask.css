@@ -143,3 +143,10 @@
 .ask-foot .mi { margin-left: -4px; }
 @media (prefers-reduced-motion: reduce) { .ask-dot[data-s='warn'] { animation: none; } }
 .ask-count:not([data-show]) { display: none; }
+
+/* Typed answers: a caret follows the text while it is written; citations and tools fade in once it is done. */
+.ask-answer[data-typing] > :last-child::after { content: ''; display: inline-block; width: 0.5em; height: 1.05em; margin-left: 2px; vertical-align: -0.15em; background: var(--accent); border-radius: 1px; animation: ask-caret 0.9s steps(1) infinite; }
+@keyframes ask-caret { 50% { opacity: 0; } }
+.ask-after { display: grid; gap: var(--s3); transition: opacity 280ms var(--ease-out), transform 280ms var(--ease-out); }
+.ask-after[data-wait] { opacity: 0; transform: translateY(4px); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .ask-answer[data-typing] > :last-child::after { animation: none; } .ask-after { transition: none; } }
