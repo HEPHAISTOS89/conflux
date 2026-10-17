@@ -17,3 +17,9 @@ Win the Texas Tech TransTech Lab Graduate Assistant position (Prof. Hongchao Liu
 - Repo is public (HEPHAISTOS89/roadscope-ai). Rebuild in place; keep git history.
 - Owner granted full autonomy for design, backend, infra, 3D, animation and deploys. Never email the professors; flag irreversible AWS deletions; respect dataset licences.
 - GitHub Actions disabled to save minutes; verify locally before deploys.
+
+## Status (2026-10-17)
+- Live: https://roadscope-ai-demo.vercel.app (Vercel project roadscope-ai-demo, team hephaistos1; root dir `frontend`, `/api` rewritten to API Gateway). Deploy via Vercel MCP `create_deployment` with gitSource (local CLI is logged into another account).
+- AWS RoadScopeStack (us-east-2): HTTP API https://tkk01bgzfb.execute-api.us-east-2.amazonaws.com, Lambdas roadscope-api / roadscope-ingest, EC2 worker i-085be087cdef3df92 (self-stops), bucket roadscopestack-data666c94c7-bqgchgwzlg4p. Runbook: docs/DEPLOY.md.
+- Pending on AWS account verification: CloudFront (`cdk deploy -c edge=cloudfront`) and Bedrock model access (analyst currently uses the deterministic fallback).
+- Screening outcome is on-system CRIS ped/bike crashes 2021–2023 (SUM_CRASH_ is an SATP score, not a crash count).
