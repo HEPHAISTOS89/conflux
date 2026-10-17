@@ -32,9 +32,9 @@ describe('queueProfile', () => {
     expect(q.maxQueue).toBe(2);
     expect(q.n[40]).toBe(2);
     expect(q.n[10]).toBe(0);
-    // farthest stopped car is 16 m upstream (centre); its rear bumper is 16 + 4.6 / 2 = 18.3 m from the bar
-    expect(q.maxBackM).toBeCloseTo(18.3, 5);
-    expect(q.maxBackFt).toBeCloseTo(18.3 * 3.28084, 3);
+    // farthest stopped car's front bumper is 16 m upstream (the served point); its rear bumper is 16 + 4.6 = 20.6 m from the bar
+    expect(q.maxBackM).toBeCloseTo(20.6, 5);
+    expect(q.maxBackFt).toBeCloseTo(20.6 * 3.28084, 3);
     expect(q.stoppedVehicles).toBe(2);
     expect(q.tMaxQueue).toBeCloseTo(2, 1); // both cars come to rest 20 m after their start at 10 m/s
   });

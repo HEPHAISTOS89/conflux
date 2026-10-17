@@ -151,9 +151,9 @@ export default function PlanView({ data, conflicts, occlusion, label }: Props) {
       const hidden = occlusion?.get(id)?.some(([g0, g1]) => t >= g0 && t <= g1);
       const [a, b] = P(p.x, p.y);
       const L = Math.max(tr.len_m * s, 6), Wd = Math.max(tr.w_m * s, 3.5);
-      ctx.save(); ctx.translate(a, b); ctx.rotate(rot(p.h));
+      ctx.save(); ctx.translate(a, b); ctx.rotate(rot(p.h)); ctx.translate(-L / 2, 0); // the served point is the front bumper: body extends L behind it
       ctx.globalAlpha = (hidden ? 0.3 : 1) * p.fade;
-      // footprint: x along the heading (front at +L/2)
+      // footprint: x along the heading (front at +L/2 of the body centre)
       const body = isSel ? pal.sel : hot.has(id) ? pal.hot : isPartner ? pal.partner : tr.cls === 'truck' ? pal.truck : pal.car;
       roundRect(ctx, -L / 2, -Wd / 2, L, Wd, Math.min(Wd * 0.3, 3));
       ctx.fillStyle = body; ctx.fill();

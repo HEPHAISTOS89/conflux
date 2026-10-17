@@ -205,10 +205,20 @@ export function projectCA(k: Kin, horizon = 2, step = 0.1): [number, number][] {
 
 export interface Body extends Kin { len: number; w: number }
 
-/** Two equal circles per footprint (radius w/2, centres ±(len − w)/2 along the heading). */
+/**
+ * NGSIM Local_X/Local_Y is the front-bumper centre of the vehicle (NGSIM data dictionary), kept as such by the
+ * pipeline (ssm.py measures gap = spacing − leader length from it). The body therefore extends `len` behind the
+ * served point: this is the body centre for drawing and footprints.
+ */
+export function bodyCentre(x: number, y: number, h: number, len: number): [number, number] {
+  return [x - (Math.cos(h) * len) / 2, y - (Math.sin(h) * len) / 2];
+}
+
+/** Two equal circles per footprint (radius w/2, centres ±(len − w)/2 along the heading about the body centre). */
 function circles(b: Body): [number, number, number][] {
   const off = Math.max(0, (b.len - b.w) / 2), r = b.w / 2, cx = Math.cos(b.h), cy = Math.sin(b.h);
-  return [[b.x + cx * off, b.y + cy * off, r], [b.x - cx * off, b.y - cy * off, r]];
+  const [mx, my] = bodyCentre(b.x, b.y, b.h, b.len);
+  return [[mx + cx * off, my + cy * off, r], [mx - cx * off, my - cy * off, r]];
 }
 
 /**

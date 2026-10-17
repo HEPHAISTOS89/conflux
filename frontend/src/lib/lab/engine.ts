@@ -11,7 +11,7 @@ import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRe
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { reducedMotion } from '../motion';
 import { activeAt, leadIn, type ConflictT, type IntersectionT, type TrackT } from '../traj';
-import { bearingDeg, bearingLabel, conflictPoint, easeInOutCubic, kinAt, MPS_TO_MPH, projectCA, renderPose, type RenderPose } from './metrics';
+import { bearingDeg, bearingLabel, bodyCentre, conflictPoint, easeInOutCubic, kinAt, MPS_TO_MPH, projectCA, renderPose, type RenderPose } from './metrics';
 import { labPalette, type LabPalette } from './palette';
 import { roadGeometry } from './road';
 import { buildSignals, buildStreet } from './street';
@@ -473,7 +473,8 @@ export function createEngine(o: EngineOpts): Engine {
     for (let i = 0; i < N; i++) {
       const tr = data.tracks[i], id = ids[i];
       const k = renderPose(tr, t, data.hz, win);
-      const pos = k && W(k.x, k.y);
+      // served point = NGSIM front-bumper centre; the body (and its returns) sit behind it
+      const pos = k && (([cx, cy]) => W(cx, cy))(bodyCentre(k.x, k.y, k.h, tr.len_m));
       const inRange = !!pos && Math.hypot(pos.x - sensorWorld.x, pos.z - sensorWorld.z) < SENSOR.range;
       const gf = k ? ghostFade(quality, id, t) : 0;
       const cm = classMeshes.get(kinds[i])!, slot = slotOf[i];

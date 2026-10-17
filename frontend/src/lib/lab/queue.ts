@@ -53,7 +53,8 @@ export interface QueueProfile {
 
 /**
  * Per-frame queue on approach `dir` upstream of the stop bar y = stopBarY: stopped vehicles (v < 0.5 m/s) and the
- * back-of-queue distance measured to the farthest stopped vehicle's rear bumper (centre − len/2 along travel).
+ * back-of-queue distance measured to the farthest stopped vehicle's rear bumper (the served point is the
+ * NGSIM front-bumper centre, so the rear is len behind it along travel).
  * All movements on the approach count (through and turning lanes queue together on NGSIM's shared approaches).
  */
 export function queueProfile(tracks: TrackT[], dir: Approach, stopBarY: number, hz = 10, duration = windowEnd(tracks)): QueueProfile {
@@ -73,7 +74,7 @@ export function queueProfile(tracks: TrackT[], dir: Approach, stopBarY: number, 
       if (k < 0 || k >= frames) continue;
       ever = true;
       n[k]++;
-      const rear = d + tr.len_m / 2;
+      const rear = d + tr.len_m;
       if (rear > backM[k]) backM[k] = rear;
     }
     if (ever) stoppedVehicles++;

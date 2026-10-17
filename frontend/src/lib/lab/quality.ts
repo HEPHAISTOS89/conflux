@@ -9,7 +9,7 @@
  * report it. Pure functions, unit-tested; nothing is deleted from the data.
  */
 import type { TrackT } from '../traj';
-import { headingAt, JUMP_MPS } from './metrics';
+import { bodyCentre, headingAt, JUMP_MPS } from './metrics';
 
 export type GhostReason = 'id_switch' | 'duplicate';
 export interface GhostWindow {
@@ -95,7 +95,8 @@ export function trackQuality(tracks: TrackT[], hz = 10): Quality {
     tr.pts.forEach((p, i) => {
       const f = Math.round(p[0] * hz);
       let arr = byFrame.get(f); if (!arr) byFrame.set(f, (arr = []));
-      arr.push({ id, x: p[1], y: p[2], h: hs[i], len: tr.len_m, w: tr.w_m });
+      const [cx, cy] = bodyCentre(p[1], p[2], hs[i], tr.len_m); // served point is the front bumper
+      arr.push({ id, x: cx, y: cy, h: hs[i], len: tr.len_m, w: tr.w_m });
     });
   }
   // overlapping frames per unordered pair

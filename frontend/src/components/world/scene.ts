@@ -14,7 +14,7 @@
  */
 import * as THREE from 'three';
 import type { ConflictT, IntersectionT } from '../../lib/traj';
-import { conflictPoint, renderPose } from '../../lib/lab/metrics';
+import { bodyCentre, conflictPoint, renderPose } from '../../lib/lab/metrics';
 import { roadGeometry } from '../../lib/lab/road';
 import { asphaltTexture, buildSignals, buildStreet } from '../../lib/lab/street';
 import { conflictIsGhostPair, ghostFade, trackQuality, type Quality } from '../../lib/lab/quality';
@@ -476,7 +476,7 @@ export function createWorld(o: WorldOpts): World {
       const f = p.fade * gf;
       if (f > 0.5) visible++;
       qv.setFromAxisAngle(yAxis, p.h);
-      pv.set(p.x, 0, -p.y);
+      { const [cx, cy] = bodyCentre(p.x, p.y, p.h, tr.len_m); pv.set(cx, 0, -cy); } // served point = front bumper
       sv.set(tr.len_m, 1, tr.w_m);
       m4.compose(pv, qv, sv);
       cm.body.setMatrixAt(s, m4); cm.glass.setMatrixAt(s, m4); cm.head.setMatrixAt(s, m4); cm.tail.setMatrixAt(s, m4);
