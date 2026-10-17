@@ -88,7 +88,7 @@ function App(){
         </aside>
       </section>
       <section className="event-section" id="events">
-        <div className="section-head"><div><p className="section-label">Review queue</p><h2>Detected interactions</h2></div>{firstCritical&&<button className="text-button" onClick={()=>{setSelected(firstCritical.vehicle_ids[0]);setTime(firstCritical.t);setPlaying(false)}}>Jump to highest risk -></button>}</div>
+        <div className="section-head"><div><p className="section-label">Review queue</p><h2>Detected interactions</h2></div>{firstCritical&&<button className="text-button" onClick={()=>{setSelected(firstCritical.vehicle_ids[0]);setTime(firstCritical.t);setPlaying(false)}}>Jump to highest risk</button>}</div>
         <div className="event-table" role="table"><div className="table-row table-header" role="row"><span>Event</span><span>Vehicles</span><span>Time</span><span>Score</span><span>Status</span></div>{scenario.events.map(e=><button className="table-row" role="row" key={e.id} onClick={()=>{setSelected(e.vehicle_ids[0]);setTime(e.t);setPlaying(false)}}><span><b>{kindLabel[e.kind]||e.kind}</b><small>{e.description}</small></span><span>{e.vehicle_ids.join(' / ')}</span><span>{e.t.toFixed(1)}s</span><span>{Math.round(e.score*100)}</span><span><i className={`severity ${e.severity}`}/>{severityLabel[e.severity]}</span></button>)}</div>
       </section>
       <footer id="evidence"><span>{scenario.provenance}</span><span>API {source} / RoadScope prototype</span></footer>
