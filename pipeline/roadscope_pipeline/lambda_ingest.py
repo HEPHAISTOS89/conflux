@@ -67,7 +67,7 @@ def handler(event, ctx):
         return _run(bucket, s3, ctx, t0, run_id, meta)
     except Exception as e:
         _put_run(s3, bucket, run_id, {"status": "failed", **meta, "error": type(e).__name__,
-                                      "message": str(e)[:300], "finished_at": _now(),
+                                      "finished_at": _now(),
                                       "seconds": round(time.time() - t0, 1)})
         log("ingest_failed", error=type(e).__name__, message=str(e)[:500])
         raise

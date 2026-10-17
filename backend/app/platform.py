@@ -107,6 +107,8 @@ def list_runs(limit: int = 10) -> list[dict[str, Any]]:
         if o["Key"].endswith(".json"):
             try:
                 detail = json.loads(s3.get_object(Bucket=bucket, Key=o["Key"])["Body"].read())
+                if isinstance(detail, dict):
+                    detail.pop("message", None)  # exception text belongs in CloudWatch logs, never in the public record
             except Exception as exc:  # noqa: BLE001 - one unreadable record must not hide the others
                 log.warning("run record %s unreadable: %s", o["Key"], type(exc).__name__)
         lm = o["LastModified"]
