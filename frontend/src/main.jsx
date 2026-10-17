@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://6zwr3ongsqiy22oiefyn3wwtva0gunpt.lambda-url.us-east-2.on.aws';
 const FALLBACK = {
   id: 'ngsim-i80-demo', name: 'I-80 merge / evidence replay', location: 'Emeryville, CA',
   duration_s: 8.9, sample_rate_hz: 10, provenance: 'Synthetic demonstration fixture inspired by FHWA NGSIM.',
