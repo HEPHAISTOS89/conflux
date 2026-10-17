@@ -162,7 +162,7 @@ export default function Shell() {
               <Mark /> <span>Conflux</span>
             </NavLink>
             <button type="button" className="rail-toggle" onClick={toggleRail} onPointerEnter={startPeek} aria-label={railLabel} aria-expanded={!collapsed} aria-controls="rail-list"
-              aria-keyshortcuts="[" data-tip={railLabel} data-kbd="[" title={collapsed ? undefined : `${railLabel} ( [ )`}>
+              aria-keyshortcuts="[">
               <Icon name="sidebar" size={16} />
             </button>
           </div>
