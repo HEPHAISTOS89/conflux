@@ -47,7 +47,7 @@ function App(){
   const firstCritical=scenario.events.find(event=>event.severity==='critical')||scenario.events[0];
   return <div className="app-shell">
     <header className="topbar">
-      <a className="brand" href="#" aria-label="RoadScope home"><span className="brand-symbol">R</span><span>RoadScope</span></a>
+      <div className="brand" aria-label="RoadScope"><span className="brand-symbol">R</span><span>RoadScope</span></div>
       <nav aria-label="Primary navigation">{[['Replay','replay'],['Events','events'],['Vehicles','vehicle'],['Evidence','evidence']].map(([item,target])=><button key={item} className={tab===item?'active':''} onClick={()=>{setTab(item);document.getElementById(target)?.scrollIntoView({behavior:'smooth',block:'start'})}}>{item}</button>)}</nav>
       <div className="top-actions"><span className={`connection ${source==='AWS live'?'live':''}`}><i/>{source}</span><span className="avatar" aria-label="Safety Lab workspace">SL</span></div>
     </header>
@@ -60,20 +60,20 @@ function App(){
         <Metric label="Risk index" value={summary.risk_index?.toFixed(2)} note="Model score / 1.00" emphasis/>
         <Metric label="Tracked vehicles" value={summary.vehicle_count} note={`${scenario.sample_rate_hz} Hz trajectories`}/>
         <Metric label="High-risk events" value={summary.high_risk_events} note={`${summary.event_count} events total`}/>
-        <Metric label="Data quality" value={`${Math.round(summary.data_quality*100)}%`} note="Validated points"/>
+        <Metric label="Fixture completeness" value={`${Math.round(summary.data_quality*100)}%`} note="Required fields present"/>
       </section>
       <section className="workbench">
         <div className="canvas-panel" id="replay">
           <div className="section-head"><div><p className="section-label">Spatial replay</p><h2>{scenario.location}</h2></div><div className="segmented" aria-label="Vehicle display filter">{[['all','All'],['risk','At risk'],['selected','Selected']].map(([v,l])=><button key={v} onClick={()=>setFilter(v)} className={filter===v?'active':''}>{l}</button>)}</div></div>
           <div className="road-view" aria-label="Top-down trajectory visualization">
-            <div className="road-meta"><span>Westbound</span><span>Observed layout · synthetic motion</span><span>Eastbound</span></div>
+            <div className="road-meta"><span>Westbound</span><span>Road-aligned synthetic layout</span><span>Eastbound</span></div>
             <div className="lane-line one"/><div className="lane-line two"/><div className="lane-line three"/>
             {visible.map(v=>{const p=normalizedPoint(v,time,scenario.vehicles);return <button key={v.id} className={`vehicle ${selected===v.id?'selected':''}`} style={{left:`${p.x}%`,top:`${p.y}%`}} onClick={()=>setSelected(v.id)} aria-label={`Inspect ${v.id}`}><span className="vehicle-body" style={{borderColor:v.color}}/><span className="vehicle-id">{v.id}</span></button>})}
             {scenario.events.filter(e=>Math.abs(e.t-time)<.8).map(e=>{const v=scenario.vehicles.find(x=>x.id===e.vehicle_ids[0]);const p=v?normalizedPoint(v,e.t,scenario.vehicles):{x:50,y:50};return <span key={e.id} className={`risk-marker ${e.severity}`} style={{left:`${p.x}%`,top:`${p.y}%`}} aria-label={`${severityLabel[e.severity]} event`}/>} )}
             <div className="scale">20 m</div>
           </div>
           <div className="transport">
-            <button className="play-button" onClick={()=>setPlaying(!playing)} aria-label={playing?'Pause replay':'Play replay'}>{playing?'Ⅱ':'▶'}</button>
+            <button className="play-button" onClick={()=>setPlaying(!playing)}>{playing?'Pause':'Play'}</button>
             <span className="timecode">{time.toFixed(1)}s</span>
             <input type="range" min="0" max={scenario.duration_s} step="0.1" value={time} aria-label="Replay time" onChange={e=>{setPlaying(false);setTime(+e.target.value)}}/>
             <span className="duration">{scenario.duration_s}s</span>
