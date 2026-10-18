@@ -306,7 +306,14 @@ def convert_tracks(site: dict, feed: dict[str, dict]) -> tuple[list[dict], dict]
             xs, ys = xs + np.cos(th) * L / 2, ys + np.sin(th) * L / 2
             report["recentred"] += 1
         inside = (xs >= bx0) & (xs <= bx1) & (ys >= by0) & (ys <= by1)
-        direction = _dir(xs[-1] - xs[0], ys[-1] - ys[0])
+        # a stationary road user has a net displacement at floating-point noise level, so its direction would depend on
+        # the machine; below 2 m use the mean heading vector (deterministic from the feed's heading or the velocity)
+        dx, dy = xs[-1] - xs[0], ys[-1] - ys[0]
+        if math.hypot(dx, dy) < 2.0:
+            dx, dy = float(np.mean(np.cos(th))), float(np.mean(np.sin(th)))
+            if math.hypot(dx, dy) < 1e-6:
+                dx, dy = 0.0, 1.0
+        direction = _dir(dx, dy)
         tracks.append({
             "id": int(tid) if tid.isdigit() else tid, "cls": cls, "len_m": round(float(L), 2), "w_m": round(float(W), 2),
             "dir": direction, "move": _move(th, v, cls), "t": full * DT, "x": xs, "y": ys, "v": v, "a": a,

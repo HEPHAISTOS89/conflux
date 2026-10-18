@@ -2450,9 +2450,10 @@
    "truck": 1,
    "pedestrian": 12
   },
-  "conflicts": 40,
+  "conflicts": 41,
   "summary": {
    "conflicts_by_type": {
+    "rear_end": 1,
     "crossing": 12,
     "yield": 10,
     "pedestrian": 18
@@ -2464,6 +2465,7 @@
     "pedestrian:critical": 6,
     "pedestrian:moderate": 9,
     "pedestrian:serious": 3,
+    "rear_end:serious": 1,
     "yield:critical": 3,
     "yield:moderate": 5,
     "yield:serious": 2
@@ -2992,11 +2994,11 @@
       "seed": 20253,
       "occlusion": {
        "frames": 7459,
-       "occluded_frames": 1545,
-       "occluded_share": 0.207,
+       "occluded_frames": 1501,
+       "occluded_share": 0.201,
        "tracks_with_gaps": 25,
        "gaps": 87,
-       "gap_len_mean_s": 1.07,
+       "gap_len_mean_s": 1.02,
        "gaps_by_bin": [
         [
          0.5,
@@ -3006,7 +3008,7 @@
         [
          1.0,
          2.0,
-         37
+         38
         ],
         [
          2.0,
@@ -3016,7 +3018,7 @@
         [
          3.0,
          5.0,
-         2
+         1
         ]
        ]
       },
@@ -3045,21 +3047,21 @@
         "methods": {
          "linear": {
           "gaps": 46,
-          "gap_frames": 513,
-          "rmse_m": 0.22,
-          "speed_rmse": 0.115
+          "gap_frames": 469,
+          "rmse_m": 0.23,
+          "speed_rmse": 0.12
          },
          "kf_ca": {
           "gaps": 46,
-          "gap_frames": 513,
-          "rmse_m": 0.164,
-          "speed_rmse": 0.154
+          "gap_frames": 469,
+          "rmse_m": 0.171,
+          "speed_rmse": 0.161
          },
          "kf_ca_path": {
           "gaps": 46,
-          "gap_frames": 513,
-          "rmse_m": 0.164,
-          "speed_rmse": 0.154
+          "gap_frames": 469,
+          "rmse_m": 0.171,
+          "speed_rmse": 0.161
          }
         },
         "by_gap": [
@@ -3070,21 +3072,21 @@
           ],
           "linear": {
            "gaps": 25,
-           "gap_frames": 170,
+           "gap_frames": 171,
            "rmse_m": 0.057,
-           "speed_rmse": 0.138
+           "speed_rmse": 0.137
           },
           "kf_ca": {
            "gaps": 25,
-           "gap_frames": 170,
-           "rmse_m": 0.046,
-           "speed_rmse": 0.258
+           "gap_frames": 171,
+           "rmse_m": 0.045,
+           "speed_rmse": 0.257
           },
           "kf_ca_path": {
            "gaps": 25,
-           "gap_frames": 170,
-           "rmse_m": 0.046,
-           "speed_rmse": 0.258
+           "gap_frames": 171,
+           "rmse_m": 0.045,
+           "speed_rmse": 0.257
           }
          },
          {
@@ -3093,22 +3095,22 @@
            2.0
           ],
           "linear": {
-           "gaps": 16,
-           "gap_frames": 196,
-           "rmse_m": 0.263,
-           "speed_rmse": 0.094
+           "gaps": 17,
+           "gap_frames": 205,
+           "rmse_m": 0.257,
+           "speed_rmse": 0.092
           },
           "kf_ca": {
-           "gaps": 16,
-           "gap_frames": 196,
-           "rmse_m": 0.251,
-           "speed_rmse": 0.034
+           "gaps": 17,
+           "gap_frames": 205,
+           "rmse_m": 0.246,
+           "speed_rmse": 0.033
           },
           "kf_ca_path": {
-           "gaps": 16,
-           "gap_frames": 196,
-           "rmse_m": 0.251,
-           "speed_rmse": 0.034
+           "gaps": 17,
+           "gap_frames": 205,
+           "rmse_m": 0.246,
+           "speed_rmse": 0.033
           }
          },
          {
@@ -3118,21 +3120,21 @@
           ],
           "linear": {
            "gaps": 4,
-           "gap_frames": 98,
-           "rmse_m": 0.332,
-           "speed_rmse": 0.137
+           "gap_frames": 93,
+           "rmse_m": 0.341,
+           "speed_rmse": 0.141
           },
           "kf_ca": {
            "gaps": 4,
-           "gap_frames": 98,
-           "rmse_m": 0.101,
-           "speed_rmse": 0.081
+           "gap_frames": 93,
+           "rmse_m": 0.104,
+           "speed_rmse": 0.083
           },
           "kf_ca_path": {
            "gaps": 4,
-           "gap_frames": 98,
-           "rmse_m": 0.101,
-           "speed_rmse": 0.081
+           "gap_frames": 93,
+           "rmse_m": 0.104,
+           "speed_rmse": 0.083
           }
          },
          {
@@ -3141,22 +3143,22 @@
            5.0
           ],
           "linear": {
-           "gaps": 1,
-           "gap_frames": 49,
-           "rmse_m": 0.0,
-           "speed_rmse": 0.0
+           "gaps": 0,
+           "gap_frames": 0,
+           "rmse_m": null,
+           "speed_rmse": null
           },
           "kf_ca": {
-           "gaps": 1,
-           "gap_frames": 49,
-           "rmse_m": 0.0,
-           "speed_rmse": 0.0
+           "gaps": 0,
+           "gap_frames": 0,
+           "rmse_m": null,
+           "speed_rmse": null
           },
           "kf_ca_path": {
-           "gaps": 1,
-           "gap_frames": 49,
-           "rmse_m": 0.0,
-           "speed_rmse": 0.0
+           "gaps": 0,
+           "gap_frames": 0,
+           "rmse_m": null,
+           "speed_rmse": null
           }
          }
         ],
