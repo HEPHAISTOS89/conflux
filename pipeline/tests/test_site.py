@@ -221,3 +221,13 @@ def test_source_url_and_json_dimensions_validated(tmp_path):
     (tmp_path / "tracks.json").write_text(json.dumps({"tracks": [{"id": "1", "class": "car", "length": "inf", "pts": [[0, 0, 0]]}]}))
     with pytest.raises(site.SiteError, match="not finite"):
         site.read_tracks(tmp_path, "toy-site")
+
+
+def test_stationary_track_direction_comes_from_heading_not_noise(tmp_path):
+    t = np.round(np.arange(0, 3, 0.1), 1)
+    rng = np.random.default_rng(3)
+    x = 5 + rng.normal(0, 0.002, len(t)); y = -20 + rng.normal(0, 0.002, len(t))
+    rows = vehicle_rows(9, t, x, y, cls="bus", L=12, W=2.6, heading="180")   # parked, facing south
+    write_site(tmp_path, rows)
+    tracks, _ = site.convert_tracks(site.read_site(tmp_path), site.read_tracks(tmp_path, "toy-site"))
+    assert tracks[0]["dir"] == "SB"
