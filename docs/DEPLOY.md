@@ -98,7 +98,7 @@ The S3 bucket has `RemovalPolicy.RETAIN` and survives the teardown. Deleting it 
 - `/ask` has a per-client token bucket (10 requests/minute) plus a global daily cap of 400 questions per warm container. Bedrock calls go to Claude Haiku 4.5 through the inference profile.
 - Logs are kept for two weeks.
 
-## 11. Site trajectory drop (defined, not yet deployed)
+## 11. Site trajectory drop (deployed 2026-10-18)
 
 A lab feed is added by uploading two files under `s3://$BUCKET/sites/<site_id>/` (schema: `docs/SITE_TRAJECTORY_SCHEMA.md`): `site.json` first, then `tracks.csv` (or `tracks.json`). The bucket publishes object events to EventBridge; the `SiteDrop` rule matches `sites/*/tracks.csv|json` and invokes `roadscope-ingest`, which validates and converts the feed (`roadscope_pipeline/trajectory/site.py`), computes TTC/PET/DRAC, pedestrian PET and the failure-to-yield indicator, and uploads `curated/intersections/<site_id>.json`, `_conflicts.json`, `_ssm.json`, then the merged `index.json` and `manifest.json` last. A run record `curated/runs/<ts>-<site_id>.json` (job `site`) is written at start and end. Validation failures log `site_ingest_failed`, which a CloudWatch metric filter turns into the `roadscope-site-ingest-failed` alarm; Lambda retries and the DLQ apply as for the weekly ingest.
 
@@ -155,4 +155,4 @@ Resources
 ✨  Number of stacks with differences: 1
 ```
 
-Deploying adds one EventBridge rule, one metric filter, one alarm and the bucket-notification custom resource (a CDK-managed Lambda that sets the bucket's EventBridge configuration). No instance, no new function and no standing cost; a site run is one Lambda invocation of a few seconds.
+Deployed 2026-10-18 (two `cdk deploy` runs, 100 s and 27 s); the first drop of `sites/tianjin-sind/` produced a `site` run record in 1.5 s with 41 conflicts, matching the local converter. Deploying added one EventBridge rule, one metric filter, one alarm and the bucket-notification custom resource (a CDK-managed Lambda that sets the bucket's EventBridge configuration). No instance, no new function and no standing cost; a site run is one Lambda invocation of a few seconds.
