@@ -225,3 +225,8 @@ neighbours); the portal screened Lubbock County alone.
   figures change: 37 of 499 flagged (was 27 of 395), 116 crashes (110), 46 on-system K+A (43).
 - Verified at 1440 and 375, dark and light, console clean; tsc, 76 + 68 + 32 tests, build. Report and per-county
   table: docs/qa/spag-region.md. Not deployed; curated set must be synced to S3 before the next deploy.
+
+## SPAG follow-up: deploy and header fixes (2026-10-18)
+- Owner review found the Brief title colliding with the actions row and the rail's Region listbox clipped by the rail's scroll box. Fixes: the H1 no longer forces one line (the scope pill and info button wrap under it instead); the Brief title is "Ped/bike safety brief" with the scope pill, like every other sheet; `Select` gains a `portal` mode (listbox at the document root, fixed to the trigger, re-measured on scroll/resize; `useFloatFit` lets a rail-anchored panel sit over the rail).
+- Sweep at 1440/1024/390 over all nine routes: no page overflow, no title/actions/scope intersections; the only wide elements are inside their own scroll regions (charts, tables). Console warnings are OpenFreeMap style filters, not ours.
+- Deployed: curated set synced to S3, RoadScopeStack redeployed (county-aware API + ingest Lambdas, 45 s), live `/counties` returns 15 and gzip is on; frontend deployed to Vercel from this branch.

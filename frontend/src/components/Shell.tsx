@@ -138,7 +138,7 @@ export default function Shell() {
   const asOf = meta.data?.generated_at ? new Date(meta.data.generated_at) : null;
   const scope = regionLabel(county, counties.list);
   const regionSelect = (
-    <Select<string> label="Region" icon="county" value={county ?? 'all'} compact onChange={(v) => setCounty(v === 'all' ? null : v)}
+    <Select<string> label="Region" icon="county" value={county ?? 'all'} compact portal onChange={(v) => setCounty(v === 'all' ? null : v)}
       options={[
         { value: 'all', label: REGION_NAME, hint: `${REGION_COUNT} counties` },
         ...(counties.list ?? []).map((c) => ({ value: c.id, label: `${c.name} County`, hint: `${c.segments_screened.toLocaleString('en-US')} seg · ${c.vru_crashes} VRU` })),

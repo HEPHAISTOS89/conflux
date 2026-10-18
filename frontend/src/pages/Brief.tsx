@@ -143,7 +143,8 @@ export default function Brief() {
         <div className="sheet-ph">
           <PageHeader
             icon="county"
-            title={`${scope} ped/bike safety brief`}
+            title="Ped/bike safety brief"
+            scope={scope}
             lede={<>{v.flagged.length} of {nf(items.length)} screened one-mile state-system segments in {regionLabel(county, counties.list, true)} have expected ped/bike crashes above the SPF prediction (EB excess &gt; 0); {v.confirmed.length} also exceed the critical rate at 95% confidence.</>}
             source={<>Derived from TxDOT CRIS 2021–2023 for the SPAG counties (TxDOT Districts 05 and 25) by HSM Part B empirical Bayes screening on the 15-county population; build {date ?? '…'}. Screening flags sites for investigation and does not establish cause. Not an official TxDOT product.</>}
             readouts={[
