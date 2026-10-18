@@ -283,3 +283,24 @@
 .pf-guards li:nth-child(2) { animation-delay: 40ms; } .pf-guards li:nth-child(3) { animation-delay: 80ms; } .pf-guards li:nth-child(4) { animation-delay: 120ms; } .pf-guards li:nth-child(5) { animation-delay: 160ms; } .pf-guards li:nth-child(6) { animation-delay: 200ms; }
 @media (prefers-reduced-motion: reduce) { .pf-guards li { animation: none; } }
 .pf-verdict { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---- Add a site ---- */
+.pf-site .pf-h { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.pf-site .pf-h .status { margin-left: auto; }
+.pf-site-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: var(--s4); margin-top: var(--s4); }
+.pf-site-drop, .pf-site-schema { padding: var(--s4); display: grid; gap: var(--s3); align-content: start; }
+.pf-site-drop small, .pf-site-sh small { font-size: var(--t-label); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.pf-site-drop code { font-family: var(--f-measure); font-size: var(--t-ui); padding: 8px 10px; background: var(--raise); border-radius: var(--r-m); overflow-wrap: anywhere; }
+.pf-site-flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pf-site-flow li { display: grid; grid-template-columns: 22px minmax(0, 0.9fr) minmax(0, 1.6fr); gap: 8px; align-items: baseline; font-size: var(--t-ui); }
+.pf-site-flow li span:last-child { color: var(--ink-2); overflow-wrap: anywhere; }
+.pf-site-n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); font-size: var(--t-micro); }
+.pf-site-fine { margin: 0; font-size: var(--t-label); color: var(--ink-3); display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.pf-site-sh { display: flex; justify-content: space-between; align-items: center; }
+.pf-site-cols { font-size: var(--t-ui); }
+.pf-site-cols td, .pf-site-cols th { padding: 6px 8px; vertical-align: top; }
+.pf-site-cols td:last-child { color: var(--ink-2); }
+.pf-site-keys { margin: 0; display: grid; gap: 6px; font-size: var(--t-ui); }
+.pf-site-keys div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 8px; }
+.pf-site-keys dd { margin: 0; color: var(--ink-2); }
+@media (max-width: 900px) { .pf-site-grid { grid-template-columns: 1fr; } }

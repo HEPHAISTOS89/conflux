@@ -30,5 +30,7 @@ Win the Texas Tech TransTech Lab Graduate Assistant position (Prof. Hongchao Liu
 - On-demand ingest: POST /api/v1/ops/ingest (30-min cooldown + S3 lock, IAM scoped to the ingest ARN). First production run 2026-10-17 18:12 UTC, 20,708 records, 11.8 s.
 - AWS CLI uses `aws login` sessions that expire; if `aws sts get-caller-identity` says expired, run `aws login` in a terminal tab and let the owner approve in the browser.
 
+- Site feed path: docs/SITE_TRAJECTORY_SCHEMA.md → `trajectory/site.py` (local CLI and the ingest Lambda on `sites/<id>/tracks.csv` S3 drops, CDK defined but **not deployed**: docs/DEPLOY.md §11). Pedestrian site tianjin-sind is SinD (non-commercial licence) converted through that path; pedestrian PET + failure-to-yield rules in ssm.py (Tex. Transp. Code §552.003, NCHRP 562).
+
 ## Active goal
 See docs/GOAL.md (owner brief, 2026-10-17) and log every iteration in docs/DESIGN_LOG.md.

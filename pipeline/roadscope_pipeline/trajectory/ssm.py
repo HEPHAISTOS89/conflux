@@ -26,6 +26,14 @@ CELL = 0.5         # m   raster for swept footprints
 UPSAMPLE = 5       # 10 Hz -> 50 Hz for footprint entry/exit timing (0.02 s)
 MIN_ANGLE = 30.0   # deg below this the streams merge/diverge (rear-end-like), not crossing
 DEFAULT_W = 1.8
+VRU = {"pedestrian", "bicycle"}
+PED_PET_BINS = ((1.0, "critical"), (2.0, "serious"), (5.0, "moderate"))
+YIELD_T = 3.0        # s   vehicle enters the crosswalk within this of a pedestrian being in it
+YIELD_STOP = 0.5     # m/s below this on the approach the driver stopped (yielded)
+YIELD_APPROACH = 3.0 # s   window before crosswalk entry searched for a stop
+REACTION_S = 2.5     # s   AASHTO brake-reaction time
+YIELD_BINS = ((1.0, "critical"), (2.0, "serious"), (YIELD_T, "moderate"))   # lead time when the pedestrian comes second
+YIELD_DIST_BINS = ((3.6, "critical"), (7.2, "serious"), (1e9, "moderate"))  # m between entry point and pedestrian otherwise
 MIN_FRAMES = 3     # an event must persist >= 0.3 s to reject residual jitter
 MIN_GAP = 1.0      # m   spacing below this at 10 Hz is an NGSIM overlap artefact, not a gap
 MIN_SPEED = 2.0    # m/s follower speed; excludes creeping inside standing queues
@@ -39,6 +47,15 @@ CITATIONS = {
     "aashto": "AASHTO (2018) A Policy on Geometric Design of Highways and Streets, 7th ed.",
     "pet": "Allen, B. L., Shin, B. T., Cooper, P. J. (1978). Analysis of traffic conflicts and collisions. "
            "Transportation Research Record 667, 67-74.",
+    "tx552": "Texas Transportation Code §552.003 (Pedestrian Right-of-Way at Crosswalk): the operator of a vehicle "
+             "shall stop and yield the right-of-way to a pedestrian crossing a roadway in a crosswalk.",
+    "nchrp562": "Fitzpatrick, K., Turner, S., Brewer, M., Carlson, P., Ullman, B., Trout, N., Park, E. S., Whitacre, J., "
+                "Lalani, N., Lord, D. (2006). Improving Pedestrian Safety at Unsignalized Crossings. TCRP Report 112 / "
+                "NCHRP Report 562, Transportation Research Board. (Yielding: a driver who stops or slows for the pedestrian; "
+                "only drivers with stopping distance available count as opportunities.)",
+    "vru_pet": "Zangenehpour, S., Strauss, J., Miranda-Moreno, L. F., Saunier, N. (2016). Are signalized intersections with "
+               "cycle tracks safer? A case-control study based on automated surrogate safety analysis using video data. "
+               "Accident Analysis & Prevention 86, 161-172. (PET thresholds of 1-3 s for vulnerable road user conflicts.)",
     "ngsim_accuracy": "Punzo, V., Borzacchiello, M. T., Ciuffo, B. (2011). On the assessment of vehicle "
                       "trajectory data accuracy and application to the Next Generation SIMulation (NGSIM) "
                       "program data. Transportation Research Part C 19(6), 1243-1262.",
@@ -80,6 +97,30 @@ RULES = {
         "note": "a physical overlap at NGSIM position accuracy is most likely a data error "
                 "(Punzo et al. 2011), not an observed near-collision",
     },
+    "pedestrian_pet": {
+        "bins": [[0.0, 1.0, "critical"], [1.0, 2.0, "serious"], [2.0, 5.0, "moderate"]],
+        "rule": "pedestrian footprint 0.5 x 0.5 m swept along its track while inside a crosswalk polygon; vehicle footprint "
+                "as for crossing PET; zone = intersection of the two swept footprints; PET = t(second enters) - t(first leaves); "
+                "detected at PET <= 5.0 s, any conflict angle; overlap (simultaneous occupancy) recorded with pet = 0",
+        "note": "study-specific severity bins (PET <= 1 s critical, <= 2 s serious, <= 5 s moderate); video-based VRU "
+                "studies place conflict thresholds at 1-3 s (Zangenehpour et al. 2016); no FHWA/SSAM standard",
+        "citation": "Allen et al. (1978) TRR 667; Zangenehpour et al. (2016) AAP 86",
+    },
+    "failure_to_yield": {
+        "t_s": YIELD_T, "stop_mps": YIELD_STOP, "approach_s": YIELD_APPROACH, "reaction_s": REACTION_S, "decel_mps2": DRAC_FLAG,
+        "rule": "a vehicle's front enters a crosswalk polygon at t_v while a pedestrian is inside the same polygon, or "
+                "within 3.0 s before the pedestrian enters it; the vehicle never slowed below 0.5 m/s (1.1 mph) in the "
+                "3.0 s before entry; and it had a stopping opportunity: its path distance to the crosswalk when the "
+                "pedestrian entered (or 3.0 s before its own entry if the pedestrian came second) was at least the "
+                "AASHTO stopping distance 2.5 s * v + v^2 / (2 * 3.4 m/s^2)",
+        "severity": "study-specific bins: pedestrian already in the crosswalk -> distance from the vehicle's entry point to "
+                    "the pedestrian at entry <= 3.6 m (one lane) critical, <= 7.2 m serious, else moderate; pedestrian "
+                    "arriving after the vehicle -> lead time <= 1 s critical, <= 2 s serious, else moderate",
+        "note": "indicator, not a citation: the roadway-half condition of §552.003(a) and signal phase are not applied; at a "
+                "signalised site vehicles proceeding on green past a pedestrian crossing against the signal are counted",
+        "citation": "Texas Transportation Code §552.003; Fitzpatrick et al. (2006) NCHRP Report 562 (yielding and opportunity); "
+                    "AASHTO (2018) stopping sight distance",
+    },
     "citations": list(CITATIONS.values()),
 }
 
@@ -110,6 +151,27 @@ def severity_ttc(ttc: float) -> str | None:
 
 def severity_pet(pet: float) -> str | None:
     return _bin(pet, PET_BINS)
+
+
+def severity_ped_pet(pet: float) -> str | None:
+    return _bin(pet, PED_PET_BINS)
+
+
+def severity_yield(margin: float, ped_dist_m: float | None = None) -> str | None:
+    """Pedestrian already in the crosswalk at the vehicle's entry (margin >= 0): by the distance between the
+    entry point and the pedestrian (one lane 3.6 m critical, two lanes serious, else moderate); pedestrian
+    arriving after the vehicle (margin < 0): by the lead time (<= 1 s critical, <= 2 s serious, else moderate)."""
+    if margin < 0:
+        return _bin(-margin, YIELD_BINS)
+    return _bin(ped_dist_m if ped_dist_m is not None else 0.0, YIELD_DIST_BINS)
+
+
+def vehicles(tracks):
+    return [tr for tr in tracks if tr.get("cls") not in VRU]
+
+
+def pedestrians(tracks):
+    return [tr for tr in tracks if tr.get("cls") == "pedestrian"]
 
 
 def heading(tr, vmin: float = 1.0) -> np.ndarray:
@@ -181,7 +243,7 @@ def _event(kind, a, b, ks, ttc, drac, sl):
     tmin = float(ttc[j])
     dmax = float(drac[s].max())
     return {"t": round(ks[j] / HZ, 1), "t0": round(ks[sl[0]] / HZ, 1), "t1": round(ks[sl[1] - 1] / HZ, 1),
-            "a": int(a), "b": int(b), "type": kind, "ttc_min": round(tmin, 2), "pet": None,
+            "a": a, "b": b, "type": kind, "ttc_min": round(tmin, 2), "pet": None,
             "drac_max": round(dmax, 2), "severity": severity_ttc(tmin),
             "drac_flag": bool(dmax >= DRAC_FLAG), "overlap": False}
 
@@ -396,7 +458,7 @@ def pet(tracks, cell: float = CELL, pet_max: float = PET_MAX, up: int = UPSAMPLE
                 "t": round(float(s_in), 1),
                 "t0": round(float(s_in if overlap else f_out), 1),
                 "t1": round(float(min(f_out, s_out) if overlap else s_in), 1),
-                "a": int(first["id"]), "b": int(second["id"]), "type": "crossing",
+                "a": first["id"], "b": second["id"], "type": "crossing",
                 "ttc_min": None, "pet": round(float(p), 2), "drac_max": None,
                 "severity": severity_pet(p), "drac_flag": False, "overlap": bool(overlap),
                 "angle_deg": round(float(ang), 1), "zone_m2": round(float(len(z) * cell * cell), 1),
@@ -405,16 +467,186 @@ def pet(tracks, cell: float = CELL, pet_max: float = PET_MAX, up: int = UPSAMPLE
     return events
 
 
+def _in_polys(tr, polys):
+    """Per-frame: index of the crosswalk polygon containing the track point, -1 outside all."""
+    from .site import point_in_polygon
+    x, y = np.asarray(tr["x"], float), np.asarray(tr["y"], float)
+    idx = np.full(len(x), -1)
+    for i, cw in enumerate(polys):
+        m = point_in_polygon(x, y, cw["polygon"]) & (idx < 0)
+        idx[m] = i
+    return idx
+
+
+def _dilate(m: np.ndarray, n: int) -> np.ndarray:
+    out = m.copy()
+    for s in range(1, n + 1):
+        out[s:] |= m[:-s]
+        out[:-s] |= m[s:]
+    return out
+
+
+def ped_vehicle_pet(tracks, crosswalks, pet_max: float = PET_MAX, cell: float = CELL, up: int = UPSAMPLE):
+    """Pedestrian-vehicle PET over the crosswalk polygons: the pedestrian's swept footprint while inside a
+    crosswalk against each vehicle's swept footprint while inside the intersection box or a crosswalk
+    (window padded 0.5 s so the body is in the raster when the front point crosses the line)."""
+    peds, vehs = pedestrians(tracks), vehicles(tracks)
+    if not peds or not crosswalks:
+        return []
+    pf = []
+    for p in peds:
+        m = _in_polys(p, crosswalks) >= 0
+        if not m.any():
+            continue
+        f = footprint_cells({**p, "inside": m}, cell, up)
+        if f is not None:
+            pf.append((p, f))
+    if not pf:
+        return []
+    vf = []
+    for v in vehs:
+        m = _dilate(np.asarray(v["inside"], bool) | (_in_polys(v, crosswalks) >= 0), HZ // 2)
+        if not m.any():
+            continue
+        f = footprint_cells({**v, "inside": m}, cell, up)
+        if f is not None:
+            vf.append((v, f))
+    events = []
+    for p, (cp, pin, pout, _) in pf:
+        ps = (pin.min(), pout.max())
+        for v, (cv, vin, vout, _) in vf:
+            vs = (vin.min(), vout.max())
+            if ps[0] > vs[1] + pet_max or vs[0] > ps[1] + pet_max:
+                continue
+            z, ip, iv = np.intersect1d(cp, cv, assume_unique=True, return_indices=True)
+            if not len(z):
+                continue
+            p_in, p_out = pin[ip].min(), pout[ip].max()
+            v_in, v_out = vin[iv].min(), vout[iv].max()
+            if p_in <= v_in:
+                first, second, f_out, s_in, s_out = p, v, p_out, v_in, v_out
+            else:
+                first, second, f_out, s_in, s_out = v, p, v_out, p_in, p_out
+            overlap = s_in <= f_out
+            pe = 0.0 if overlap else s_in - f_out
+            if pe > pet_max + 1e-9:
+                continue
+            zx, zy = _cell_xy(z, cell)
+            events.append({
+                "t": round(float(s_in), 1), "t0": round(float(s_in if overlap else f_out), 1),
+                "t1": round(float(min(f_out, s_out) if overlap else s_in), 1),
+                "a": v["id"], "b": p["id"], "type": "pedestrian", "first": "pedestrian" if first is p else "vehicle",
+                "ttc_min": None, "pet": round(float(pe), 2), "drac_max": None,
+                "severity": severity_ped_pet(pe), "drac_flag": False, "overlap": bool(overlap),
+                "zone_m2": round(float(len(z) * cell * cell), 1), "cell": [round(float(zx.mean()), 1), round(float(zy.mean()), 1)],
+            })
+    return events
+
+
+def _runs_any(mask: np.ndarray):
+    if not mask.any():
+        return []
+    e = np.flatnonzero(np.diff(np.r_[0, mask.astype(int), 0]))
+    return list(zip(e[::2], e[1::2]))
+
+
+def failure_to_yield(tracks, crosswalks, t_yield: float = YIELD_T, stop_mps: float = YIELD_STOP,
+                     approach_s: float = YIELD_APPROACH):
+    """Failure-to-yield indicator (Texas Transp. Code §552.003; yielding and opportunity per NCHRP 562).
+    Returns one event per (vehicle crosswalk entry, pedestrian) pair meeting the rule in RULES['failure_to_yield'],
+    plus the counts needed to report yielding rate: see yield_summary()."""
+    peds, vehs = pedestrians(tracks), vehicles(tracks)
+    if not peds or not crosswalks:
+        return []
+    occ = defaultdict(list)   # crosswalk index -> [(ped, t_in, t_out)]
+    for p in peds:
+        idx = _in_polys(p, crosswalks)
+        t = np.asarray(p["t"], float)
+        for k in set(idx[idx >= 0].tolist()):
+            for s, e in _runs_any(idx == k):
+                occ[k].append((p, float(t[s]), float(t[e - 1])))
+    events = []
+    for v in vehs:
+        idx = _in_polys(v, crosswalks)
+        t = np.asarray(v["t"], float)
+        x, y, spd = np.asarray(v["x"], float), np.asarray(v["y"], float), np.asarray(v["v"], float)
+        path = np.r_[0.0, np.cumsum(np.hypot(np.diff(x), np.diff(y)))]
+        for k in set(idx[idx >= 0].tolist()):
+            if k not in occ:
+                continue
+            for s, _e in _runs_any(idx == k):
+                t_v = float(t[s])
+                for p, p_in, p_out in occ[k]:
+                    if not (p_in - t_yield <= t_v <= p_out):
+                        continue
+                    a0 = max(0, s - int(round(approach_s * HZ)))
+                    if a0 == s or spd[a0:s + 1].min() < stop_mps:
+                        continue           # stopped (yielded) or no approach observed
+                    t_ref = p_in if p_in <= t_v else t_v - t_yield
+                    j = int(np.clip(np.searchsorted(t, t_ref), 0, len(t) - 1))
+                    if t[j] > t_v or j >= s:
+                        continue
+                    v_ref = float(spd[j])
+                    dist = float(path[s] - path[j])
+                    ssd = REACTION_S * v_ref + v_ref ** 2 / (2 * DRAC_FLAG)
+                    if dist < ssd:
+                        continue           # no stopping opportunity: not a failure to yield
+                    margin = t_v - p_in
+                    jp = int(np.clip(np.searchsorted(np.asarray(p["t"], float), t_v), 0, len(p["t"]) - 1))
+                    ped_dist = float(np.hypot(x[s] - float(p["x"][jp]), y[s] - float(p["y"][jp])))
+                    events.append({
+                        "t": round(t_v, 1), "t0": round(float(t[j]), 1), "t1": round(t_v, 1),
+                        "a": v["id"], "b": p["id"], "type": "yield", "crosswalk": crosswalks[k]["id"],
+                        "ttc_min": None, "pet": None, "drac_max": None, "margin_s": round(float(margin), 2),
+                        "v_entry_mps": round(float(spd[s]), 2), "v_min_mps": round(float(spd[a0:s + 1].min()), 2),
+                        "dist_m": round(dist, 1), "ssd_m": round(ssd, 1), "ped_dist_m": round(ped_dist, 1),
+                        "severity": severity_yield(margin, ped_dist), "drac_flag": False, "overlap": False,
+                    })
+    return events
+
+
+def yield_summary(tracks, crosswalks, events):
+    """Yielding rate denominator: vehicle crosswalk entries with a pedestrian in or about to be in that crosswalk."""
+    peds, vehs = pedestrians(tracks), vehicles(tracks)
+    if not peds or not crosswalks:
+        return {"opportunities": 0, "failures": 0, "yield_rate": None}
+    occ = defaultdict(list)
+    for p in peds:
+        idx = _in_polys(p, crosswalks)
+        t = np.asarray(p["t"], float)
+        for k in set(idx[idx >= 0].tolist()):
+            for s, e in _runs_any(idx == k):
+                occ[k].append((float(t[s]), float(t[e - 1])))
+    n = 0
+    for v in vehs:
+        idx = _in_polys(v, crosswalks)
+        t = np.asarray(v["t"], float)
+        for k in set(idx[idx >= 0].tolist()):
+            for s, _e in _runs_any(idx == k):
+                if any(p_in - YIELD_T <= t[s] <= p_out for p_in, p_out in occ.get(k, [])):
+                    n += 1
+    fails = len({(e["a"], e["t"]) for e in events})
+    return {"opportunities": n, "failures": fails, "yield_rate": round(1 - fails / n, 3) if n else None,
+            "note": "entries with a pedestrian in the crosswalk (or entering within 3 s); failures are entries that neither "
+                    "stopped nor lacked the stopping distance"}
+
+
 def _number(ev):
-    ev.sort(key=lambda e: (e["t"], e["a"], e["b"]))
+    ev.sort(key=lambda e: (e["t"], str(e["a"]), str(e["b"])))
     return [{"id": n, **e} for n, e in enumerate(ev)]
 
 
-def analyse(tracks, preceding=None):
-    """Return (conflicts at SSAM detection thresholds, ssm summary document)."""
-    series = rear_end_series(tracks, preceding) + lane_change_series(tracks)
-    crossing = pet(tracks, pet_max=max(PET_GRID))
-    conflicts = _number(_series_events(series, TTC_MAX) + [e for e in crossing if e["pet"] <= PET_MAX])
+def analyse(tracks, preceding=None, crosswalks=None):
+    """Return (conflicts at SSAM detection thresholds, ssm summary document). Vehicle-vehicle measures run on
+    the vehicle tracks only; pedestrian PET and the failure-to-yield indicator need `crosswalks` polygons."""
+    veh = vehicles(tracks)
+    series = rear_end_series(veh, preceding) + lane_change_series(veh)
+    crossing = pet(veh, pet_max=max(PET_GRID))
+    crosswalks = crosswalks or []
+    ped = ped_vehicle_pet(tracks, crosswalks, pet_max=max(PET_GRID))
+    fty = failure_to_yield(tracks, crosswalks)
+    conflicts = _number(_series_events(series, TTC_MAX) + [e for e in crossing if e["pet"] <= PET_MAX]
+                        + [e for e in ped if e["pet"] <= PET_MAX] + fty)
     sens_ttc, wide = {}, None
     for thr in TTC_GRID:
         ev = _series_events(series, thr)
@@ -425,8 +657,10 @@ def analyse(tracks, preceding=None):
     sens_pet = {}
     for thr in PET_GRID:
         ev = [e for e in crossing if e["pet"] <= thr + 1e-9]
+        pev = [e for e in ped if e["pet"] <= thr + 1e-9]
         sens_pet[f"{thr:.1f}"] = {"crossing": len(ev), "overlap": sum(e["overlap"] for e in ev),
-                                  "crossing_excl_overlap": sum(not e["overlap"] for e in ev)}
+                                  "crossing_excl_overlap": sum(not e["overlap"] for e in ev),
+                                  "pedestrian": len(pev), "pedestrian_overlap": sum(e["overlap"] for e in pev)}
     scatter = [[e["ttc_min"], e["drac_max"], e["type"], e["severity"] if e["ttc_min"] <= TTC_MAX else None]
                for e in sorted(wide or [], key=lambda e: e["ttc_min"])]
     counts = defaultdict(int)
@@ -443,6 +677,9 @@ def analyse(tracks, preceding=None):
         "counts": {"total": len(conflicts), "by_type_severity": dict(sorted(counts.items())),
                    "drac_flag": sum(e["drac_flag"] for e in conflicts),
                    "overlap": sum(e["overlap"] for e in conflicts)},
+        "pedestrians": {"tracks": len(pedestrians(tracks)), "crosswalks": len(crosswalks),
+                        "pet_events": len([e for e in ped if e["pet"] <= PET_MAX]),
+                        "yield": yield_summary(tracks, crosswalks, fty)},
     }
     return conflicts, doc
 

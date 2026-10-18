@@ -7,7 +7,8 @@ import Info from '../Info';
 import { CONFIDENCE_SPEC } from '../../lib/lab/specs';
 
 /** One-line data-quality verdict for the site's trajectory file, computed in the browser from the served JSON. */
-export default function DataHealth({ h, repaired, hz, quality }: { h: Health; repaired: { n: number; of: number } | null; hz: number; quality: Quality | null }) {
+export default function DataHealth({ h, repaired, hz, quality, classes = [] }: { h: Health; repaired: { n: number; of: number } | null; hz: number; quality: Quality | null; classes?: { cls: string; n: number }[] }) {
+  const peds = classes.find((c) => c.cls === 'pedestrian')?.n ?? 0, bikes = classes.find((c) => c.cls === 'bicycle')?.n ?? 0;
   const ok = h.completeness >= 99.5 && h.longestGapS < 0.5;
   const ghosts = quality?.byId.size ?? 0, idSwitch = quality ? new Set(quality.windows.filter((w) => w.reason === 'id_switch').map((w) => w.id)).size : 0;
   return (
@@ -37,6 +38,11 @@ export default function DataHealth({ h, repaired, hz, quality }: { h: Health; re
         <div>
           <dt>High confidence <MetricInfo spec={CONFIDENCE_SPEC} /></dt><dd className="measure">{h.highConfidence.toFixed(0)}<small>%</small></dd>
         </div>
+        {classes.length > 0 && (
+          <div title={classes.map((c) => `${c.n} ${c.cls}`).join(', ')}>
+            <dt><Icon name="pedestrian" size={12} /> Pedestrians</dt><dd className="measure">{peds}<small>{bikes ? `+ ${bikes} bikes` : `/ ${h.tracks}`}</small></dd>
+          </div>
+        )}
         <div title="Tracks the repair benchmark below cut with simulated occlusion gaps and rebuilt (Kalman CA + RTS)">
           <dt>Repaired</dt><dd className="measure">{repaired ? repaired.n : '—'}<small>{repaired ? `/ ${repaired.of}` : ''}</small></dd>
         </div>

@@ -111,6 +111,20 @@
       "sha256": "c120ec706f020d36aef1b2a1eb15f616671e9db62e84dfe01320d082158494e7"
     },
     {
+      "id": "site_tianjin-sind",
+      "url": "https://github.com/SOTIF-AVLab/SinD",
+      "licence": "CC0 1.0 as modified by the authors: not permitted for commercial purposes (non-commercial research and display only)",
+      "records": 12025,
+      "fetched_at": "2026-10-18T17:01:13+00:00",
+      "sha256": "00fb50736efb0839ea3976bed0791473f3db70192412f517237f33fbcbb5704d",
+      "filter": "site feed tianjin-sind, window [0.0, 90.0]",
+      "outputs": [
+        "intersections/tianjin-sind.json",
+        "intersections/tianjin-sind_conflicts.json",
+        "intersections/tianjin-sind_ssm.json"
+      ]
+    },
+    {
       "id": "speed_2024",
       "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TxDOT_Statewide_Speed_2024/FeatureServer/0",
       "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",

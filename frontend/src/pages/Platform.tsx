@@ -11,6 +11,7 @@ import { Icon, type IconName } from '../components/Icon';
 import FlowDiagram from '../components/arch/FlowDiagram';
 import NodePanel from '../components/arch/NodePanel';
 import IngestControl from '../components/arch/IngestControl';
+import AddSite from '../components/arch/AddSite';
 import { getStatus } from '../components/arch/ingest';
 import { NODES, ago, deriveLive, finished, job, runSeconds, type Flow } from '../components/arch/model';
 import { SIM_MIN_PER_S, SIM_OFF, TARGETS, scenarioView, simReduce, type Target } from '../components/arch/scenario';
@@ -165,6 +166,8 @@ export default function Platform() {
       {d?.errors.length ? <div className="error-box">{d.errors.join('; ')}</div> : null}
 
       <IngestControl data={d} refresh={st.reload} />
+
+      <AddSite bucket={(d?.manifest as { bucket?: string } | null)?.bucket ?? null} sources={sources} />
 
       <section className="section ar" aria-labelledby="ar-h">
         <div className="ar-head">

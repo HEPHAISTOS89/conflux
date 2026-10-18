@@ -8,12 +8,13 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { TrackT } from '../traj';
 
-export type VehicleKind = 'sedan' | 'suv' | 'pickup' | 'truck';
-export const KINDS: VehicleKind[] = ['sedan', 'suv', 'pickup', 'truck'];
+export type VehicleKind = 'sedan' | 'suv' | 'pickup' | 'truck' | 'ped';
+export const KINDS: VehicleKind[] = ['sedan', 'suv', 'pickup', 'truck', 'ped'];
 
 /** Class from the NGSIM vehicle class and length: cars below 5.0 m read as sedans, 5.0–5.6 as SUVs, longer cars as pickups. */
 export function kindOf(tr: TrackT): VehicleKind {
-  if (tr.cls === 'truck' || tr.len_m > 7) return 'truck';
+  if (tr.cls === 'pedestrian') return 'ped';
+  if (tr.cls === 'truck' || tr.cls === 'bus' || tr.len_m > 7) return 'truck';
   if (tr.len_m > 5.6) return 'pickup';
   if (tr.len_m > 5.0) return 'suv';
   return 'sedan';
@@ -24,7 +25,7 @@ export const WHEEL = { r: 0.33, w: 0.22 } as const;
 interface Profile { body: [number, number][]; cabin: [number, number][] | null; roofY: number | null; cabinX: [number, number]; nominalLen: number; height: number; glassInset: number; beltY: number; lampY: [number, number] }
 
 /** Side profiles in metres for a nominal length; x from the rear bumper (negative) to the front (positive), y up. */
-const PROFILES: Record<VehicleKind, Profile> = {
+const PROFILES: Record<Exclude<VehicleKind, 'ped'>, Profile> = {
   sedan: {
     nominalLen: 4.8, height: 1.42, glassInset: 0.06, beltY: 0.88, lampY: [0.74, 0.8],
     body: [[-2.4, 0.3], [-2.4, 0.74], [-2.3, 0.86], [-1.5, 0.9], [-0.9, 0.9], [1.05, 0.86], [2.1, 0.78], [2.4, 0.66], [2.4, 0.3], [2.15, 0.22], [-2.15, 0.22]],
@@ -61,7 +62,7 @@ const ex = (pts: [number, number][], depth: number, bevel: number): THREE.Buffer
 export interface VehicleGeometry { body: THREE.BufferGeometry; glass: THREE.BufferGeometry; wheelX: [number, number] }
 
 /** Body (painted parts) and glass for a class, normalised to unit length and unit width; heights in metres. */
-export function vehicleGeometry(kind: VehicleKind): VehicleGeometry {
+export function vehicleGeometry(kind: Exclude<VehicleKind, 'ped'>): VehicleGeometry {
   const p = PROFILES[kind];
   const L = p.nominalLen;
   const bodyParts = [ex(p.body, 1, 0.07)];
@@ -98,7 +99,7 @@ export function wheelGeometry(): THREE.BufferGeometry {
 }
 
 /** Lamp blocks at the ends of a unit body: x = ±0.5, at the class's lamp height, 0.14 in from each side. */
-export function lampGeometry(front: boolean, kind: VehicleKind): THREE.BufferGeometry {
+export function lampGeometry(front: boolean, kind: Exclude<VehicleKind, 'ped'>): THREE.BufferGeometry {
   const p = PROFILES[kind], y = front ? p.lampY[0] : p.lampY[1];
   const x = front ? 0.5 : -0.5, w = kind === 'truck' ? 0.14 : 0.2;
   return mergeGeometries([new THREE.BoxGeometry(0.03, 0.1, w).translate(x, y, 0.5 - 0.16), new THREE.BoxGeometry(0.03, 0.1, w).translate(x, y, -(0.5 - 0.16))])!;
@@ -132,4 +133,13 @@ export function steerAngle(headingRate: number, v: number, wheelbase: number): n
 export function wheelOffsets(wheelX: [number, number], widthM: number): [number, number][] {
   const z = widthM / 2 - WHEEL.w / 2 - 0.02;
   return [[wheelX[1], z], [wheelX[1], -z], [wheelX[0], z], [wheelX[0], -z]];
+}
+
+/** Pedestrian body in metres (not scaled by the instance like vehicles): a 1.7 m capsule torso with a head. */
+export function pedestrianGeometry(): THREE.BufferGeometry {
+  const torso = new THREE.CapsuleGeometry(0.19, 0.95, 3, 10).translate(0, 0.78, 0);
+  const head = new THREE.SphereGeometry(0.11, 10, 8).translate(0, 1.58, 0);
+  const g = mergeGeometries([torso, head], false)!;
+  g.computeVertexNormals();
+  return g;
 }

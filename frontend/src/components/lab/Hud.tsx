@@ -75,9 +75,9 @@ export default function Hud({ data, conflicts }: { data: IntersectionT; conflict
       {rows.map((r, i) => (
         <div className="hud-veh" key={r.id} data-primary={i === 0 || undefined}>
           <div className="hud-id">
-            <Icon name={r.tr.cls === 'truck' ? 'truck' : 'vehicle'} size={16} />
+            <Icon name={r.tr.cls === 'pedestrian' ? 'pedestrian' : r.tr.cls === 'bicycle' ? 'bike' : r.tr.cls === 'truck' || r.tr.cls === 'bus' ? 'truck' : 'vehicle'} size={16} />
             <b className="measure">#{r.id}</b>
-            <span className="sr-only">{r.tr.cls === 'truck' ? 'heavy vehicle' : 'passenger car'}</span><span className="muted">{r.tr.dir} {r.tr.move}</span>
+            <span className="sr-only">{r.tr.cls === 'pedestrian' ? 'pedestrian' : r.tr.cls === 'truck' ? 'heavy vehicle' : r.tr.cls}</span><span className="muted">{r.tr.dir} {r.tr.move}</span>
           </div>
           {r.k ? (
             <dl className="hud-kin">
