@@ -5,7 +5,8 @@ import Info from './Info';
 
 interface Rule { rule?: string; citation?: string; note?: string; threshold_mps2?: number }
 interface Ssm {
-  rules: { detection: Rule; severity_ttc: Rule; severity_pet: Rule; drac: Rule; overlap?: Rule };
+  rules: { detection: Rule; severity_ttc: Rule; severity_pet: Rule; drac: Rule; overlap?: Rule; pedestrian_pet?: Rule; failure_to_yield?: Rule & { severity?: string } };
+  pedestrians?: { tracks: number; crosswalks: number; pet_events: number; yield: { opportunities: number; failures: number; yield_rate: number | null; note?: string } };
   sensitivity: { ttc: Record<string, Record<string, number>>; pet: Record<string, Record<string, number>>; note?: string };
   scatter: [number, number, string, string | null][];
   scatter_note?: string;
@@ -25,13 +26,15 @@ export default function SsmPanel({ id }: { id: string }) {
       <div className="section-head sh-info" data-r="1">
         <h2 id="ssm-h">Threshold sensitivity</h2>{s && (
           <Info label="Detection rules" title="Detection rules as run">
-            <p>{s.counts.total} events · {s.counts.drac_flag} with DRAC ≥ 11.2 ft/s² · {s.counts.overlap} simultaneous-occupancy flags.</p>
+            <p>{s.counts.total} events · {s.counts.drac_flag} with DRAC ≥ 11.2 ft/s² · {s.counts.overlap} simultaneous-occupancy flags.{s.pedestrians && s.pedestrians.tracks > 0 ? <> {s.pedestrians.tracks} pedestrians over {s.pedestrians.crosswalks} crosswalks: {s.pedestrians.pet_events} pedestrian PET events; {s.pedestrians.yield.failures} failures to yield in {s.pedestrians.yield.opportunities} opportunities{s.pedestrians.yield.yield_rate != null ? ` (yielding rate ${Math.round(s.pedestrians.yield.yield_rate * 100)} %)` : ''}.</> : null}</p>
             <dl className="ssm-rules-dl">
               <dt>Detection</dt><dd>{ops(s.rules.detection.rule)}<cite>{ops(s.rules.detection.citation)}</cite></dd>
               <dt>TTC severity</dt><dd>{ops(s.rules.severity_ttc.rule)}<cite>{ops(s.rules.severity_ttc.note)}</cite></dd>
               <dt>PET severity</dt><dd>{ops(s.rules.severity_pet.rule)}<cite>{ops(s.rules.severity_pet.note)}</cite></dd>
               <dt>DRAC flag</dt><dd>DRAC ≥ 11.2 ft/s² (3.4 m/s²), reported with TTC events, not used for detection.<cite>{s.rules.drac.citation}</cite></dd>
-            </dl>
+                          {s.rules.pedestrian_pet && s.pedestrians && s.pedestrians.tracks > 0 && <><dt>Pedestrian PET</dt><dd>{ops(s.rules.pedestrian_pet.rule)}<cite>{ops(s.rules.pedestrian_pet.citation)}</cite></dd></>}
+              {s.rules.failure_to_yield && s.pedestrians && s.pedestrians.tracks > 0 && <><dt>Failure to yield</dt><dd>{ops(s.rules.failure_to_yield.rule)} Severity: {ops(s.rules.failure_to_yield.severity)}. {ops(s.rules.failure_to_yield.note)}<cite>{ops(s.rules.failure_to_yield.citation)}</cite></dd></>}
+</dl>
             {s.scatter_note && <p>{ops(s.scatter_note)}</p>}
           </Info>
         )}
@@ -49,10 +52,10 @@ export default function SsmPanel({ id }: { id: string }) {
               </tbody>
             </table>
             <table className="data">
-              <thead><tr><th>PET ≤</th><th className="r">Crossing</th><th className="r">excl. overlap</th></tr></thead>
+              <thead><tr><th>PET ≤</th><th className="r">Crossing</th><th className="r">excl. overlap</th>{s.pedestrians && s.pedestrians.tracks > 0 ? <th className="r">Pedestrian</th> : null}</tr></thead>
               <tbody>
                 {Object.entries(s.sensitivity.pet).map(([k, v]) => (
-                  <tr key={k} data-active={k === '5.0'}><td className="num">{k} s{k === '5.0' ? ' (SSAM)' : ''}</td><td className="r num">{v.crossing ?? 0}</td><td className="r num">{v.crossing_excl_overlap ?? '—'}</td></tr>
+                  <tr key={k} data-active={k === '5.0'}><td className="num">{k} s{k === '5.0' ? ' (SSAM)' : ''}</td><td className="r num">{v.crossing ?? 0}</td><td className="r num">{v.crossing_excl_overlap ?? '—'}</td>{s.pedestrians && s.pedestrians.tracks > 0 ? <td className="r num">{v.pedestrian ?? 0}</td> : null}</tr>
                 ))}
               </tbody>
             </table>

@@ -32,7 +32,7 @@ const TOC: [string, string][] = [
   ['m-limits', 'Limitations'],
   ['m-refs', 'References'],
 ];
-const SITES: [string, string][] = [['peachtree-10th', 'Peachtree St NE at 10th St NE'], ['lankershim-main', 'Lankershim Blvd at Main St']];
+const SITES: [string, string][] = [['peachtree-10th', 'Peachtree St NE at 10th St NE'], ['lankershim-main', 'Lankershim Blvd at Main St'], ['tianjin-sind', 'Tianjin signalised intersection (SinD)']];
 
 interface SpfGof { mad: number; pearson_chi2: number; df: number; chi2_df: number; cure?: { pct_outside?: number } }
 interface SpfModel { spec: string[]; coef: Record<string, number>; se?: Record<string, number>; k: number; se_k?: number; n?: number; crashes?: number; aic?: number }
@@ -92,6 +92,12 @@ const METRICS: Metric[] = [
   { key: 'drac', family: 'ssm', icon: 'gauge', name: 'Deceleration rate to avoid crash', abbr: 'DRAC', formula: 'DRAC = (vf − vl)² / (2 · Δx)',
     where: 'Flag on TTC events, not a detection rule', threshold: '≥ 11.2 ft/s² (3.4 m/s²); > 26 ft/s² = position error', unit: 'ft/s²',
     data: 'NGSIM 10 Hz trajectories', provenance: 'derived', cite: 'AASHTO (2018) Green Book', section: 'm-ssm', page: ['/intersections', 'Intersection lab'] },
+  { key: 'ped-pet', family: 'ssm', icon: 'ped', name: 'Pedestrian–vehicle PET', abbr: 'PET_ped', formula: 'PET = t_enter(2) − t_exit(1)',
+    where: 'Pedestrian 0.5 × 0.5 m footprint inside a crosswalk polygon vs the vehicle box; any angle', threshold: '≤ 5.0 s; ≤ 1 s critical, ≤ 2 s serious (study bins)', unit: 's',
+    data: 'Site feed 10 Hz trajectories + crosswalk polygons (SinD Tianjin)', provenance: 'derived', cite: 'Allen, Shin & Cooper (1978); Zangenehpour et al. (2016)', section: 'm-ssm', page: ['/intersections/tianjin-sind', 'Intersection lab'] },
+  { key: 'yield', family: 'ssm', icon: 'alert', name: 'Failure to yield', abbr: 'FTY', formula: 'entry while ped in crosswalk (or ≤ 3 s before) ∧ v_min(3 s) > 0.5 m/s ∧ d ≥ 2.5·v + v²/(2·3.4)',
+    where: 'd path distance to the crosswalk when the pedestrian stepped in; v speed then', threshold: 'Indicator; severity by distance to the pedestrian (≤ 3.6 m critical) or lead time (≤ 1 s)', unit: 'events',
+    data: 'Site feed 10 Hz trajectories + crosswalk polygons (SinD Tianjin)', provenance: 'derived', cite: 'Tex. Transp. Code §552.003; Fitzpatrick et al. (2006) NCHRP 562', section: 'm-ssm', page: ['/intersections/tianjin-sind', 'Intersection lab'] },
   { key: 'repair-rmse', family: 'trajectory', icon: 'path', name: 'Trajectory repair error', abbr: 'RMSE', formula: 'RMSE = √( Σ ‖p̂ − p‖² / n )',
     where: 'Over held-out gap frames; gaps 0.5–5.0 s', threshold: 'Method chosen on a separate validation set', unit: 'm (1 m = 3.28 ft)',
     data: 'NGSIM tracks with uniform and occluder gaps', provenance: 'derived', cite: 'Punzo et al. (2011); Montanino & Punzo (2015)', section: 'm-repair', page: ['/intersections', 'Intersection lab'] },
@@ -114,10 +120,12 @@ export default function Methods() {
   const spf = useApi<SpfData>('/spf');
   const rp = useApi<{ summary: RepairSum }>('/intersections/peachtree-10th/repair');
   const rl = useApi<{ summary: RepairSum }>('/intersections/lankershim-main/repair');
+  const rt = useApi<{ summary: RepairSum }>('/intersections/tianjin-sind/repair');
   const sp = useApi<SsmData>('/intersections/peachtree-10th/ssm');
   const sl = useApi<SsmData>('/intersections/lankershim-main/ssm');
-  const repairs = [rp, rl];
-  const ssm = [{ name: SITES[0][1], d: sp.data, err: sp.error }, { name: SITES[1][1], d: sl.data, err: sl.error }];
+  const st = useApi<SsmData>('/intersections/tianjin-sind/ssm');
+  const repairs = [rp, rl, rt];
+  const ssm = [{ name: SITES[0][1], d: sp.data, err: sp.error }, { name: SITES[1][1], d: sl.data, err: sl.error }, { name: SITES[2][1], d: st.data, err: st.error }];
   const active = useSpy();
   const { hash } = useLocation();
   const m = meta.data?.metrics as { segments?: number; segments_screened?: number; region?: { counties?: number; segments_dropped_outside?: Record<string, number> }; by_county?: { name: string; segments: number }[] } | undefined;
@@ -274,6 +282,18 @@ export default function Methods() {
                 NGSIM position error (Punzo et al. 2011).</p>
               <p>DRAC: a flag on TTC events, not a detection criterion: DRAC ≥ 11.2 ft/s² (3.4 m/s²), the AASHTO (2018)
                 stopping-sight-distance rate. Above about 26 ft/s² (8 m/s²) exceeds tyre–road friction: position error.</p>
+              <p>Pedestrian–vehicle PET (site feeds with crosswalk polygons): the pedestrian's 0.5 × 0.5 m footprint is swept along its track
+                while inside a crosswalk and intersected with the vehicle's swept box; PET as above, at any conflict angle, detected at ≤ 5.0 s.
+                Severity ≤ 1 s critical, ≤ 2 s serious, ≤ 5 s moderate (study bins; video-based VRU studies place conflict thresholds at
+                1–3 s, Zangenehpour et al. 2016).</p>
+              <p>Failure to yield (indicator): a vehicle's front enters a crosswalk while a pedestrian is in it, or within 3 s before the
+                pedestrian steps in; the vehicle never slowed below 0.5 m/s in the 3 s before entry; and it had a stopping opportunity, i.e.
+                its path distance to the crosswalk when the pedestrian stepped in was at least the AASHTO stopping distance
+                2.5 s · v + v² / (2 · 3.4 m/s²). The duty is Tex. Transp. Code §552.003; the yielding and opportunity definitions follow the
+                staged-pedestrian protocol of NCHRP Report 562 (Fitzpatrick et al. 2006). Signal phase and the roadway-half condition are not
+                applied, so at a signalised site vehicles proceeding on green past a pedestrian crossing against the signal are counted.
+                Severity: pedestrian already in the crosswalk → distance from the entry point to the pedestrian ≤ 3.6 m (one lane) critical,
+                ≤ 7.2 m serious; pedestrian arriving after the vehicle → lead time ≤ 1 s critical, ≤ 2 s serious (study bins).</p>
             </Fold>
             <SsmRules sites={ssm} />
           </Sec>
@@ -312,7 +332,9 @@ export default function Methods() {
               <li><Fold label={`${pooledSites.length || 'Five'} site types use the pooled SPF`}>Only {sites.length - pooledSites.length || 'three'} urban site types support their own SPF; the other {pooledSites.length || 'five'} ({rng(pooledCrashes)} crashes each, mostly rural) rest on the pooled fallback. Pedestrian and cyclist crashes on rural state roads are rare, so rural rankings are driven by the few observed crashes.</Fold></li>
               <li><Fold label="County ranks are positions in the regional ranking">Selecting a county keeps the regional SPFs, EB weights and critical rates (site-type reference populations span all fifteen counties) and filters the ranked list, so county figures are comparable across counties; thirteen counties have fewer than ten on-system ped/bike crashes in 2021–2023.</Fold></li>
               <li><Fold label="No EPDO: no sourced severity weights">EPDO is not computed: no sourced severity weights. Severity analysis is confined to the VRU and FARS layers.</Fold></li>
-              <li><Fold label="NGSIM stands in for roadside LiDAR">Trajectories are NGSIM (Los Angeles and Atlanta, 2005–2006), a stand-in for roadside LiDAR; conflict counts are not Lubbock findings.</Fold></li>
+              <li><Fold label="NGSIM stands in for roadside LiDAR">Trajectories are NGSIM (Los Angeles and Atlanta, 2005–2006), a stand-in for roadside LiDAR; conflict counts are not Lubbock findings. NGSIM has no pedestrians, so pedestrian PET and failure to yield run only on the SinD site.</Fold></li>
+              <li><Fold label="SinD pedestrian site: non-commercial licence, signalised, drone">The pedestrian site is a 90 s window of the public SinD sample (Tianjin, drone video, 10 Hz, Xu et al. 2022), licensed CC0 as modified by its authors to exclude commercial purposes: shown here for non-commercial research and display only. Vehicle boxes are centred in the feed (converted to the front-bumper reference); pedestrians are points with an assumed 0.5 m footprint. Signal states are available in the dataset but not applied to the measures.</Fold></li>
+              <li><Fold label="Site feed converter ready, no LiDAR feed yet">The site trajectory schema and converter (docs/SITE_TRAJECTORY_SCHEMA.md; S3 drop under sites/) are exercised end to end by the SinD site; no roadside-LiDAR feed has been ingested. Lane numbers for feeds without a lane column are 3.5 m lateral bins, so rear-end pairing on such sites is approximate.</Fold></li>
               <li><Fold label="2D occluder over-states occlusion">The 2D occluder protocol ignores sensor height and over-states occlusion versus a 4.5 m pole. Raw truth noise bounds RMSE from below.</Fold></li>
               <li><Fold label="Ranks flag sites, not causes">Screening ranks identify sites for investigation; they do not establish cause or countermeasure need.</Fold></li>
               <li><Fold label="TxDOT data: informational, 23 U.S.C. §407">TxDOT data are informational, without warranty; crash records are protected under 23 U.S.C. §407.</Fold></li>
@@ -321,7 +343,7 @@ export default function Methods() {
 
           <Sec id="m-refs">
             <h2 id="m-refs-h">References</h2>
-            <Fold label="13 references">
+            <Fold label="17 references">
             <ol className="m-refs">
               <li>AASHTO (2010). <i>Highway Safety Manual</i>, 1st ed. American Association of State Highway and Transportation Officials, Washington, DC.</li>
               <li>Hauer, E., Bamfo, J. (1997). Two tools for finding what function links the dependent variable to the explanatory variables. <i>Proceedings of the ICTCT 1997 Workshop</i>, Lund, Sweden.</li>
@@ -336,6 +358,10 @@ export default function Methods() {
               <li>Punzo, V., Borzacchiello, M. T., Ciuffo, B. (2011). On the assessment of vehicle trajectory data accuracy and application to the Next Generation SIMulation (NGSIM) program data. <i>Transportation Research Part C</i> 19(6), 1243–1262. <a href="https://doi.org/10.1016/j.trc.2010.12.007">doi:10.1016/j.trc.2010.12.007</a></li>
               <li>Montanino, M., Punzo, V. (2015). Trajectory data reconstruction and simulation-based validation against macroscopic traffic patterns. <i>Transportation Research Part B</i> 80, 82–106. <a href="https://doi.org/10.1016/j.trb.2015.06.010">doi:10.1016/j.trb.2015.06.010</a></li>
               <li>U.S. DOT Federal Highway Administration (2016). Next Generation Simulation (NGSIM) Vehicle Trajectories and Supporting Data. ITS DataHub, CC BY-SA 3.0. <a href="https://doi.org/10.21949/1504477">doi:10.21949/1504477</a></li>
+              <li>Xu, Y., Shao, W., Li, J., Yang, K., Wang, W., Huang, H., Lv, C., Wang, H. (2022). SIND: A drone dataset at signalized intersection in China. <i>IEEE ITSC 2022</i>, 2471–2478. <a href="https://doi.org/10.1109/ITSC55140.2022.9921959">doi:10.1109/ITSC55140.2022.9921959</a>. Data: <a href="https://github.com/SOTIF-AVLab/SinD">github.com/SOTIF-AVLab/SinD</a>, CC0 1.0 modified to exclude commercial use.</li>
+              <li>Texas Transportation Code §552.003, Pedestrian Right-of-Way at Crosswalk. <a href="https://statutes.capitol.texas.gov/Docs/TN/htm/TN.552.htm">statutes.capitol.texas.gov</a></li>
+              <li>Fitzpatrick, K., Turner, S., Brewer, M., Carlson, P., Ullman, B., Trout, N., Park, E. S., Whitacre, J., Lalani, N., Lord, D. (2006). <i>Improving Pedestrian Safety at Unsignalized Crossings</i>. TCRP Report 112 / NCHRP Report 562, Transportation Research Board.</li>
+              <li>Zangenehpour, S., Strauss, J., Miranda-Moreno, L. F., Saunier, N. (2016). Are signalized intersections with cycle tracks safer? A case–control study based on automated surrogate safety analysis using video data. <i>Accident Analysis &amp; Prevention</i> 86, 161–172. <a href="https://doi.org/10.1016/j.aap.2015.10.025">doi:10.1016/j.aap.2015.10.025</a></li>
             </ol>
             </Fold>
             <p className="m-small"><Link to="/platform">Data refresh</Link></p>

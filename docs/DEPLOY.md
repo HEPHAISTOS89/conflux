@@ -97,3 +97,62 @@ The S3 bucket has `RemovalPolicy.RETAIN` and survives the teardown. Deleting it 
 - The HTTP API stage is throttled to 20 rps (burst 40).
 - `/ask` has a per-client token bucket (10 requests/minute) plus a global daily cap of 400 questions per warm container. Bedrock calls go to Claude Haiku 4.5 through the inference profile.
 - Logs are kept for two weeks.
+
+## 11. Site trajectory drop (defined, not yet deployed)
+
+A lab feed is added by uploading two files under `s3://$BUCKET/sites/<site_id>/` (schema: `docs/SITE_TRAJECTORY_SCHEMA.md`): `site.json` first, then `tracks.csv` (or `tracks.json`). The bucket publishes object events to EventBridge; the `SiteDrop` rule matches `sites/*/tracks.csv|json` and invokes `roadscope-ingest`, which validates and converts the feed (`roadscope_pipeline/trajectory/site.py`), computes TTC/PET/DRAC, pedestrian PET and the failure-to-yield indicator, and uploads `curated/intersections/<site_id>.json`, `_conflicts.json`, `_ssm.json`, then the merged `index.json` and `manifest.json` last. A run record `curated/runs/<ts>-<site_id>.json` (job `site`) is written at start and end. Validation failures log `site_ingest_failed`, which a CloudWatch metric filter turns into the `roadscope-site-ingest-failed` alarm; Lambda retries and the DLQ apply as for the weekly ingest.
+
+```bash
+SITE=lubbock-19th-university
+aws s3 cp data/sites/$SITE/site.json  s3://$BUCKET/sites/$SITE/site.json
+aws s3 cp data/sites/$SITE/tracks.csv s3://$BUCKET/sites/$SITE/tracks.csv      # this upload triggers the run
+aws s3 ls s3://$BUCKET/curated/runs/ | tail -1
+curl -s $API/api/v1/intersections/$SITE/ssm | jq '.counts, .pedestrians'
+```
+
+The same converter runs locally: `cd pipeline && python -m roadscope_pipeline.trajectory.site --site ../data/sites/$SITE --out ../data/curated --repair` (the `--repair` benchmark is local only; the Lambda skips it). Offline the Lambda path needs no scipy: the Savitzky–Golay filter is numpy-only.
+
+`cdk diff` (2026-10-18, against the synthesised template of the deployed stack; the AWS CLI session had expired, so the diff was taken with `cdk diff --template`; not deployed):
+
+```text
+Stack RoadScopeStack
+IAM Statement Changes
+┌───┬────────────────────────────────────────────────────────────────────────┬────────┬──────────────────────────┬────────────────────────────────────────────────────────────────────────┬──────────────────────────────────────┐
+│   │ Resource                                                               │ Effect │ Action                   │ Principal                                                              │ Condition                            │
+├───┼────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────┼────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ + │ ${BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role.Arn} │ Allow  │ sts:AssumeRole           │ Service:lambda.amazonaws.com                                           │                                      │
+├───┼────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────┼────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ + │ ${Data.Arn}                                                            │ Allow  │ s3:PutBucketNotification │ AWS:${BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role} │                                      │
+├───┼────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────┼────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ + │ ${Data.Arn}                                                            │ Allow  │ s3:GetBucket*            │ AWS:${Ingest/ServiceRole}                                              │                                      │
+│   │ ${Data.Arn}/sites/*                                                    │        │ s3:GetObject*            │                                                                        │                                      │
+│   │                                                                        │        │ s3:List*                 │                                                                        │                                      │
+├───┼────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────┼────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ + │ ${Ingest.Arn}                                                          │ Allow  │ lambda:InvokeFunction    │ Service:events.amazonaws.com                                           │ "ArnLike": {                         │
+│   │                                                                        │        │                          │                                                                        │   "AWS:SourceArn": "${SiteDrop.Arn}" │
+│   │                                                                        │        │                          │                                                                        │ }                                    │
+└───┴────────────────────────────────────────────────────────────────────────┴────────┴──────────────────────────┴────────────────────────────────────────────────────────────────────────┴──────────────────────────────────────┘
+IAM Policy Changes
+┌───┬────────────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────────────────────────────────┐
+│   │ Resource                                                           │ Managed Policy ARN                                                             │
+├───┼────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┤
+│ + │ ${BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role} │ arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole │
+└───┴────────────────────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────────────────────────┘
+(NOTE: There may be security-related changes not in this list. See https://github.com/aws/aws-cdk/issues/1299)
+
+Resources
+[+] AWS::IAM::Policy Data/Notifications/HandlerPolicy DataNotificationsHandlerPolicy9C041FF0
+[+] Custom::S3BucketNotifications Data/Notifications DataNotifications52F6216C
+[+] AWS::IAM::Role BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC
+[+] AWS::Lambda::Function BucketNotificationsHandler050a0587b7544547bf325f094a3db834 BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691
+[+] AWS::Events::Rule SiteDrop SiteDrop94767826
+[+] AWS::Lambda::Permission SiteDrop/AllowEventRuleRoadScopeStackIngest049AA692 SiteDropAllowEventRuleRoadScopeStackIngest049AA692B6EE1419
+[+] AWS::Logs::MetricFilter SiteIngestFailed SiteIngestFailedEEF0DEB1
+[+] AWS::CloudWatch::Alarm SiteIngestFailedAlarm SiteIngestFailedAlarmC27B67A8
+[~] AWS::IAM::Policy Ingest/ServiceRole/DefaultPolicy IngestServiceRoleDefaultPolicyB95F9D07 (adds s3:GetObject*/List* on ${Data.Arn}/sites/*)
+[~] AWS::CloudWatch::Dashboard Dashboard Dashboard9E4231ED (adds the "Site drops failed" widget)
+
+✨  Number of stacks with differences: 1
+```
+
+Deploying adds one EventBridge rule, one metric filter, one alarm and the bucket-notification custom resource (a CDK-managed Lambda that sets the bucket's EventBridge configuration). No instance, no new function and no standing cost; a site run is one Lambda invocation of a few seconds.

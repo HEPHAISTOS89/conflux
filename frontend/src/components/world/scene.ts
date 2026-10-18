@@ -339,7 +339,7 @@ export function createWorld(o: WorldOpts): World {
   };
   for (const k of KINDS) {
     const idx = perKind.get(k)!;
-    if (!idx.length) continue;
+    if (!idx.length || k === 'ped') continue; // the landing world replays NGSIM vehicles only
     const vg = vehicleGeometry(k);
     const fade = new THREE.InstancedBufferAttribute(new Float32Array(idx.length).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
     vg.body.setAttribute('aFade', fade); vg.glass.setAttribute('aFade', fade);

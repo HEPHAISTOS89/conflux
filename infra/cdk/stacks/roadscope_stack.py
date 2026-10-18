@@ -42,6 +42,7 @@ class RoadScopeStack(Stack):
             encryption=s3.BucketEncryption.S3_MANAGED,
             enforce_ssl=True,
             versioned=True,
+            event_bridge_enabled=True,   # object events -> EventBridge (site trajectory drops under sites/)
             removal_policy=RemovalPolicy.RETAIN,
             lifecycle_rules=[s3.LifecycleRule(
                 id="noncurrent-30d",
@@ -158,6 +159,21 @@ class RoadScopeStack(Stack):
             schedule=events.Schedule.cron(minute="0", hour="8", week_day="MON"),
             targets=[targets.LambdaFunction(ingest, retry_attempts=2)],
         )
+        # ---------- Site trajectory drop ----------
+        # A lab feed dropped as s3://<bucket>/sites/<site_id>/{site.json, tracks.csv|json} (docs/SITE_TRAJECTORY_SCHEMA.md):
+        # the tracks.* object-created event runs the same ingest function, which converts the feed, computes
+        # TTC/PET/DRAC, pedestrian PET and failure-to-yield, and publishes curated/intersections/<site_id>*.json.
+        bucket.grant_read(ingest, "sites/*")
+        events.Rule(
+            self, "SiteDrop",
+            description="Site trajectory feed dropped under sites/<site_id>/tracks.csv|json",
+            event_pattern=events.EventPattern(
+                source=["aws.s3"], detail_type=["Object Created"],
+                detail={"bucket": {"name": [bucket.bucket_name]},
+                        "object": {"key": [{"wildcard": "sites/*/tracks.csv"}, {"wildcard": "sites/*/tracks.json"}]}},
+            ),
+            targets=[targets.LambdaFunction(ingest, retry_attempts=2)],
+        )
 
         # ---------- EC2 batch worker ----------
         vpc = ec2.Vpc.from_lookup(self, "DefaultVpc", is_default=True)
@@ -227,6 +243,15 @@ class RoadScopeStack(Stack):
                  metric=ingest.metric_errors(period=five, statistic="Sum"), threshold=1, evaluation_periods=1,
                  comparison_operator=cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
                  treat_missing_data=cw.TreatMissingData.NOT_BREACHING)
+        site_failed = logs.MetricFilter(
+            self, "SiteIngestFailed", log_group=ingest.log_group,
+            metric_namespace="Conflux/Sites", metric_name="SiteIngestFailed", metric_value="1", default_value=0,
+            filter_pattern=logs.FilterPattern.string_value("$.event", "=", "site_ingest_failed"),
+        ).metric(period=five, statistic="Sum")
+        cw.Alarm(self, "SiteIngestFailedAlarm", alarm_name="roadscope-site-ingest-failed", metric=site_failed, threshold=1,
+                 evaluation_periods=1, comparison_operator=cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+                 treat_missing_data=cw.TreatMissingData.NOT_BREACHING,
+                 alarm_description="A site trajectory drop under sites/<site_id>/ failed validation or conversion")
         cw.Alarm(self, "DlqDepth", alarm_name="roadscope-ingest-dlq",
                  metric=dlq.metric_approximate_number_of_messages_visible(period=five, statistic="Maximum"),
                  threshold=1, evaluation_periods=1,
@@ -243,6 +268,7 @@ class RoadScopeStack(Stack):
             cw.GraphWidget(title="Worker CPU %", left=[cw.Metric(namespace="AWS/EC2", metric_name="CPUUtilization",
                            dimensions_map={"InstanceId": worker.instance_id}, statistic="Average", period=five)]),
             cw.GraphWidget(title="Ingest DLQ depth", left=[dlq.metric_approximate_number_of_messages_visible(period=five)]),
+            cw.GraphWidget(title="Site drops failed", left=[site_failed]),
         )
 
         if dist is not None:

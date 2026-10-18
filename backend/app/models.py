@@ -165,7 +165,7 @@ class Conflict(Open):
     t: float
     a: str | int
     b: str | int
-    type: Literal["rear_end", "crossing", "lane_change"]
+    type: Literal["rear_end", "crossing", "lane_change", "pedestrian", "yield"]
     ttc_min: float | None = None
     pet: float | None = None
     drac_max: float | None = None

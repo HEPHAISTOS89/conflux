@@ -3,11 +3,16 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 export type Pt = [number, number, number, number, number, number]; // t, x, y, v, a, lane
 export interface TrackT { id: number | string; cls: string; len_m: number; w_m: number; dir?: string; move?: string; pts: Pt[] }
 export interface LaneGeom { dir: string; lane: number; centre: [number, number][]; p10?: [number, number][]; p90?: [number, number][] }
+export interface Crosswalk { id: string; polygon: [number, number][] }
 export interface IntersectionT {
   id: string; name: string; hz: number; window_s: number; bbox: [[number, number], [number, number]] | number[];
   axes?: string; lanes_geom: LaneGeom[]; tracks: TrackT[]; source?: Record<string, unknown>;
+  /** Site feeds only: intersection box, crosswalk polygons and class counts (docs/SITE_TRAJECTORY_SCHEMA.md). */
+  box?: [[number, number], [number, number]]; crosswalks?: Crosswalk[]; classes?: Record<string, number>;
 }
-export interface ConflictT { id: number; t: number; t0?: number; t1?: number; a: number | string; b: number | string; type: 'rear_end' | 'crossing' | 'lane_change'; ttc_min: number | null; pet: number | null; drac_max: number | null; severity: string }
+export interface ConflictT { id: number; t: number; t0?: number; t1?: number; a: number | string; b: number | string; type: 'rear_end' | 'crossing' | 'lane_change' | 'pedestrian' | 'yield'; ttc_min: number | null; pet: number | null; drac_max: number | null; severity: string;
+  /** Failure to yield: crosswalk id, vehicle entry minus pedestrian entry (s), entry speed and approach minimum (m/s), path distance vs stopping distance (m), distance to the pedestrian at entry (m). */
+  crosswalk?: string; margin_s?: number; v_entry_mps?: number; v_min_mps?: number; dist_m?: number; ssd_m?: number; ped_dist_m?: number; overlap?: boolean }
 
 export interface Pose { x: number; y: number; v: number; a: number; h: number; lane: number }
 

@@ -433,3 +433,5 @@
 .player-phase span[data-lamp='red'] { background: var(--stop); opacity: 0.55; }
 .player-phase span[data-lamp='yellow'] { background: var(--caution); opacity: 0.7; }
 .player-track:has(.player-phase) { padding-bottom: 14px; }
+.ix-cls { display: inline-flex; align-items: center; gap: 5px; }
+.sev .icon { margin-right: -2px; }

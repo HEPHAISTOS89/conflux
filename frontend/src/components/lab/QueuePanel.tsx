@@ -97,6 +97,14 @@ export default function QueuePanel({ data, plan, bars }: { data: IntersectionT; 
   const fmt = (v: number | null | undefined, d = 1) => (v == null ? '—' : v.toFixed(d));
   const col = (dir: Approach) => (dir === 'NB' ? CHART.nb : CHART.sb);
 
+  if (!r.length) {
+    return (
+      <section ref={ref} className="section" aria-labelledby="queue-h">
+        <div className="section-head sh-info" data-r="1"><h2 id="queue-h">Queues and delay</h2></div>
+        <p className="muted queue-none" data-r="2">No northbound or southbound stop bar can be derived from this site's tracks (a standing queue at the box edge is needed), so queue length and delay are not estimated here.</p>
+      </section>
+    );
+  }
   return (
     <section ref={ref} className="section" aria-labelledby="queue-h">
       <div className="section-head sh-info" data-r="1">
