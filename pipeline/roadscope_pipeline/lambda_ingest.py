@@ -21,7 +21,7 @@ from botocore.exceptions import ClientError
 from .build_network import build
 from .sources import LAYERS
 
-CURATED = ["network.geojson", "corridors.json", "vru_crashes.geojson", "spf.json", "manifest.json"]
+CURATED = ["network.geojson", "corridors.json", "vru_crashes.geojson", "spf.json", "counties.geojson", "manifest.json"]
 TYPES = {".json": "application/json", ".geojson": "application/geo+json"}
 
 

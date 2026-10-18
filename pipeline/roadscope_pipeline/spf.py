@@ -8,8 +8,8 @@ SPF form (per site type)::
     ln μ = b0 + Σ_j b_j·x_j + ln L          μ: crashes per year, L: miles
 
 Overdispersion follows the HSM Part C convention for roadway segments: the parameter is
-estimated *per mile* and applied as k_seg = k / L (so Var(N) = μ + (k/L)·μ²). With the
-Lubbock one-mile segments (421 of 443 have L = 1.00 ± 0.05) k_seg ≈ k.
+estimated *per mile* and applied as k_seg = k / L (so Var(N) = μ + (k/L)·μ²). The TxDOT segment
+results are one-mile segments (L = 1.00 ± 0.05 for all but the route-end remainders), so k_seg ≈ k.
 """
 from __future__ import annotations
 

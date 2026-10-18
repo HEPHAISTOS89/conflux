@@ -199,3 +199,29 @@ Owner asked for a check that the processed data and every displayed figure are r
 - **Confirmed correct**: landing verdict (27 of 395 flagged, US 84 EB excess 1.55/yr, 43 on-system K+A, critical count), TTC instrument (31 events ≤ 1.5 s: 28 rear-end + 3 lane change, 22 DRAC flags; 27 at ≤ 1.0 s) against the conflicts file and the SSM sensitivity table; lab header, data health, SSM tables, queue and delay figures (recomputed: NB 46 veh / 46 % stopped / max 11 / SB 54 / 67 % / 19); signal inference (last NS discharge 46.1 s, EW discharges 55.8–87.8 s, so NS green 6.8–45.7 s and EW green from 50.2 s are supported by the data).
 - **Pipeline SSM reviewed**: the 28 served rear-end events are a strict subset of a naive recomputation (56 pairs) because the pipeline requires gap ≥ 1 m, follower ≥ 2 m/s, a ≥ 0.3 s run and closing-rate consistency; 25 of the 28 pairs reappear in the naive pass, the 3 others fall just below the naive run length. The naive minima are lower because sub-metre gaps are exactly the NGSIM overlap artefacts the pipeline rejects. No defect.
 - **Live host**: the parallel rebrand moved production to https://conflux-safety.vercel.app; the old host's `/api` rewrite now 308-redirects cross-origin, so pages on the old host render without data. Not changed here (owned by the other session), recorded in CLAUDE.md.
+
+## SPAG region: fifteen counties (2026-10-18)
+Owner brief: the pilot's dashboard is for the South Plains Association of Governments (Lubbock County plus 14
+neighbours); the portal screened Lubbock County alone.
+- **Pipeline**: county registry in `sources.py` (name, TxDOT number, FIPS, district; roster verified against SPAG's
+  TARC profile, identifiers against TxDOT's County_Boundaries layer). Layers with a county field are filtered by it
+  (Roadway Inventory `CO`, CRIS `County`, FARS `COUNTY` FIPS); the segment results, AADT and speed layers are pulled
+  for the region envelope and each segment is attributed to the county containing its midpoint (numpy
+  point-in-polygon, `counties.py`); 721 envelope segments outside the fifteen counties are dropped and reported.
+  New `counties.geojson` (simplified polygons + per-county roll-ups) and `metrics.by_county` in the manifest.
+  Roadway Inventory requests 20 fields instead of 150 (18 MB raw instead of ~70). Corridor sheets stay Lubbock
+  profiles. Build: 4,121 segments (4,090 screened), 142 snapped crashes, 354 VRU crashes, 461 FARS fatal crashes.
+- **SPFs refit** on the regional population (n = 4,090, 139 crashes): three urban site types own a model, five
+  (mostly rural, 0–9 crashes) use the pooled fallback. Methods states the new n, the per-type crash range and the
+  rule that a county view filters the regional ranking rather than refitting.
+- **API**: `county` on `/network`, `/screening`, `/vru`, `/vru/summary`, `/fatal` (slug, name or TxDOT number;
+  unknown → 404), `/counties`, gzip middleware (3.0 MB network → 239 KB), `limit` ≤ 5000; Ask tools and fallback
+  router take a county.
+- **Shell**: Region control (Select) in the rail and the phone top bar, state in `?county=`; nav links carry it;
+  unknown slugs fall back to the region; page headers show the scope as a pill beside the title; Brief title and
+  CSV names follow the county; region views label each row's county; maps frame the county or region from the
+  county extents and draw dashed county lines. Landing verdict and ranked network follow the county.
+- Lubbock itself grows from 443 to 529 segments (the old envelope cut the county's edges), so its headline
+  figures change: 37 of 499 flagged (was 27 of 395), 116 crashes (110), 46 on-system K+A (43).
+- Verified at 1440 and 375, dark and light, console clean; tsc, 76 + 68 + 32 tests, build. Report and per-county
+  table: docs/qa/spag-region.md. Not deployed; curated set must be synced to S3 before the next deploy.

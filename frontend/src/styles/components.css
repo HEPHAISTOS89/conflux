@@ -7,7 +7,13 @@
 /* Page header: icon, title, the figures that matter. Explanations open from the info button. */
 /* Page header: title and actions on one line, then a strip of equal figure cards. */
 .ph { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'title actions' 'figs figs'; align-items: center; gap: var(--s5) var(--s6); }
-.ph-title { grid-area: title; display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ph-title { grid-area: title; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+/* The title keeps one line on desktop (spec); the scope pill and info button wrap under it when the row is tight. */
+@media (min-width: 1101px) { .ph-title h1 { white-space: nowrap; } }
+/* Scope: the county or region a sheet shows, set by the shell's Region control; reads as part of the title line. */
+.ph-scope { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 4px 10px; border-radius: var(--r-pill); background: var(--raise); font: var(--w-strong) var(--t-label)/1.3 var(--f-body); color: var(--ink-2); white-space: nowrap; }
+.ph-scope .icon { color: var(--accent); }
+@media (max-width: 640px) { .ph-title { flex-wrap: wrap; } .ph-scope { margin-left: 48px; } }
 .ph-title h1 { font-size: var(--t-h1); line-height: 1.1; min-width: 0; }
 .ph-title .mi-btn { width: 32px; height: 32px; color: var(--ink-3); }
 .ph-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-m); background: var(--raise); color: var(--accent); flex: none; }

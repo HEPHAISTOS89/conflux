@@ -8,6 +8,7 @@ import { useReveal } from '../../lib/motion';
 import { EB_STOPS, nf } from '../../lib/format';
 import type { FC } from '../../lib/types';
 import { useDocTheme } from './useDocTheme';
+import { countyQuery, regionLabel, useCounties, useCounty, withCounty } from '../../lib/region';
 import type { Seg } from './types';
 
 type MKey = 'eb_excess' | 'crit_ratio' | 'rate_100mvmt';
@@ -22,7 +23,10 @@ export default function NetworkRank() {
   const ref = useReveal<HTMLElement>();
   const theme = useDocTheme();
   const nav = useNavigate();
-  const net = useApi<FC<Seg>>('/network');
+  const [county] = useCounty();
+  const counties = useCounties();
+  const scope = regionLabel(county, counties.list);
+  const net = useApi<FC<Seg>>(`/network${countyQuery(county, true)}`);
   const [mk, setMk] = useState<MKey>('eb_excess');
   const [hover, setHover] = useState<string | null>(null);
   const M = MEASURES.find((m) => m.id === mk)!;
@@ -67,7 +71,7 @@ export default function NetworkRank() {
     <section ref={ref} className="nr" aria-labelledby="nr-h">
       <div className="nr-side">
         <h2 id="nr-h" data-r="1">Ranked network</h2>
-        {miles > 0 && <span className="nr-meta measure" data-r="1">{nf(screened.length)} segments · {nf(miles)} mi</span>}
+        {miles > 0 && <span className="nr-meta measure" data-r="1">{scope} · {nf(screened.length)} segments · {nf(miles)} mi</span>}
         <div className="nr-ctl" data-r="3">
           <div className="nr-switch" role="group" aria-label="Screening measure" data-ui>
             {MEASURES.map((m) => <button key={m.id} type="button" aria-pressed={mk === m.id} onClick={() => setMk(m.id)}>{m.label}</button>)}
@@ -77,9 +81,9 @@ export default function NetworkRank() {
         <ol className="nr-list" data-r="4" aria-label={`Top five segments by ${M.label}`}>
           {top.length ? top.map((s, i) => (
             <li key={s.seg_id} data-on={hover === s.seg_id || undefined}>
-              <Link to={`/screening?seg=${encodeURIComponent(s.seg_id)}`} onMouseEnter={() => setHover(s.seg_id)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(s.seg_id)} onBlur={() => setHover(null)}>
+              <Link to={withCounty(`/screening?seg=${encodeURIComponent(s.seg_id)}`, county)} onMouseEnter={() => setHover(s.seg_id)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(s.seg_id)} onBlur={() => setHover(null)}>
                 <span className="nr-rank num">{i + 1}</span>
-                <span className="nr-name"><b>{s.name}</b><small className="measure">DFO {nf(s.dfo_from, 1)} · {nf(s.aadt)} veh/d</small></span>
+                <span className="nr-name"><b>{s.name}</b><small className="measure">{!county && s.county ? `${s.county} · ` : ''}DFO {nf(s.dfo_from, 1)} · {nf(s.aadt)} veh/d</small></span>
                 <span className="nr-val measure">{nf(s[mk] as number, M.d)}<small>{M.unit}</small></span>
               </Link>
             </li>
@@ -88,14 +92,14 @@ export default function NetworkRank() {
       </div>
       <div className="nr-map" data-ui>
         <MapView key={theme}
-          label={`Lubbock County state-system segments coloured by ${M.label}`}
+          label={`${scope} state-system segments coloured by ${M.label}`}
           sources={sources} bounds={bounds}
           interactiveLayers={['net-line']}
           highlight={{ source: 'net', key: 'seg_id', value: hover }}
           onHover={(f) => setHover((f?.properties as Seg | undefined)?.seg_id ?? null)}
-          onClick={(_, f) => nav(`/screening?seg=${encodeURIComponent((f.properties as Seg).seg_id)}`)}
+          onClick={(_, f) => nav(withCounty(`/screening?seg=${encodeURIComponent((f.properties as Seg).seg_id)}`, county))}
         />
-        <Link to="/screening" className="nr-open">Open network screening <Icon name="arrow" size={16} /></Link>
+        <Link to={withCounty('/screening', county)} className="nr-open">Open network screening <Icon name="arrow" size={16} /></Link>
       </div>
     </section>
   );

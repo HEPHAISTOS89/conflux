@@ -4,23 +4,34 @@
       "id": "aadt",
       "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TxDOT_AADT/FeatureServer/0",
       "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
-      "records": 5785,
-      "fetched_at": "2026-10-17T06:53:16+00:00",
-      "sha256": "ed9eb6b483376d884857d37ea894e7d3ad1e739e2174ce0817e12e3a517e46f7"
+      "records": 15054,
+      "filter": "envelope (-103.07, 32.95, -99.98, 34.32) (SPAG region)",
+      "fetched_at": "2026-10-18T16:41:41+00:00",
+      "sha256": "945a9d6ee492b0f764e24b9fae18df912e28d78065b224499d1926ebe6ffea45"
     },
     {
       "id": "active_transportation_crashes",
       "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Active_Transportation_Crashes_f8c8e/FeatureServer/1",
       "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
-      "records": 307,
-      "fetched_at": "2026-10-17T06:53:23+00:00",
-      "sha256": "5fa3bd5d0be83b94cb5315e081cf5d4033482ae02cffd3afe179a6b162ae66fc"
+      "records": 354,
+      "filter": "where County IN ('BAILEY','COCHRAN','CROSBY','DICKENS','FLOYD','GARZA','HALE','HOCKLEY','KING','LAMB','LUBBOCK','LYNN','MOTLEY','TERRY','YOAKUM')",
+      "fetched_at": "2026-10-18T16:41:55+00:00",
+      "sha256": "08d497ac0ba043a6cb72dba312b06e1bddc948ca87b90787baa3677cc52f8828"
+    },
+    {
+      "id": "counties",
+      "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Texas_County_Boundaries/FeatureServer/0",
+      "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
+      "records": 15,
+      "filter": "where CNTY_NBR IN (9,40,54,63,78,86,96,111,135,140,152,153,173,223,251)",
+      "fetched_at": "2026-10-18T16:41:34+00:00",
+      "sha256": "2f74984101137c9990f60f003c63b4c759747b8f620833f2a9ee901033b81f5b"
     },
     {
       "id": "fars_2018",
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2018/National/FARS2018NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
-      "records": 24,
+      "records": 61,
       "fetched_at": "2026-10-17T06:52:24+00:00",
       "sha256": "bd0c5473e3f0eaf44c3236000225e5ca90070884684d1b69036062b2ddbdaf2e"
     },
@@ -28,7 +39,7 @@
       "id": "fars_2019",
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2019/National/FARS2019NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
-      "records": 58,
+      "records": 77,
       "fetched_at": "2026-10-17T06:52:27+00:00",
       "sha256": "0974abb92cfb04fa022631a838a3f46555025f2b011ee78ecad15bcf86c60f31"
     },
@@ -36,7 +47,7 @@
       "id": "fars_2020",
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2020/National/FARS2020NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
-      "records": 38,
+      "records": 57,
       "fetched_at": "2026-10-17T06:52:24+00:00",
       "sha256": "b2806902b3da9b45c632499f82e1c74fd108238ae7f67e108ebf40360ee4c9c3"
     },
@@ -44,7 +55,7 @@
       "id": "fars_2021",
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2021/National/FARS2021NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
-      "records": 59,
+      "records": 92,
       "fetched_at": "2026-10-17T06:52:26+00:00",
       "sha256": "743c19a13884614430d295289e655c5ad32b0a025a11e5b2149dfb57acae389b"
     },
@@ -52,7 +63,7 @@
       "id": "fars_2022",
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2022/National/FARS2022NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
-      "records": 49,
+      "records": 90,
       "fetched_at": "2026-10-17T06:52:25+00:00",
       "sha256": "989448d7a2f3964264c96a3cdb220f6c413c782a33eb759781f520c5acb5f744"
     },
@@ -60,7 +71,7 @@
       "id": "fars_2023",
       "url": "https://static.nhtsa.gov/nhtsa/downloads/FARS/2023/National/FARS2023NationalCSV.zip",
       "licence": "Public domain (US Government work, NHTSA FARS)",
-      "records": 51,
+      "records": 85,
       "fetched_at": "2026-10-17T06:52:27+00:00",
       "sha256": "edde841eb493e55751961b36bac2d1ce8750f601cb8e6e183a525723bb62bab0"
     },
@@ -98,53 +109,56 @@
       "id": "roadway_inventory",
       "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Roadway_Inventory_2024/FeatureServer/0",
       "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
-      "records": 11156,
-      "fetched_at": "2026-10-17T06:53:22+00:00",
-      "sha256": "d7f242a9e0ff464affd86a7737fd54b3c7b34b6d4c6096d77ccc99356458d5fb"
+      "records": 27236,
+      "filter": "where CO IN (9,40,54,63,78,86,96,111,135,140,152,153,173,223,251)",
+      "fetched_at": "2026-10-18T16:41:52+00:00",
+      "sha256": "d9e617c8ee2ffbabdf30039a4b2b6189b2a6acf2bd94329e5c86621ea475e991"
     },
     {
       "id": "segment_crash",
       "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/Segment_Crash__Results_9a0c7/FeatureServer/243",
       "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
-      "records": 443,
-      "fetched_at": "2026-10-17T06:53:15+00:00",
-      "sha256": "c120ec706f020d36aef1b2a1eb15f616671e9db62e84dfe01320d082158494e7"
+      "records": 4842,
+      "filter": "envelope (-103.07, 32.95, -99.98, 34.32) (SPAG region)",
+      "fetched_at": "2026-10-18T16:41:36+00:00",
+      "sha256": "23d3fa0ba63315dfdea0dc75c08941cc46afe9862b5d22c93dafad624866dc1c"
     },
     {
       "id": "speed_2024",
       "url": "https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TxDOT_Statewide_Speed_2024/FeatureServer/0",
       "licence": "\u00a9 TxDOT \u2014 informational use; attribution and TxDOT disclaimer required",
-      "records": 2738,
-      "fetched_at": "2026-10-17T06:53:23+00:00",
-      "sha256": "4df73d52e0a2b0dd18ad791ad365f70fc325a2bce40d61e06d6396aad43019b9"
+      "records": 8825,
+      "filter": "envelope (-103.07, 32.95, -99.98, 34.32) (SPAG region)",
+      "fetched_at": "2026-10-18T16:41:55+00:00",
+      "sha256": "ad98040833194c003a7814d4d560f1492096596935a36385f7f0e74763221135"
     }
   ],
   "metrics": {
-    "segments": 443,
-    "segments_screened": 395,
-    "segments_with_crashes": 64,
-    "segment_crashes_total": 114,
+    "segments": 4121,
+    "segments_screened": 4090,
+    "segments_with_crashes": 90,
+    "segment_crashes_total": 142,
     "segment_crash_years": 3,
-    "spf_b0": -11.756,
-    "spf_b1": 1.0316,
-    "spf_k": 2.3519,
+    "spf_b0": -16.6528,
+    "spf_b1": 1.4889,
+    "spf_k": 3.3033,
     "corridors": 7,
-    "vru_crashes": 307,
-    "vru_ka": 86,
+    "vru_crashes": 354,
+    "vru_ka": 106,
     "vru_by_severity": {
-      "A": 44,
-      "B": 120,
-      "O": 9,
-      "C": 92,
-      "K": 42
+      "C": 102,
+      "B": 136,
+      "A": 51,
+      "K": 55,
+      "O": 10
     },
     "vru_by_mode": {
-      "ped": 220,
-      "bike": 78,
+      "bike": 91,
+      "ped": 254,
       "scooter": 9
     },
-    "fatal_crashes": 278,
-    "fatalities": 301,
+    "fatal_crashes": 461,
+    "fatalities": 519,
     "fatal_years": "2018-2023",
     "segment_crash_period": "2021-2023",
     "segment_crash_outcome": "on-system ped/bike/e-scooter CRIS crashes (all KABCO)",
@@ -158,37 +172,314 @@
     ],
     "join_quality": {
       "Interstate/Freeway": {
-        "segments": 59,
+        "segments": 105,
         "pct_aadt_matched": 100.0,
         "pct_inventory_matched": 100.0,
-        "crashes_matched": 28
+        "crashes_matched": 33
       },
       "Principal arterial": {
-        "segments": 94,
+        "segments": 403,
         "pct_aadt_matched": 100.0,
         "pct_inventory_matched": 100.0,
-        "crashes_matched": 56
+        "crashes_matched": 69
       },
       "Minor arterial": {
-        "segments": 72,
+        "segments": 766,
         "pct_aadt_matched": 100.0,
         "pct_inventory_matched": 100.0,
-        "crashes_matched": 24
+        "crashes_matched": 34
       },
       "Collector/Local": {
-        "segments": 170,
+        "segments": 2816,
         "pct_aadt_matched": 100.0,
         "pct_inventory_matched": 100.0,
-        "crashes_matched": 2
+        "crashes_matched": 3
       },
       "Unclassified (no inventory match)": {
-        "segments": 48,
-        "pct_aadt_matched": 16.7,
+        "segments": 31,
+        "pct_aadt_matched": 0.0,
         "pct_inventory_matched": 0.0,
-        "crashes_matched": 4
+        "crashes_matched": 3
       }
     },
-    "crash_points_matched_pct": 100.0
+    "crash_points_matched_pct": 100.0,
+    "region": {
+      "id": "spag",
+      "name": "South Plains (SPAG), 15 counties",
+      "counties": 15,
+      "segments_dropped_outside": {
+        "outside_spag_counties": 721
+      }
+    },
+    "by_county": [
+      {
+        "segments": 226,
+        "segments_screened": 226,
+        "segments_flagged": 2,
+        "segment_crashes": 2,
+        "segment_crashes_ka": 0,
+        "segment_miles": 224.08,
+        "vru_crashes": 3,
+        "vru_ka": 0,
+        "vru_on_system": 2,
+        "vru_on_system_ka": 0,
+        "vru_by_mode": {
+          "ped": 2,
+          "bike": 1
+        },
+        "fatal_crashes": 8,
+        "name": "Bailey",
+        "id": "bailey"
+      },
+      {
+        "segments": 232,
+        "segments_screened": 232,
+        "segments_flagged": 0,
+        "segment_crashes": 0,
+        "segment_crashes_ka": 0,
+        "segment_miles": 231.6,
+        "vru_crashes": 0,
+        "vru_ka": 0,
+        "vru_on_system": 0,
+        "vru_on_system_ka": 0,
+        "vru_by_mode": {},
+        "fatal_crashes": 4,
+        "name": "Cochran",
+        "id": "cochran"
+      },
+      {
+        "segments": 257,
+        "segments_screened": 257,
+        "segments_flagged": 2,
+        "segment_crashes": 5,
+        "segment_crashes_ka": 4,
+        "segment_miles": 251.25,
+        "vru_crashes": 6,
+        "vru_ka": 4,
+        "vru_on_system": 5,
+        "vru_on_system_ka": 4,
+        "vru_by_mode": {
+          "bike": 3,
+          "ped": 3
+        },
+        "fatal_crashes": 13,
+        "name": "Crosby",
+        "id": "crosby"
+      },
+      {
+        "segments": 204,
+        "segments_screened": 204,
+        "segments_flagged": 0,
+        "segment_crashes": 0,
+        "segment_crashes_ka": 0,
+        "segment_miles": 202.02,
+        "vru_crashes": 0,
+        "vru_ka": 0,
+        "vru_on_system": 0,
+        "vru_on_system_ka": 0,
+        "vru_by_mode": {},
+        "fatal_crashes": 3,
+        "name": "Dickens",
+        "id": "dickens"
+      },
+      {
+        "segments": 328,
+        "segments_screened": 328,
+        "segments_flagged": 0,
+        "segment_crashes": 0,
+        "segment_crashes_ka": 0,
+        "segment_miles": 322.47,
+        "vru_crashes": 1,
+        "vru_ka": 1,
+        "vru_on_system": 0,
+        "vru_on_system_ka": 0,
+        "vru_by_mode": {
+          "bike": 1
+        },
+        "fatal_crashes": 8,
+        "name": "Floyd",
+        "id": "floyd"
+      },
+      {
+        "segments": 187,
+        "segments_screened": 187,
+        "segments_flagged": 2,
+        "segment_crashes": 2,
+        "segment_crashes_ka": 1,
+        "segment_miles": 184.59,
+        "vru_crashes": 2,
+        "vru_ka": 1,
+        "vru_on_system": 2,
+        "vru_on_system_ka": 1,
+        "vru_by_mode": {
+          "ped": 2
+        },
+        "fatal_crashes": 17,
+        "name": "Garza",
+        "id": "garza"
+      },
+      {
+        "segments": 389,
+        "segments_screened": 389,
+        "segments_flagged": 5,
+        "segment_crashes": 7,
+        "segment_crashes_ka": 5,
+        "segment_miles": 386.06,
+        "vru_crashes": 14,
+        "vru_ka": 4,
+        "vru_on_system": 6,
+        "vru_on_system_ka": 4,
+        "vru_by_mode": {
+          "ped": 12,
+          "bike": 2
+        },
+        "fatal_crashes": 31,
+        "name": "Hale",
+        "id": "hale"
+      },
+      {
+        "segments": 341,
+        "segments_screened": 341,
+        "segments_flagged": 2,
+        "segment_crashes": 3,
+        "segment_crashes_ka": 2,
+        "segment_miles": 336.22,
+        "vru_crashes": 5,
+        "vru_ka": 3,
+        "vru_on_system": 3,
+        "vru_on_system_ka": 2,
+        "vru_by_mode": {
+          "ped": 5
+        },
+        "fatal_crashes": 35,
+        "name": "Hockley",
+        "id": "hockley"
+      },
+      {
+        "segments": 95,
+        "segments_screened": 95,
+        "segments_flagged": 0,
+        "segment_crashes": 0,
+        "segment_crashes_ka": 0,
+        "segment_miles": 94.04,
+        "vru_crashes": 0,
+        "vru_ka": 0,
+        "vru_on_system": 0,
+        "vru_on_system_ka": 0,
+        "vru_by_mode": {},
+        "fatal_crashes": 3,
+        "name": "King",
+        "id": "king"
+      },
+      {
+        "segments": 364,
+        "segments_screened": 364,
+        "segments_flagged": 2,
+        "segment_crashes": 3,
+        "segment_crashes_ka": 1,
+        "segment_miles": 358.54,
+        "vru_crashes": 5,
+        "vru_ka": 1,
+        "vru_on_system": 3,
+        "vru_on_system_ka": 1,
+        "vru_by_mode": {
+          "bike": 2,
+          "ped": 3
+        },
+        "fatal_crashes": 20,
+        "name": "Lamb",
+        "id": "lamb"
+      },
+      {
+        "segments": 529,
+        "segments_screened": 499,
+        "segments_flagged": 37,
+        "segment_crashes": 116,
+        "segment_crashes_ka": 45,
+        "segment_miles": 523.25,
+        "vru_crashes": 311,
+        "vru_ka": 89,
+        "vru_on_system": 117,
+        "vru_on_system_ka": 46,
+        "vru_by_mode": {
+          "bike": 80,
+          "ped": 222,
+          "scooter": 9
+        },
+        "fatal_crashes": 278,
+        "name": "Lubbock",
+        "id": "lubbock"
+      },
+      {
+        "segments": 313,
+        "segments_screened": 313,
+        "segments_flagged": 0,
+        "segment_crashes": 1,
+        "segment_crashes_ka": 1,
+        "segment_miles": 309.77,
+        "vru_crashes": 1,
+        "vru_ka": 1,
+        "vru_on_system": 1,
+        "vru_on_system_ka": 1,
+        "vru_by_mode": {
+          "ped": 1
+        },
+        "fatal_crashes": 11,
+        "name": "Lynn",
+        "id": "lynn"
+      },
+      {
+        "segments": 169,
+        "segments_screened": 169,
+        "segments_flagged": 0,
+        "segment_crashes": 0,
+        "segment_crashes_ka": 0,
+        "segment_miles": 165.33,
+        "vru_crashes": 0,
+        "vru_ka": 0,
+        "vru_on_system": 0,
+        "vru_on_system_ka": 0,
+        "vru_by_mode": {},
+        "fatal_crashes": 3,
+        "name": "Motley",
+        "id": "motley"
+      },
+      {
+        "segments": 278,
+        "segments_screened": 277,
+        "segments_flagged": 2,
+        "segment_crashes": 3,
+        "segment_crashes_ka": 1,
+        "segment_miles": 276.14,
+        "vru_crashes": 6,
+        "vru_ka": 2,
+        "vru_on_system": 3,
+        "vru_on_system_ka": 1,
+        "vru_by_mode": {
+          "bike": 2,
+          "ped": 4
+        },
+        "fatal_crashes": 17,
+        "name": "Terry",
+        "id": "terry"
+      },
+      {
+        "segments": 209,
+        "segments_screened": 209,
+        "segments_flagged": 0,
+        "segment_crashes": 0,
+        "segment_crashes_ka": 0,
+        "segment_miles": 208.2,
+        "vru_crashes": 0,
+        "vru_ka": 0,
+        "vru_on_system": 0,
+        "vru_on_system_ka": 0,
+        "vru_by_mode": {},
+        "fatal_crashes": 10,
+        "name": "Yoakum",
+        "id": "yoakum"
+      }
+    ]
   },
-  "generated_at": "2026-10-17T17:14:36+00:00"
+  "generated_at": "2026-10-18T16:50:35+00:00"
 }

@@ -40,6 +40,12 @@ Linear referencing: ``START_M``/``END_M`` are measures on the segmented route pa
 geometry of the same route (``US0084-KG_01`` → ``US0084-KG`` = AADT ``RTE_NM`` = inventory/speed
 ``RIA_RTE_ID``), whose BEGIN/END_DFO give true DFO; joins are then DFO-overlap, length-weighted.
 
+Study region: the fifteen SPAG counties (``sources.COUNTIES``). Segment results carry no county field, so
+each segment is attributed to the county containing its midpoint (TxDOT County_Boundaries polygons,
+``counties.CountyIndex``); segments pulled by the region envelope whose midpoint falls outside every SPAG
+county are dropped and counted in ``diagnostics.join.region``. Roadway Inventory is filtered by ``CO`` and
+CRIS crashes by ``County``, so inventory joins and crash snapping stay inside the region.
+
 Site types (HSM-style): rural/urban from Roadway Inventory ``RU`` (1 = rural; 2 = small urban,
 4 = urbanized; RU = 1 exactly where UAN = 0, i.e. outside any urban area) × facility group from
 ``F_SYSTEM``. Divided = ``MED_TYPE`` ≠ 0 (all freeway segments are ≠ 0, all collectors = 0).
@@ -53,9 +59,11 @@ from itertools import combinations
 import numpy as np
 
 from . import spf as S
+from .counties import CountyIndex
+from .sources import COUNTIES, COUNTY_BY_NBR, county_slug
 from .vru import severity
 
-LAT0 = 33.6
+LAT0 = 33.64  # centre latitude of the SPAG region (32.96–34.31); equirectangular error < 1 % at its edges
 KX = 111320.0 * math.cos(math.radians(LAT0))
 KY = 110574.0
 MAX_SNAP_M = 150.0
@@ -69,6 +77,7 @@ FC_GROUPS = {1: "Interstate/Freeway", 2: "Interstate/Freeway", 3: "Principal art
              4: "Minor arterial", 5: "Collector/Local", 6: "Collector/Local", 7: "Collector/Local"}
 FC_ORDER = ["Interstate/Freeway", "Principal arterial", "Minor arterial", "Collector/Local"]
 
+CORRIDOR_COUNTY = 152  # corridor sheets are Lubbock County profiles; stations stop at the county line
 CORRIDORS = [
     ("us-84", "US 84 (Slaton Hwy / Clovis Rd)", ["US0084-KG"]),
     ("us-62-82", "US 62/82 (19th St / Marsha Sharp Fwy)", ["US0062-KG", "US0082-KG"]),
@@ -271,7 +280,29 @@ def assign_crashes(lines, at_feats, tol=AT_SNAP_M):
 
 
 # ---------- build ----------
-def build_segments(seg_feats, aadt_feats, ri_feats, speed_feats, at_feats):
+def midpoint(paths):
+    """Lon/lat halfway along a (multi)polyline."""
+    pts = [p for path in paths for p in path]
+    return point_at(pts, length([to_xy(p) for p in pts]) / 2)
+
+
+def attribute_counties(seg_feats, county_feats):
+    """Keep the segments whose midpoint lies in a SPAG county; return (kept features, county per feature, dropped)."""
+    cidx = CountyIndex(county_feats)
+    kept, counties, dropped = [], [], Counter()
+    for f in seg_feats:
+        lon, lat = midpoint(f["geometry"]["paths"])
+        c = cidx.lookup(lon, lat)
+        if c is None:
+            dropped["outside_spag_counties"] += 1
+            continue
+        kept.append(f)
+        counties.append(c)
+    return kept, counties, dict(dropped), cidx
+
+
+def build_segments(seg_feats, aadt_feats, ri_feats, speed_feats, at_feats, county_feats):
+    seg_feats, seg_counties, dropped, cidx = attribute_counties(seg_feats, county_feats)
     aadt = RouteIndex(aadt_feats, "RTE_NM", "BEGIN_DFO", "END_DFO")
     ri = RouteIndex(ri_feats, "RIA_RTE_ID", "FRM_DFO", "TO_DFO")
     spd = RouteIndex(speed_feats, "RIA_RTE_ID", "FRM_DFO", "TO_DFO")
@@ -280,7 +311,7 @@ def build_segments(seg_feats, aadt_feats, ri_feats, speed_feats, at_feats):
     lines = [line_xy(f["geometry"]["paths"]) for f in seg_feats]
     sev, assign_stats = assign_crashes(lines, at_feats)
     segs = []
-    for f, sv in zip(seg_feats, sev):
+    for f, sv, cty in zip(seg_feats, sev, seg_counties):
         a = f["attributes"]
         paths = f["geometry"]["paths"]
         key = route_key(a["RouteID"])
@@ -305,6 +336,7 @@ def build_segments(seg_feats, aadt_feats, ri_feats, speed_feats, at_feats):
         n = len(sv)
         segs.append({
             "seg_id": a["SEG_ID"], "route": key, "route_part": a["RouteID"],
+            "county": cty["name"], "county_nbr": cty["nbr"], "county_id": county_slug(cty["name"]),
             "name": dominant(ov_r, "STE_NAM") or display_route(key),
             "f_system": f_sys, "fc_group": fc, "ru": ru, "urban": urban,
             "divided": None if med is None else med != 0,
@@ -323,9 +355,12 @@ def build_segments(seg_feats, aadt_feats, ri_feats, speed_feats, at_feats):
             "satp_crash_score": a.get("SUM_CRASH_"),
             "_sev": sv, "_paths": paths,
         })
-    idx = {"aadt": aadt, "ri": ri, "speed": spd}
+    idx = {"aadt": aadt, "ri": ri, "speed": spd, "counties": cidx}
+    join = join_quality(segs, idx, assign_stats)
+    join["region"] = {"counties": len(cidx.items), "segments_in_region": len(segs), "segments_dropped": dropped,
+                      "rule": "segment midpoint inside a SPAG county polygon (TxDOT County_Boundaries)"}
     meta = {"crash_period": [y0, y1], "crash_years": years, "assignment": assign_stats,
-            "join": join_quality(segs, idx, assign_stats), "crash_field": crash_field_evidence(segs),
+            "join": join, "crash_field": crash_field_evidence(segs),
             "aadt": aadt_check(aadt_feats, ri)}
     return segs, idx, meta
 
@@ -357,10 +392,10 @@ def join_quality(segs, idx, assign_stats):
     for s in groups.get("Unclassified (no inventory match)", []):
         r = s["route"]
         in_ri, in_aadt = r in idx["ri"].by_route, r in idx["aadt"].by_route
-        reason = ("route absent from Roadway Inventory (CO=152, Lubbock County) and TxDOT_AADT (envelope)"
+        reason = ("route absent from Roadway Inventory (CO in the SPAG counties) and TxDOT_AADT (region envelope)"
                   if not in_ri and not in_aadt else
                   "segment end points > 150 m from the route's inventory/AADT geometry" if s["dfo_from"] is None else
-                  "DFO range outside the route's Lubbock County inventory records")
+                  "DFO range outside the route's SPAG-county inventory records")
         unclassified[r]["segments"] += 1
         unclassified[r]["reason"] = reason
     on = assign_stats.get("on_system_matched", 0) + assign_stats.get("on_system_unmatched", 0)
@@ -661,8 +696,9 @@ def _round_model(m):
 NETWORK_PROPS = ["seg_id", "route", "name", "f_system", "lanes", "speed_limit", "aadt", "truck_pct", "len_mi",
                  "crashes_total", "crash_years", "rate_100mvmt", "crit_rate", "crit_ratio", "epdo", "spf_pred",
                  "eb_expected", "eb_excess", "rank", "fc_group", "dfo_from", "dfo_to", "crashes_per_yr", "speed_all",
-                 "site_type", "urban", "divided", "spf_model", "crashes_ka", "crash_period", "satp_crash_score",
-                 "aadt_source"]
+                 "site_type", "urban", "divided", "spf_model", "crashes_ka", "crash_period", "county", "county_id"]
+# satp_crash_score and aadt_source stay in the build (crash_field_evidence, aadt diagnostics) but are not served:
+# with 4,000+ regional segments every property costs ~80 KB in network.geojson.
 
 
 def to_geojson(segs, tol_m=5.0):
@@ -676,7 +712,16 @@ def to_geojson(segs, tol_m=5.0):
 
 
 # ---------- corridors ----------
-def build_corridors(segs, idx, step=0.25):
+def build_corridors(segs, idx, step=0.25, county_nbr=CORRIDOR_COUNTY):
+    """Corridor profiles for one county (Lubbock): segments and inventory records of that county only."""
+    segs = [s for s in segs if s.get("county_nbr") == county_nbr]
+    ri_all = idx["ri"]
+    ri = RouteIndex([], "RIA_RTE_ID", "FRM_DFO", "TO_DFO")
+    for route, recs in ri_all.by_route.items():
+        sub = [r for r in recs if r["a"].get("CO") == county_nbr]
+        if sub:
+            ri.by_route[route] = sub
+    idx = {**idx, "ri": ri}
     by_route = defaultdict(list)
     for s in segs:
         by_route[s["route"]].append(s)
@@ -730,6 +775,7 @@ def build_corridors(segs, idx, step=0.25):
         top = max((x for x in cs if x["eb_excess"] is not None), key=lambda x: x["eb_excess"], default=None)
         out.append({
             "id": cid, "name": name, "routes": routes, "len_mi": round(total_len, 2), "stations": stations,
+            "county": COUNTY_BY_NBR[county_nbr], "county_id": county_slug(COUNTY_BY_NBR[county_nbr]),
             "summary": {
                 # per-year figures from the integer 3-year count (summing rounded per-segment rates drifts)
                 "segments": len(cs), "crashes_per_yr": round(sum(x["crashes_total"] for x in cs) / years, 2) if years else None,

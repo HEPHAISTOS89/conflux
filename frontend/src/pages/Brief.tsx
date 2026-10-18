@@ -10,6 +10,7 @@ import MetricInfo, { type MetricSpec } from '../components/MetricInfo';
 import Info from '../components/Info';
 import { Icon, type IconName } from '../components/Icon';
 import type { Manifest, SegmentProps } from '../lib/types';
+import { countyQuery, regionLabel, useCounties, useCounty, withCounty } from '../lib/region';
 import '../styles/brief.css';
 
 type Row = SegmentProps & { fc_group?: string; crashes_per_yr?: number; crashes_ka?: number; dfo_from?: number; dfo_to?: number; speed_all?: number; site_type?: string };
@@ -77,9 +78,13 @@ export default function Brief() {
   useEffect(() => { if (!copied) return; const t = setTimeout(() => setCopied(false), 1600); return () => clearTimeout(t); }, [copied]);
   const [retry, setRetry] = useState(0);
   const [appendix, setAppendix] = useState(false);
+  const [county] = useCounty();
+  const counties = useCounties();
+  const scope = regionLabel(county, counties.list);
+  const cq = countyQuery(county);
   const rq = retry ? `?retry=${retry}` : '';
-  const scr = useApi<Screening>(`/screening?method=eb_excess&limit=1000${retry ? `&retry=${retry}` : ''}`);
-  const vru = useApi<VruSum>(`/vru/summary${rq}`);
+  const scr = useApi<Screening>(`/screening?method=eb_excess&limit=5000${retry ? `&retry=${retry}` : ''}${cq}`);
+  const vru = useApi<VruSum>(`/vru/summary${rq ? `${rq}${cq}` : countyQuery(county, true)}`);
   const meta = useApi<Manifest>(`/meta${rq}`);
   const spf = useApi<SpfLite>(`/spf${rq}`);
   const reveal = useReveal<HTMLDivElement>();
@@ -105,8 +110,8 @@ export default function Brief() {
   const kaPct = (c?: Cond) => (c && c.n ? `${Math.round((100 * c.ka) / c.n)}%` : '—');
   const errs = [scr, vru, meta, spf].map((r) => r.error).filter(Boolean);
   const share = async () => setCopied(await copyLink());
-  const exportCsv = () => downloadCSV('conflux-lubbock-county-flagged-sites.csv', v.flagged.map((r, i) => ({
-    rank: i + 1, route: r.name, seg_id: r.seg_id, dfo_from: r.dfo_from, dfo_to: r.dfo_to, site_type: r.site_type, lanes: r.lanes, speed_limit_mph: r.speed_limit,
+  const exportCsv = () => downloadCSV(`conflux-${county ?? 'spag'}-flagged-sites.csv`, v.flagged.map((r, i) => ({
+    rank: i + 1, county: r.county, route: r.name, seg_id: r.seg_id, dfo_from: r.dfo_from, dfo_to: r.dfo_to, site_type: r.site_type, lanes: r.lanes, speed_limit_mph: r.speed_limit,
     aadt: r.aadt, crashes_3yr: r.crashes_total, crashes_ka_3yr: r.crashes_ka, spf_pred_per_yr: r.spf_pred, eb_expected_per_yr: r.eb_expected, eb_excess_per_yr: r.eb_excess, crit_ratio: r.crit_ratio,
   })));
 
@@ -138,9 +143,9 @@ export default function Brief() {
         <div className="sheet-ph">
           <PageHeader
             icon="county"
-            title="Lubbock County ped/bike safety brief"
-            lede={<>{v.flagged.length} of {nf(items.length)} screened one-mile state-system segments have expected ped/bike crashes above the SPF prediction (EB excess &gt; 0); {v.confirmed.length} also exceed the critical rate at 95% confidence.</>}
-            source={<>Derived from TxDOT CRIS 2021–2023, TxDOT District 05, County 152, by HSM Part B empirical Bayes screening; build {date ?? '…'}. Screening flags sites for investigation and does not establish cause. Not an official TxDOT product.</>}
+            title={`${scope} ped/bike safety brief`}
+            lede={<>{v.flagged.length} of {nf(items.length)} screened one-mile state-system segments in {regionLabel(county, counties.list, true)} have expected ped/bike crashes above the SPF prediction (EB excess &gt; 0); {v.confirmed.length} also exceed the critical rate at 95% confidence.</>}
+            source={<>Derived from TxDOT CRIS 2021–2023 for the SPAG counties (TxDOT Districts 05 and 25) by HSM Part B empirical Bayes screening on the 15-county population; build {date ?? '…'}. Screening flags sites for investigation and does not establish cause. Not an official TxDOT product.</>}
             readouts={[
               { label: <span className="rd-l">Sites flagged <MetricInfo spec={SPECS.eb} align="right" /></span>, value: scr.data ? v.flagged.length : null, unit: `of ${nf(items.length)}`, tone: 'alert' },
               { label: <span className="rd-l">Confirmed <MetricInfo spec={SPECS.cr} align="right" /></span>, value: scr.data ? v.confirmed.length : null, unit: 'EB + R/Rc' },
@@ -151,10 +156,11 @@ export default function Brief() {
               <button type="button" className="btn" onClick={() => window.print()}><Icon name="sheet" size={16} /><span>Print brief</span></button>
               <button type="button" className="btn ghost" onClick={exportCsv} disabled={!v.flagged.length}><Icon name="download" size={16} /><span>Download CSV</span></button>
               <button type="button" className="btn ghost" onClick={share} aria-live="polite"><Icon name={copied ? 'check' : 'link'} size={16} /><span>{copied ? 'Copied' : 'Copy link'}</span></button>
-              <Link to="/screening" className="btn ghost"><Icon name="rank" size={16} /><span>Open screening</span></Link>
+              <Link to={withCounty('/screening', county)} className="btn ghost"><Icon name="rank" size={16} /><span>Open screening</span></Link>
             </span>}
           />
-          {scr.data && lead && <p className="verdict"><b>{v.flagged.length}</b> sites flagged, <b>{v.confirmed.length}</b> confirmed; worst: <b>{lead.name}, DFO {nf(lead.dfo_from, 1)}–{nf(lead.dfo_to, 1)}</b>.</p>}
+          {scr.data && lead && <p className="verdict"><b>{v.flagged.length}</b> sites flagged, <b>{v.confirmed.length}</b> confirmed; worst: <b>{lead.name}{!county && lead.county ? ` (${lead.county} County)` : ''}, DFO {nf(lead.dfo_from, 1)}–{nf(lead.dfo_to, 1)}</b>.</p>}
+          {scr.data && !lead && <p className="verdict">No state-system segment in {scope} has an EB excess above zero; no sites flagged.</p>}
         </div>
 
         <section data-r="2" aria-labelledby="top-h">
@@ -168,7 +174,7 @@ export default function Brief() {
                 {top.map((r, i) => (
                   <tr key={r.seg_id} style={{ '--i': i } as React.CSSProperties}>
                     <td className="r measure">{i + 1}</td>
-                    <td><Link to={`/screening?seg=${encodeURIComponent(r.seg_id)}`} className="site-l"><b>{r.name}</b></Link> <span className="measure muted">{nf(r.dfo_from, 2)}–{nf(r.dfo_to, 2)}</span></td>
+                    <td><Link to={withCounty(`/screening?seg=${encodeURIComponent(r.seg_id)}`, county)} className="site-l"><b>{r.name}</b></Link> <span className="measure muted">{nf(r.dfo_from, 2)}–{nf(r.dfo_to, 2)}</span>{!county && r.county && <span className="muted"> · {r.county}</span>}</td>
                     <td className="opt site-c">{r.site_type ?? r.fc_group} · <span className="measure">{nf(r.lanes)} ln · {nf(r.speed_limit)} mph</span></td>
                     <td className="r measure opt">{nf(r.aadt)}</td>
                     <td className="r measure">{nf(r.crashes_per_yr, 2)}</td>
@@ -200,7 +206,7 @@ export default function Brief() {
             </div>
           </div>
           <div className="sheet-vru">
-            <h2><Icon name="ped" size={20} />Countywide VRU crashes</h2>
+            <h2><Icon name="ped" size={20} />{county ? 'Countywide' : 'Regional'} VRU crashes</h2>
             {vru.data ? (
               <>
                 <div className="vru-cols"><div>

@@ -1,6 +1,6 @@
-# RoadScope: a proactive road-safety portal for Lubbock County, Texas
+# RoadScope: a proactive road-safety portal for the South Plains (SPAG) counties, Texas
 
-RoadScope applies Highway Safety Manual (HSM) Part B network screening to the public TxDOT roadway, traffic and crash layers for Lubbock County. The screened outcome is **on-system pedestrian, cyclist and e-scooter crashes** (TxDOT CRIS, via the Active Transportation Crashes layer, 2021-2023, all KABCO severities) snapped to 443 one-mile segments. Negative Binomial safety performance functions (SPFs) are fitted by site type and combined with Empirical Bayes (EB) adjustment. The portal also summarises vulnerable-road-user (VRU) and fatal crashes, and computes FHWA SSAM surrogate safety measures (TTC, PET, DRAC) on real vehicle trajectories at two signalised intersections. For those trajectories it benchmarks a constant-acceleration Kalman/RTS smoother against linear interpolation for repairing occluded tracks, under two gap protocols and two ground truths. Every number in the portal comes from a reproducible Python pipeline. The pipeline is served by a serverless AWS stack (S3, Lambda, EventBridge, EC2, API Gateway, Bedrock, CloudWatch), and each output carries its provenance, licence and stated limitations.
+RoadScope applies Highway Safety Manual (HSM) Part B network screening to the public TxDOT roadway, traffic and crash layers for the fifteen counties of the South Plains Association of Governments (Bailey, Cochran, Crosby, Dickens, Floyd, Garza, Hale, Hockley, King, Lamb, Lubbock, Lynn, Motley, Terry, Yoakum), with a county filter on every sheet. The screened outcome is **on-system pedestrian, cyclist and e-scooter crashes** (TxDOT CRIS, via the Active Transportation Crashes layer, 2021-2023, all KABCO severities) snapped to 4,121 one-mile segments (4,090 screened). Negative Binomial safety performance functions (SPFs) are fitted by site type and combined with Empirical Bayes (EB) adjustment. The portal also summarises vulnerable-road-user (VRU) and fatal crashes, and computes FHWA SSAM surrogate safety measures (TTC, PET, DRAC) on real vehicle trajectories at two signalised intersections. For those trajectories it benchmarks a constant-acceleration Kalman/RTS smoother against linear interpolation for repairing occluded tracks, under two gap protocols and two ground truths. Every number in the portal comes from a reproducible Python pipeline. The pipeline is served by a serverless AWS stack (S3, Lambda, EventBridge, EC2, API Gateway, Bedrock, CloudWatch), and each output carries its provenance, licence and stated limitations.
 
 - Portal (production): https://conflux-safety.vercel.app
 - API health: https://tkk01bgzfb.execute-api.us-east-2.amazonaws.com/api/v1/health (OpenAPI at `/api/v1/docs`)
@@ -51,7 +51,7 @@ GOF on the fallback site types is not informative (0-2 crashes); their CURE curv
 ### 1.3 Vulnerable road users and fatalities
 
 - TxDOT CRIS active-transportation crashes, 2021-2023, countywide (on and off system): 307 (220 pedestrian, 78 bicycle, 9 scooter). KABCO: K 42, A 44, B 120, C 92, O 9, so **KA = 86**. 114 are on the state system and form the screening outcome. The most frequent PBCAT type is *Pedestrian Failed To Yield* (100).
-- NHTSA FARS 2018-2023, Lubbock County: **278 fatal crashes, 301 fatalities**.
+- NHTSA FARS 2018-2023, SPAG counties: **461 fatal crashes, 519 fatalities** (Lubbock County 278).
 
 ### 1.4 Intersection conflicts (NGSIM, 10 Hz, 90 s windows, FHWA SSAM detection)
 
@@ -83,12 +83,12 @@ Short/long columns pool the by-gap bins (gap-frame-weighted RMSE). Against raw t
 
 | Source | Records | Licence | How fetched |
 |---|---:|---|---|
-| TxDOT AADT (`TxDOT_AADT/FeatureServer/0`) | 5,785 | (c) TxDOT, informational; attribution and disclaimer | ArcGIS REST, Lubbock envelope |
+| TxDOT AADT (`TxDOT_AADT/FeatureServer/0`) | 15,054 | (c) TxDOT, informational; attribution and disclaimer | ArcGIS REST, SPAG region envelope |
 | TxDOT Roadway Inventory 2024 | 11,156 | (c) TxDOT, as above | ArcGIS REST |
 | TxDOT Segment Crash Results (SATP; one-mile segment geometry, `SUM_CRASH_` kept only as `satp_crash_score`) | 443 | (c) TxDOT, as above | ArcGIS REST |
 | TxDOT Statewide Speed 2024 | 2,738 | (c) TxDOT, as above | ArcGIS REST |
 | TxDOT Active Transportation Crashes (CRIS, 2021-2023; screening outcome = 114 on-system) | 307 | (c) TxDOT, as above | ArcGIS REST |
-| NHTSA FARS 2018-2023 (national CSV, filtered to Lubbock County) | 24 / 58 / 38 / 59 / 49 / 51 | Public domain (US Government work) | `static.nhtsa.gov` zip per year |
+| NHTSA FARS 2018-2023 (national CSV, filtered to the 15 SPAG counties by FIPS) | 461 crashes | Public domain (US Government work) | `static.nhtsa.gov` zip per year |
 | NGSIM Lankershim | 55,554 rows | USDOT ITS DataHub, CC BY-SA 3.0 | SODA API `data.transportation.gov/resource/8ect-6jqj` |
 | NGSIM Peachtree | 27,237 rows | USDOT ITS DataHub, CC BY-SA 3.0 | SODA API, as above |
 
