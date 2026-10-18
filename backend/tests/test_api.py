@@ -54,7 +54,7 @@ def test_screening_sorted(client: TestClient, method: str, field: str) -> None:
 def test_screening_filters_and_validation(client: TestClient) -> None:
     d = client.get(f"{API}/screening", params={"f_system": 3}).json()
     assert d["total"] == 2 and all(i["f_system"] == 3 for i in d["items"])
-    for bad in ({"method": "nope"}, {"limit": 0}, {"limit": 5000}, {"f_system": 9}):
+    for bad in ({"method": "nope"}, {"limit": 0}, {"limit": 5001}, {"f_system": 9}):
         assert client.get(f"{API}/screening", params=bad).status_code == 422
 
 
