@@ -16,7 +16,8 @@ import { labPalette, type LabPalette } from './palette';
 import { roadGeometry } from './road';
 import { buildSignals, buildStreet } from './street';
 import { ghostFade, trackQuality, type Quality } from './quality';
-import { cumulativeDistance, distanceAt, KINDS, kindOf, lampGeometry, steerAngle, vehicleGeometry, WHEEL, wheelGeometry, wheelOffsets, type VehicleKind } from './vehicles';
+import { cumulativeDistance, distanceAt, KINDS, kindOf, lampGeometry, pedestrianGeometry, steerAngle, vehicleGeometry, WHEEL, wheelGeometry, wheelOffsets, type VehicleKind } from './vehicles';
+import { bodyLength, isPedestrian } from './classes';
 import { inferSignals, lampAt, type Group, type Lamp } from '../../components/world/signals';
 
 export type CamMode = 'orbit' | 'fly' | 'follow' | 'top' | 'sensor';
@@ -33,12 +34,22 @@ export const BLIND_R = SENSOR.z / Math.tan((-SENSOR.vMin * Math.PI) / 180);
 const PICK_LAYER = 1;
 const MAX_BOXES = 12, MAX_PROJ = 4, PROJ_STEPS = 20, TRAIL_S = 3;
 const FT = 3.28084;
-const heightOf = (cls: string) => (cls === 'truck' ? 3.2 : cls === 'motorcycle' ? 1.3 : 1.5);
+const heightOf = (cls: string) => (cls === 'truck' || cls === 'bus' ? 3.2 : cls === 'motorcycle' || cls === 'bicycle' ? 1.3 : cls === 'pedestrian' ? 1.7 : 1.5);
 
 /**
  * Points on the faces of a vehicle box (roof, sides, ends), local frame: x along length, y up, z across.
  * tag: 1 = tail-lamp band on the rear face (retro-reflective, high-intensity returns), 0 otherwise.
  */
+/** Returns on a standing person: a 0.5 m wide body with most hits on the torso and head, none tagged as lamps. */
+function pedestrianCloud(hgt: number, n: number, rnd: () => number): { p: number[]; tag: number[] } {
+  const p: number[] = [], tag: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = rnd() * Math.PI * 2, y = rnd() * hgt, r = (y > hgt * 0.88 ? 0.11 : y > hgt * 0.3 ? 0.2 : 0.14) * (0.8 + 0.2 * rnd());
+    p.push(Math.cos(a) * r, y, Math.sin(a) * r); tag.push(0);
+  }
+  return { p, tag };
+}
+
 function vehicleCloud(len: number, wid: number, hgt: number, n: number, rnd: () => number): { p: number[]; tag: number[] } {
   const p: number[] = [], tag: number[] = [];
   for (let i = 0; i < n; i++) {
@@ -59,14 +70,14 @@ function mulberry(seed: number) {
   return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
-// pose texture: row 0 = (x, z, heading, state 1–6), row 1 = (fade 0–1, brake 0–1, –, –)
+// pose texture: row 0 = (x, z, heading, state 1–7: car, truck, hot, partner, hover, selected, pedestrian), row 1 = (fade 0–1, brake 0–1, –, –)
 const CLOUD_VS = /* glsl */ `
 uniform sampler2D uPose;
 uniform float uSize;
 uniform float uScale;
 uniform float uOrthoPx;
 uniform float uMaxPx;
-uniform vec3 uCol[6];
+uniform vec3 uCol[7];
 uniform vec3 uBrake;
 attribute float slot;
 attribute float rnd;
@@ -275,7 +286,7 @@ export function createEngine(o: EngineOpts): Engine {
   const rand = mulberry(20251017);
   const cp: number[] = [], cs: number[] = [], cr: number[] = [], ct: number[] = [];
   data.tracks.forEach((tr, i) => {
-    const { p, tag } = vehicleCloud(tr.len_m, tr.w_m, heightOf(tr.cls), tr.cls === 'truck' ? 1300 : 520, rand);
+    const { p, tag } = isPedestrian(tr) ? pedestrianCloud(heightOf(tr.cls), 90, rand) : vehicleCloud(tr.len_m, tr.w_m, heightOf(tr.cls), tr.cls === 'truck' || tr.cls === 'bus' ? 1300 : 520, rand);
     cp.push(...p); ct.push(...tag);
     for (let k = 0; k < p.length / 3; k++) { cs.push(i); cr.push(rand() * 0.999); }
   });
@@ -284,7 +295,7 @@ export function createEngine(o: EngineOpts): Engine {
   cloudGeo.setAttribute('slot', new THREE.Float32BufferAttribute(cs, 1));
   cloudGeo.setAttribute('rnd', new THREE.Float32BufferAttribute(cr, 1));
   cloudGeo.setAttribute('tag', new THREE.Float32BufferAttribute(ct, 1));
-  const cols = [pal.car, pal.truck, pal.hot, pal.partner, pal.hov, pal.sel].map(C);
+  const cols = [pal.car, pal.truck, pal.hot, pal.partner, pal.hov, pal.sel, pal.ped].map(C);
   const cloudMat = new THREE.ShaderMaterial({
     vertexShader: CLOUD_VS, fragmentShader: CLOUD_FS, fog: false,
     uniforms: { uPose: { value: poseTex }, uSize: { value: 0.24 }, uScale: { value: 300 }, uOrthoPx: { value: 4 }, uMaxPx: { value: 3.4 * Math.min(2, devicePixelRatio) }, uCol: { value: cols }, uBrake: { value: C(pal.brake) } },
@@ -307,9 +318,9 @@ export function createEngine(o: EngineOpts): Engine {
   for (const k of KINDS) {
     const idx = perKind.get(k)!;
     if (!idx.length) continue;
-    const vg = vehicleGeometry(k);
+    const vg = k === 'ped' ? { body: pedestrianGeometry(), glass: new THREE.BufferGeometry(), wheelX: [0, 0] as [number, number] } : vehicleGeometry(k);
     const fade = new THREE.InstancedBufferAttribute(new Float32Array(idx.length).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
-    const hg = lampGeometry(true, k), tg = lampGeometry(false, k);
+    const hg = k === 'ped' ? new THREE.BufferGeometry() : lampGeometry(true, k), tg = k === 'ped' ? new THREE.BufferGeometry() : lampGeometry(false, k);
     for (const g of [vg.body, vg.glass, hg, tg]) g.setAttribute('aFade', fade);
     const cm: ClassMeshes = {
       body: mkInst(vg.body, withFade(new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 60, specular: C(pal.dark ? '#5a5f63' : '#9a9ea0') })), idx.length),
@@ -364,6 +375,15 @@ export function createEngine(o: EngineOpts): Engine {
 
   const sevCol = (s: string) => C(s === 'critical' ? pal.critical : pal.caution);
   const cpts = conflicts.map((c) => conflictPoint(c, byId.get(String(c.a)), byId.get(String(c.b)), data.hz));
+  // crosswalk polygons from a site feed (site.json), drawn as flat marked slabs on the asphalt
+  if (data.crosswalks?.length) {
+    const cwMat = new THREE.MeshBasicMaterial({ color: C(pal.stop), transparent: true, opacity: pal.dark ? 0.16 : 0.22, depthWrite: false });
+    for (const cw of data.crosswalks) {
+      const sh = new THREE.Shape(cw.polygon.map(([x, y]) => new THREE.Vector2(x, -y)));
+      const g = new THREE.ShapeGeometry(sh); g.rotateX(-Math.PI / 2); g.translate(0, 0.012, 0);
+      const m = new THREE.Mesh(g, cwMat); m.renderOrder = 1; scene.add(m);
+    }
+  }
   const zoneGeo = new THREE.RingGeometry(0.55, 0.85, 28); zoneGeo.rotateX(-Math.PI / 2);
   const zones = new THREE.InstancedMesh(zoneGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false }), Math.max(1, conflicts.length));
   zones.renderOrder = 2;
@@ -474,7 +494,7 @@ export function createEngine(o: EngineOpts): Engine {
       const tr = data.tracks[i], id = ids[i];
       const k = renderPose(tr, t, data.hz, win);
       // served point = NGSIM front-bumper centre; the body (and its returns) sit behind it
-      const pos = k && (([cx, cy]) => W(cx, cy))(bodyCentre(k.x, k.y, k.h, tr.len_m));
+      const pos = k && (([cx, cy]) => W(cx, cy))(bodyCentre(k.x, k.y, k.h, bodyLength(tr)));
       const inRange = !!pos && Math.hypot(pos.x - sensorWorld.x, pos.z - sensorWorld.z) < SENSOR.range;
       const gf = k ? ghostFade(quality, id, t) : 0;
       const cm = classMeshes.get(kinds[i])!, slot = slotOf[i];
@@ -489,17 +509,19 @@ export function createEngine(o: EngineOpts): Engine {
       k.fade *= gf;
       posOf.set(id, pos); kinOf.set(id, k);
       const isSel = selIds.has(id), isPartner = partnerIds.has(id), isHov = id === hovId;
-      const state = isSel ? 6 : isHov ? 5 : isPartner ? 4 : hot.has(id) ? 3 : tr.cls === 'truck' ? 2 : 1;
+      const ped = kinds[i] === 'ped';
+      const state = isSel ? 6 : isHov ? 5 : isPartner ? 4 : hot.has(id) ? 3 : ped ? 7 : tr.cls === 'truck' || tr.cls === 'bus' ? 2 : 1;
       poseArr[i * 4] = pos.x; poseArr[i * 4 + 1] = pos.z; poseArr[i * 4 + 2] = k.h; poseArr[i * 4 + 3] = state;
       poseArr[N * 4 + i * 4] = k.fade; poseArr[N * 4 + i * 4 + 1] = k.brake;
       const h = heightOf(tr.cls);
       q.setFromAxisAngle(up, k.h);
-      m4.compose(sc.set(pos.x, 0, pos.z), q, v3.set(tr.len_m, 1, tr.w_m));
+      m4.compose(sc.set(pos.x, 0, pos.z), q, ped ? v3.set(1, 1, 1) : v3.set(tr.len_m, 1, tr.w_m));
       cm.body.setMatrixAt(slot, m4); cm.glass.setMatrixAt(slot, m4); cm.tail.setMatrixAt(slot, m4); cm.head.setMatrixAt(slot, m4);
       cm.fade.setX(slot, k.fade);
       cm.body.setColorAt(slot, cols[state - 1]);
       cm.tail.setColorAt(slot, lampC.copy(lampOff).lerp(lampOn, k.brake));
-      if (!layers.cloud) {
+      if (ped) { for (let w = 0; w < 4; w++) wheels.setMatrixAt(i * 4 + w, zero); }
+      else if (!layers.cloud) {
         // wheels roll with the travelled distance; the front pair steers with the yaw rate (bicycle model)
         fwdV.set(Math.cos(k.h), 0, -Math.sin(k.h)); sideV.set(Math.sin(k.h), 0, Math.cos(k.h));
         const spin = distanceAt(tr, cums[i], t, data.hz) / WHEEL.r;
@@ -516,8 +538,8 @@ export function createEngine(o: EngineOpts): Engine {
           wheels.setMatrixAt(i * 4 + w, m4); wheelFade.setX(i * 4 + w, k.fade);
         }
       }
-      m4.compose(sc.set(pos.x, 0.012, pos.z), q, v3.set((tr.len_m + 1.1) * k.fade, 1, (tr.w_m + 1.3) * k.fade)); shadows.setMatrixAt(i, m4);
-      m4.compose(sc.set(pos.x, -0.2, pos.z), q, v3.set(tr.len_m + 0.6, h + 0.4, tr.w_m + 0.6)); pick.setMatrixAt(i, m4);
+      m4.compose(sc.set(pos.x, 0.012, pos.z), q, v3.set((bodyLength(tr) + (ped ? 0.6 : 1.1)) * k.fade, 1, (tr.w_m + (ped ? 0.5 : 1.3)) * k.fade)); shadows.setMatrixAt(i, m4);
+      m4.compose(sc.set(pos.x, -0.2, pos.z), q, v3.set(bodyLength(tr) + (ped ? 1.0 : 0.6), h + 0.4, tr.w_m + (ped ? 1.0 : 0.6))); pick.setMatrixAt(i, m4);
       if ((isSel || isPartner) && nb < MAX_BOXES) {
         const b = boxes[nb++];
         b.visible = true; b.material = isSel ? outlineMat.sel : outlineMat.partner;

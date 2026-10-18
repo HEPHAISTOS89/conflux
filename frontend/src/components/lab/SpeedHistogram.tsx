@@ -26,7 +26,8 @@ const SPEC: MetricSpec = {
 /** Spot-speed distribution on the corridor approaches, NB against SB, in 5 mph bins with 85th-percentile markers. */
 export default function SpeedHistogram({ data }: { data: IntersectionT }) {
   useThemeName(); // canvas palette (CHART) is swapped in place on a theme change: re-render to pick it up
-  const [dist, setDist] = useState<Dist>('100');
+  // default line: 100 ft upstream, or the farthest option still inside the observed area (site feeds are smaller than NGSIM boxes)
+  const [dist, setDist] = useState<Dist>(() => { const bb = data.bbox as number[][]; const reach = Math.min(-bb[0][1], bb[1][1]) * 0.9; return (DIST.filter((d) => d[1] <= reach).pop()?.[0] ?? '65') === '150' ? '100' : (DIST.filter((d) => d[1] <= reach).pop()?.[0] ?? '65'); });
   const [hover, setHover] = useState<number | null>(null);
   const svg = useRef<SVGSVGElement>(null);
   const yLine = DIST.find((d) => d[0] === dist)![1];

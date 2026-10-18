@@ -84,3 +84,93 @@ def test_handler_scheduled_trigger(monkeypatch, tmp_path):
     L.handler({"source": "aws.events"}, Ctx())
     (rec,) = s3.puts.values()
     assert rec["trigger"] == "schedule" and "requested_at" not in rec
+
+
+# ---------------------------------------------------------------- site trajectory drop
+
+import csv as _csv
+import numpy as _np
+from botocore.exceptions import ClientError as _ClientError
+
+from roadscope_pipeline.trajectory import site as _site
+
+
+class SiteS3:
+    """Objects keyed by S3 key; download_file raises NoSuchKey like boto3 for missing keys."""
+
+    def __init__(self, objects):
+        self.objects, self.uploads, self.puts = dict(objects), [], {}
+
+    def download_file(self, bucket, key, path):
+        if key not in self.objects:
+            raise _ClientError({"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject")
+        Path(path).write_text(self.objects[key])
+
+    def upload_file(self, path, bucket, key, ExtraArgs=None):
+        self.uploads.append(key)
+        self.objects[key] = Path(path).read_text()
+
+    def put_object(self, Bucket, Key, Body, ContentType=None):
+        self.puts[Key] = json.loads(Body)
+
+
+def _toy_site_objects(site_id="toy-site"):
+    t = _np.round(_np.arange(0, 6, 0.1), 1)
+    rows = [[site_id, 1, "car", f"{tt:.1f}", "0.000", f"{-20 + 10 * tt:.3f}", 4.5, 1.8, "", ""] for tt in t]
+    rows += [[site_id, 2, "car", f"{tt:.1f}", "3.500", f"{-28 + 10 * tt:.3f}", 4.5, 1.8, "", ""] for tt in t]
+    buf = io.StringIO()
+    w = _csv.writer(buf)
+    w.writerow(["site_id", "track_id", "class", "t", "x", "y", "length", "width", "heading", "lane"])
+    w.writerows(rows)
+    site = {"schema": _site.SCHEMA, "id": site_id, "name": "Toy", "city": "Lubbock, TX", "hz": 10, "units": "m",
+            "reference": "centre", "recorded": "2026-01-01", "box": [[-10, -10], [10, 10]],
+            "source": {"dataset": "toy", "url": "https://example.org", "licence": "CC0", "citation": "none"}}
+    return {f"sites/{site_id}/site.json": json.dumps(site), f"sites/{site_id}/tracks.csv": buf.getvalue(),
+            "curated/intersections/index.json": json.dumps([{"id": "peachtree-10th", "tracks": 170}]),
+            "curated/manifest.json": json.dumps({"sources": [{"id": "ngsim_peachtree", "records": 1}]})}
+
+
+def drop_event(site_id="toy-site", name="tracks.csv", bucket="b"):
+    return {"source": "aws.s3", "detail-type": "Object Created",
+            "detail": {"bucket": {"name": bucket}, "object": {"key": f"sites/{site_id}/{name}"}}}
+
+
+def test_site_drop_routing():
+    assert L.site_drop(drop_event()) == ("b", "toy-site")
+    assert L.site_drop(drop_event(name="site.json")) is None          # only the tracks object starts a run
+    assert L.site_drop({"trigger": "manual"}) is None
+    assert L.site_drop({"source": "aws.s3", "detail-type": "Object Created", "detail": {"object": {"key": "raw/x.json"}}}) is None
+
+
+def test_site_drop_publishes_curated_files_and_merges_index(monkeypatch):
+    s3 = SiteS3(_toy_site_objects())
+    monkeypatch.setenv("DATA_BUCKET", "b")
+    monkeypatch.setattr(L.boto3, "client", lambda name: s3)
+    out = L.handler(drop_event(), Ctx())
+    assert out["ok"] and out["site"] == "toy-site" and out["tracks"] == 2
+    assert s3.uploads[-2:] == ["curated/intersections/index.json", "curated/manifest.json"]
+    assert "curated/intersections/toy-site.json" in s3.uploads and "curated/intersections/toy-site_ssm.json" in s3.uploads
+    idx = json.loads(s3.objects["curated/intersections/index.json"])
+    assert [r["id"] for r in idx] == ["peachtree-10th", "toy-site"]
+    man = json.loads(s3.objects["curated/manifest.json"])
+    assert [x["id"] for x in man["sources"]] == ["ngsim_peachtree", "site_toy-site"]
+    runs = list(s3.puts.values())
+    assert runs[-1]["job"] == "site" and runs[-1]["status"] == "succeeded" and runs[-1]["trigger"] == "s3_drop"
+
+
+def test_site_drop_without_site_json_fails_loudly(monkeypatch):
+    objs = {k: v for k, v in _toy_site_objects().items() if not k.endswith("site.json")}
+    s3 = SiteS3(objs)
+    monkeypatch.setenv("DATA_BUCKET", "b")
+    monkeypatch.setattr(L.boto3, "client", lambda name: s3)
+    with pytest.raises(_site.SiteError, match="site.json missing"):
+        L.handler(drop_event(), Ctx())
+    assert list(s3.puts.values())[-1]["status"] == "failed" and s3.uploads == []
+
+
+def test_site_drop_rejects_other_bucket(monkeypatch):
+    s3 = SiteS3(_toy_site_objects())
+    monkeypatch.setenv("DATA_BUCKET", "b")
+    monkeypatch.setattr(L.boto3, "client", lambda name: s3)
+    with pytest.raises(ValueError, match="expected 'b'"):
+        L.handler(drop_event(bucket="other"), Ctx())

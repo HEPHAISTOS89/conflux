@@ -1,0 +1,214 @@
+{
+ "schema": "conflux-site/1.0",
+ "id": "tianjin-sind",
+ "name": "Tianjin signalised intersection (SinD 8_2_1)",
+ "city": "Tianjin, China",
+ "hz": 10,
+ "units": "m",
+ "reference": "centre",
+ "recorded": "Monday 09:00-10:00, sunny; record seconds 35-125",
+ "window": [
+  0.0,
+  90.0
+ ],
+ "origin": [
+  15.65,
+  16.12
+ ],
+ "rotate_deg": 0,
+ "box": [
+  [
+   -17.37,
+   -16.54
+  ],
+  [
+   15.75,
+   16.5
+  ]
+ ],
+ "crosswalks": [
+  {
+   "id": "S_crosswalk",
+   "polygon": [
+    [
+     2.14,
+     5.7
+    ],
+    [
+     17.95,
+     5.85
+    ],
+    [
+     28.59,
+     5.95
+    ],
+    [
+     22.46,
+     -0.23
+    ],
+    [
+     18.09,
+     -0.28
+    ],
+    [
+     14.56,
+     -0.32
+    ],
+    [
+     10.87,
+     -0.37
+    ],
+    [
+     6.85,
+     -0.42
+    ]
+   ]
+  },
+  {
+   "id": "E_crosswalk",
+   "polygon": [
+    [
+     24.87,
+     27.91
+    ],
+    [
+     24.85,
+     26.12
+    ],
+    [
+     24.87,
+     22.47
+    ],
+    [
+     24.81,
+     19.29
+    ],
+    [
+     24.85,
+     8.84
+    ],
+    [
+     24.86,
+     6.52
+    ],
+    [
+     24.92,
+     3.63
+    ],
+    [
+     31.03,
+     6.7
+    ],
+    [
+     31.08,
+     10.25
+    ],
+    [
+     31.12,
+     13.38
+    ],
+    [
+     31.16,
+     16.46
+    ],
+    [
+     31.2,
+     19.37
+    ],
+    [
+     31.3,
+     22.57
+    ],
+    [
+     31.4,
+     26.19
+    ]
+   ]
+  },
+  {
+   "id": "N_crosswalk",
+   "polygon": [
+    [
+     -0.66,
+     26.21
+    ],
+    [
+     5.17,
+     26.27
+    ],
+    [
+     28.95,
+     26.4
+    ],
+    [
+     20.65,
+     32.62
+    ],
+    [
+     16.91,
+     32.56
+    ],
+    [
+     12.84,
+     32.52
+    ],
+    [
+     4.88,
+     32.48
+    ]
+   ]
+  },
+  {
+   "id": "W_crosswalk",
+   "polygon": [
+    [
+     -1.72,
+     25.84
+    ],
+    [
+     -1.7,
+     22.1
+    ],
+    [
+     -1.67,
+     16.2
+    ],
+    [
+     -1.66,
+     13.13
+    ],
+    [
+     -1.64,
+     10.14
+    ],
+    [
+     -1.62,
+     6.55
+    ],
+    [
+     4.62,
+     4.16
+    ],
+    [
+     4.44,
+     19.18
+    ],
+    [
+     4.34,
+     25.96
+    ],
+    [
+     4.28,
+     30.88
+    ]
+   ]
+  }
+ ],
+ "source": {
+  "dataset": "SinD: a drone dataset at a signalised intersection in Tianjin, China (SOTIF-AVLab, Tsinghua University); record 8_2_1 sample",
+  "url": "https://github.com/SOTIF-AVLab/SinD",
+  "licence": "CC0 1.0 as modified by the authors: not permitted for commercial purposes (non-commercial research and display only)",
+  "citation": "Xu, Y., Shao, W., Li, J., Yang, K., Wang, W., Huang, H., Lv, C., Wang, H. (2022). SIND: A Drone Dataset at Signalized Intersection in China. IEEE ITSC 2022, 2471-2478. doi:10.1109/ITSC55140.2022.9921959"
+ },
+ "notes": "Drone video, 10 Hz, vehicle boxes centred (converter moves the point to the front bumper); pedestrians are points (0.5 x 0.5 m footprint assumed). Signal states are not applied."
+}

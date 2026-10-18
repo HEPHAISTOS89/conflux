@@ -401,8 +401,8 @@ def occlude_and_repair(tracks, frac: float = 0.2, gap_s=GAP_S, min_dur_s: float 
     validation and test. Top-level summary keys describe uniform x smoothed (backward compatible);
     summary.protocols holds both protocols x both truth variants."""
     rng = np.random.default_rng(seed)
-    jumps = sorted(int(tr["id"]) for tr in tracks if max_step(tr) > MAX_STEP_M)
-    eligible = [tr for tr in tracks if tr["t"][-1] - tr["t"][0] >= min_dur_s and int(tr["id"]) not in jumps]
+    jumps = sorted((tr["id"] for tr in tracks if max_step(tr) > MAX_STEP_M), key=str)
+    eligible = [tr for tr in tracks if tr["t"][-1] - tr["t"][0] >= min_dur_s and tr["id"] not in jumps]
     n = max(1, int(round(frac * len(eligible)))) if eligible else 0
     perm = rng.permutation(len(eligible))
     test_tr = [eligible[i] for i in sorted(perm[:n])]
@@ -417,7 +417,7 @@ def occlude_and_repair(tracks, frac: float = 0.2, gap_s=GAP_S, min_dur_s: float 
         m, by = occ[tr["id"]]
         n_frames += len(m); n_occ += int(m.sum())
         obs, sel = occluder_gaps(tr, m, gap_s, margin_s)
-        if sel and int(tr["id"]) not in jumps:   # jump tracks still act as occluders
+        if sel and tr["id"] not in jumps:   # jump tracks still act as occluders
             occ_pairs.append((tr, obs))
             occ_by[tr["id"]] = [sorted({int(b) for b in by[s:e] if b >= 0}) for s, e in sel]
     orng = np.random.default_rng(seed + 2)

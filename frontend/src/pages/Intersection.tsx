@@ -15,6 +15,7 @@ import { downloadCSV } from '../lib/export';
 import { exportCanvases, focusConflict, useFullscreen, writeParam } from '../lib/lab/hooks';
 import { dataHealth, nearMissWarp, nextRisk, stepFrame } from '../lib/lab/metrics';
 import { conflictIsGhostPair, trackQuality } from '../lib/lab/quality';
+import { classCounts, CONFLICT_TYPES, hasPedestrians, isPedestrian, TYPE_LABEL, typesPresent } from '../lib/lab/classes';
 import PlanView from '../components/PlanView';
 import TimeSpace from '../components/TimeSpace';
 import Player from '../components/Player';
@@ -28,9 +29,9 @@ import '../styles/intersection.css';
 
 const LidarView = lazy(() => import('../components/LidarView'));
 
-interface IxCard { id: string; name: string; n_tracks: number; n_conflicts: number; source: { location: string; global_time_ms: number[] } }
-const TYPE_LABEL = { rear_end: 'Rear-end', crossing: 'Crossing', lane_change: 'Lane change' } as const;
+interface IxCard { id: string; name: string; n_tracks: number; n_conflicts: number; source: { location: string; global_time_ms?: number[]; dataset?: string } }
 type TypeF = 'all' | ConflictT['type'];
+const isType = (v: string | null): v is ConflictT['type'] => (CONFLICT_TYPES as readonly string[]).includes(v ?? '');
 
 const TTC_SPEC: MetricSpec = {
   name: 'Minimum TTC', provenance: 'derived', unit: 's',
@@ -45,6 +46,20 @@ const PET_SPEC: MetricSpec = {
   threshold: 'Crossing events with PET ≤ 5.0 s; critical ≤ 1 s, serious ≤ 2.5 s (study bins, no FHWA standard)',
   citation: 'Allen, Shin & Cooper (1978) TRR 667; FHWA SSAM (2008)',
   note: '"overlap" marks both footprints inside the zone at once: most likely NGSIM position error (Punzo et al. 2011).',
+};
+const PED_PET_SPEC: MetricSpec = {
+  name: 'Pedestrian–vehicle PET', provenance: 'derived', unit: 's',
+  formula: 'PET = t(second road user enters the shared swept-footprint zone inside a crosswalk) − t(first leaves it); pedestrian footprint 0.5 × 0.5 m, any conflict angle',
+  threshold: 'Detected at PET ≤ 5.0 s; critical ≤ 1 s, serious ≤ 2 s, moderate ≤ 5 s (study bins; video-based VRU studies use 1–3 s)',
+  citation: 'Allen, Shin & Cooper (1978) TRR 667; Zangenehpour et al. (2016) AAP 86',
+  note: 'Overlap flags simultaneous occupancy of the zone (PET = 0).',
+};
+const YIELD_SPEC: MetricSpec = {
+  name: 'Failure to yield', provenance: 'derived', unit: 'event',
+  formula: 'A vehicle enters a crosswalk while a pedestrian is in it (or within 3 s before the pedestrian enters), never slows below 0.5 m/s in the 3 s before entry, and had at least the AASHTO stopping distance 2.5 s·v + v²/(2·3.4 m/s²) available when the pedestrian stepped in',
+  threshold: 'Severity: pedestrian already in the crosswalk → distance to the pedestrian at entry ≤ 3.6 m critical, ≤ 7.2 m serious; pedestrian arriving after → lead time ≤ 1 s critical, ≤ 2 s serious (study bins)',
+  citation: 'Texas Transportation Code §552.003; Fitzpatrick et al. (2006) NCHRP Report 562; AASHTO (2018)',
+  note: 'Indicator, not a citation: signal phase and the roadway-half condition of §552.003(a) are not applied.',
 };
 const DRAC_SPEC: MetricSpec = {
   name: 'Deceleration rate to avoid crash', provenance: 'derived', unit: 'ft/s²',
@@ -65,7 +80,7 @@ export default function IntersectionPage() {
   const { selected, select } = selection;
   // view and type filter live in the deep link (?view=3d&type=crossing) with the selection, time and camera
   const [view, setView] = useState<'plan' | 'lidar'>(() => (new URLSearchParams(location.search).get('view') === '3d' ? 'lidar' : 'plan'));
-  const [typeF, setTypeF] = useState<TypeF>(() => { const v = new URLSearchParams(location.search).get('type'); return v === 'rear_end' || v === 'crossing' || v === 'lane_change' ? v : 'all'; });
+  const [typeF, setTypeF] = useState<TypeF>(() => { const v = new URLSearchParams(location.search).get('type'); return isType(v) ? v : 'all'; });
   useEffect(() => { writeParam('view', view === 'lidar' ? '3d' : null); if (view !== 'lidar') writeParam('cam', null); }, [view, id]);
   useEffect(() => { writeParam('type', typeF === 'all' ? null : typeF); }, [typeF, id]);
   const [help, setHelp] = useState(false);
@@ -101,12 +116,18 @@ export default function IntersectionPage() {
   }, [focus?.id, clock.setWarp]);
 
   const site = ix.data?.name ?? id;
-  const caption = () => `${site} · FHWA NGSIM vehicle trajectories (USDOT ITS DataHub) · t = ${clock.now().toFixed(1)} s · Conflux`;
+  const peds = ix.data ? hasPedestrians(ix.data) : false;
+  const classes = useMemo(() => (ix.data ? classCounts(ix.data.tracks) : []), [ix.data]);
+  const dataset = String(ix.data?.source?.dataset ?? 'FHWA NGSIM vehicle trajectories (USDOT ITS DataHub)');
+  const licence = ix.data?.source?.licence ? String(ix.data.source.licence) : null;
+  const yieldSum = useMemo(() => { const y = all.filter((c) => c.type === 'yield'); return y.length ? { n: new Set(y.map((c) => `${c.a}@${c.t}`)).size } : null; }, [all]);
+  const caption = () => `${site} · ${dataset} · t = ${clock.now().toFixed(1)} s · Conflux`;
   const exportView = () => { const el = stage.current?.querySelector<HTMLElement>('.ix-canvas'); if (el) exportCanvases(`${id}-${view === 'plan' ? 'plan' : '3d'}-t${clock.now().toFixed(1)}.png`, el, caption()); };
   const exportTs = () => { const el = document.querySelector<HTMLElement>('.ix-ts .timespace'); if (el) exportCanvases(`${id}-time-space.png`, el, caption().replace(/ · t = [^·]+/, '')); };
   const exportCsv = () => downloadCSV(`${id}-conflicts${typeF === 'all' ? '' : `-${typeF}`}.csv`, conflicts.map((c) => ({
     site: id, conflict_id: c.id, t_s: c.t, type: c.type, vehicle_a: c.a, vehicle_b: c.b, severity: c.severity,
     ttc_min_s: c.ttc_min ?? '', pet_s: c.pet ?? '', drac_max_ft_s2: c.drac_max != null ? +(c.drac_max * 3.281).toFixed(2) : '', overlap_flag: (c as { overlap?: boolean }).overlap ? 1 : 0,
+    crosswalk: c.crosswalk ?? '', yield_margin_s: c.margin_s ?? '', entry_speed_mph: c.v_entry_mps != null ? +(c.v_entry_mps * MPS_TO_MPH).toFixed(1) : '', ped_distance_ft: c.ped_dist_m != null ? +(c.ped_dist_m * 3.281).toFixed(1) : '',
   })));
 
   // keep the first conflict row of the selection in view when the selection comes from another view
@@ -122,12 +143,16 @@ export default function IntersectionPage() {
     <div className="page ixlab">
       <PageHeader
         icon="signal" title="Intersection lab"
-        lede="Rear-end, crossing and lane-change conflicts screened by TTC, PET and DRAC on 10 Hz vehicle trajectories. The 3D view is a simulated roadside LiDAR built from the same tracks. NGSIM has vehicle tracks only, no pedestrians. Select a vehicle in any view for its kinematics; select two for live TTC and PET."
-        source={<>FHWA NGSIM vehicle trajectories · USDOT ITS DataHub · {site} · 90 s window · vehicles only</>}
+        lede={peds
+          ? 'Rear-end, crossing and lane-change conflicts screened by TTC, PET and DRAC, plus pedestrian–vehicle PET over the crosswalks and a failure-to-yield indicator, on 10 Hz trajectories from a site feed. Pedestrians are drawn in teal as centred points; vehicles as front-bumper-referenced bodies.'
+          : 'Rear-end, crossing and lane-change conflicts screened by TTC, PET and DRAC on 10 Hz vehicle trajectories. The 3D view is a simulated roadside LiDAR built from the same tracks. NGSIM has vehicle tracks only, no pedestrians. Select a vehicle in any view for its kinematics; select two for live TTC and PET.'}
+        source={<>{dataset} · {site} · {ix.data ? `${Math.round(ix.data.window_s)} s window` : '…'} · {classes.length ? classes.map((c) => `${c.n} ${c.cls}${c.n === 1 ? '' : c.cls === 'bus' ? 'es' : 's'}`).join(', ') : 'vehicles only'}{licence ? <> · <span title={licence}>licence: {licence.length > 48 ? `${licence.slice(0, 46)}…` : licence}</span></> : null}</>}
         readouts={[
           { label: 'Conflicts', value: ready ? counts.n : null },
           { label: <span title={`Critical events, excluding ${counts.overlap} overlap flags (likely position error) and ${counts.ghost} events between a duplicate track and its host`}>Critical</span>, value: ready ? counts.crit : null, tone: 'alert' },
-          { label: 'Worst TTC', value: ready ? counts.ttc : null, unit: 's', digits: 2 },
+          ...(peds && yieldSum
+            ? [{ label: <span title="Vehicle crosswalk entries that neither stopped nor lacked stopping distance while a pedestrian was in (or stepping into) the crosswalk">Failures to yield</span>, value: ready ? yieldSum.n : null, tone: 'alert' as const }]
+            : [{ label: 'Worst TTC', value: ready ? counts.ttc : null, unit: 's', digits: 2 }]),
           { label: 'Complete', value: health?.completeness ?? null, unit: '%', digits: 1, tone: 'accent' },
         ]}
       />
@@ -141,7 +166,7 @@ export default function IntersectionPage() {
         ))}
       </nav>
 
-      {health && ready && <DataHealth h={health} hz={ix.data!.hz} quality={quality} repaired={rep.data ? { n: rep.data.summary.tracks_occluded, of: rep.data.summary.tracks_eligible } : null} />}
+      {health && ready && <DataHealth h={health} hz={ix.data!.hz} quality={quality} repaired={rep.data ? { n: rep.data.summary.tracks_occluded, of: rep.data.summary.tracks_eligible } : null} classes={classes} />}
 
       {(ix.error || cf.error) && <div className="error-box">{ix.error ?? cf.error}</div>}
       {!ready ? <div className="skeleton" style={{ height: 520 }} /> : (
@@ -176,7 +201,7 @@ export default function IntersectionPage() {
                   <div className="ix-conf-tools">
                     <Select<TypeF> compact label="Conflict type" icon="filter" value={typeF} onChange={setTypeF} options={[
                       { value: 'all', label: 'All types', hint: String(all.length) },
-                      ...(['rear_end', 'crossing', 'lane_change'] as const).map((k) => ({ value: k, label: TYPE_LABEL[k], hint: String(all.filter((c) => c.type === k).length) })),
+                      ...typesPresent(all).map((k) => ({ value: k, label: TYPE_LABEL[k], hint: String(all.filter((c) => c.type === k).length) })),
                     ]} />
                     <button className="btn ghost ic" onClick={exportCsv} title="Download conflicts as CSV" aria-label="Download conflicts as CSV"><Icon name="download" size={16} /></button>
                   </div>
@@ -184,7 +209,7 @@ export default function IntersectionPage() {
                 {/* header outside the scroller so the methodology popovers are not clipped */}
                 <table className="data ix-conf-head" aria-hidden="false">
                   <ConfCols />
-                  <thead><tr><th className="r">t s</th><th>Type</th><th className="r"><span className="th-mi">TTC s<MetricInfo spec={TTC_SPEC} align="right" /></span></th><th className="r"><span className="th-mi">PET s<MetricInfo spec={PET_SPEC} align="right" /></span></th><th className="r"><span className="th-mi">DRAC<MetricInfo spec={DRAC_SPEC} align="right" /></span></th></tr></thead>
+                  <thead><tr><th className="r">t s</th><th>Type{peds && <span className="th-mi"><MetricInfo spec={YIELD_SPEC} /></span>}</th><th className="r"><span className="th-mi">TTC s<MetricInfo spec={TTC_SPEC} align="right" /></span></th><th className="r"><span className="th-mi">PET s<MetricInfo spec={peds ? PED_PET_SPEC : PET_SPEC} align="right" /></span></th><th className="r"><span className="th-mi">DRAC<MetricInfo spec={DRAC_SPEC} align="right" /></span></th></tr></thead>
                 </table>
                 <div className="ix-conf-list" ref={list}>
                   <table className="data" aria-label="Conflicts: time s, type, minimum TTC s, PET s, maximum DRAC ft/s²">
@@ -198,7 +223,7 @@ export default function IntersectionPage() {
                           aria-selected={selection.conflict === c.id}
                           aria-label={`Jump to ${TYPE_LABEL[c.type]} conflict at ${c.t.toFixed(1)} s`}>
                           <td className="r measure">{c.t.toFixed(1)}</td>
-                          <td><span className={`sev sev-${c.severity}`}>{TYPE_LABEL[c.type]}</span>{(c as any).overlap ? <span className="flag" title="Simultaneous occupancy of the conflict zone; likely NGSIM position error">overlap</span> : null}{isGhost(c) ? <span className="flag" title="Between a duplicate or ID-switched track and the vehicle it duplicates: an artefact of the tracking, not a near-miss">duplicate</span> : null}</td>
+                          <td><span className={`sev sev-${c.severity}`}>{c.type === 'pedestrian' || c.type === 'yield' ? <Icon name="pedestrian" size={12} /> : null}{TYPE_LABEL[c.type]}</span>{c.type === 'yield' && c.crosswalk ? <span className="flag" title={`Crosswalk ${c.crosswalk}: entered at ${nf(c.v_entry_mps! * MPS_TO_MPH, 0)} mph, ${nf(c.ped_dist_m! * 3.281, 0)} ft from the pedestrian${c.margin_s != null && c.margin_s < 0 ? `, ${nf(-c.margin_s, 1)} s before the pedestrian stepped in` : ''}; ${nf(c.dist_m! * 3.281, 0)} ft available vs ${nf(c.ssd_m! * 3.281, 0)} ft stopping distance`}>{c.crosswalk.replace('_crosswalk', '')} · {nf(c.ped_dist_m! * 3.281, 0)} ft</span> : null}{(c as any).overlap ? <span className="flag" title="Simultaneous occupancy of the conflict zone; likely NGSIM position error">overlap</span> : null}{isGhost(c) ? <span className="flag" title="Between a duplicate or ID-switched track and the vehicle it duplicates: an artefact of the tracking, not a near-miss">duplicate</span> : null}</td>
                           <td className="r measure">{c.ttc_min != null ? c.ttc_min.toFixed(2) : '—'}</td>
                           <td className="r measure">{c.pet != null ? c.pet.toFixed(2) : '—'}</td>
                           <td className={`r measure ${c.drac_max != null && c.drac_max > 8 ? 'implaus' : ''}`}>{c.drac_max != null ? (c.drac_max * 3.281).toFixed(1) : '—'}</td>
@@ -281,11 +306,11 @@ function VehicleReadout({ data, conflicts }: { data: IntersectionT; conflicts: C
           <table className="ix-kin">
             <thead><tr><th />{trs.map((tr, i) => <th key={String(tr.id)} className="r num" data-primary={i === 0 || undefined}>#{tr.id}</th>)}</tr></thead>
             <tbody>
-              <tr><th>Class</th>{trs.map((tr) => <td key={String(tr.id)} className="r">{tr.cls}</td>)}</tr>
+              <tr><th>Class</th>{trs.map((tr) => <td key={String(tr.id)} className="r"><span className="ix-cls"><Icon name={isPedestrian(tr) ? 'pedestrian' : tr.cls === 'bicycle' ? 'bike' : tr.cls === 'truck' || tr.cls === 'bus' ? 'truck' : 'vehicle'} size={12} />{tr.cls}</span></td>)}</tr>
               <tr><th>Movement</th>{trs.map((tr) => <td key={String(tr.id)} className="r">{tr.dir} {tr.move}</td>)}</tr>
               <tr><th>Speed</th>{live((p) => `${(p.v * MPS_TO_MPH).toFixed(1)} mph`)}</tr>
               <tr><th>Accel.</th>{live((p) => `${(p.a * FT).toFixed(1)} ft/s²`)}</tr>
-              <tr><th>Lane</th>{live((p) => (p.lane === 0 ? 'in intersection' : p.lane >= 100 ? 'unassigned' : `NGSIM ${p.lane}`))}</tr>
+              <tr><th>Lane</th>{live((p) => (p.lane === 0 ? 'in intersection' : p.lane >= 100 ? 'footway' : `lane ${p.lane}`))}</tr>
             </tbody>
           </table>
           {mine.length > 0 && (

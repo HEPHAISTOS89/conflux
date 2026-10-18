@@ -36,7 +36,7 @@ def detail(
 def conflicts(
     request: Request,
     iid: str = Id,
-    type: Literal["rear_end", "crossing", "lane_change"] | None = None,
+    type: Literal["rear_end", "crossing", "lane_change", "pedestrian", "yield"] | None = None,
     max_ttc: float | None = Query(None, gt=0, le=60),
 ) -> Response:
     rows = load_or_404(queries.conflicts, iid, type, max_ttc, what=f"Conflicts for intersection '{iid}'")
