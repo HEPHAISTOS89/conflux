@@ -59,6 +59,16 @@ function Lidar3D({ data, conflicts, label }: Props) {
   const [layers, setLayers] = useState<Layers>(() => readLayers());
   const [replay, setReplay] = useState<ReplayStatus | null>(null);
   const [layersOpen, setLayersOpen] = useState(false);
+  const layersBox = useRef<HTMLDivElement>(null);
+  // the panel closes on Esc, on a click or tap anywhere else in the lab, and with its own toggle
+  useEffect(() => {
+    if (!layersOpen) return;
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setLayersOpen(false); } };
+    const down = (e: PointerEvent) => { if (layersBox.current && !layersBox.current.contains(e.target as Node)) setLayersOpen(false); };
+    window.addEventListener('keydown', key, true);
+    document.addEventListener('pointerdown', down, true);
+    return () => { window.removeEventListener('keydown', key, true); document.removeEventListener('pointerdown', down, true); };
+  }, [layersOpen]);
   const [glError, setGlError] = useState(false);
   const focus = focusConflict(sel, conflicts);
   const primary = sel ? [...sel.selected][0] ?? null : null;
@@ -165,8 +175,10 @@ function Lidar3D({ data, conflicts, label }: Props) {
         </div>
       )}
 
-      <div className="lidar-layers" data-open={layersOpen || undefined}>
-        <button className="lidar-layers-t" aria-expanded={layersOpen} onClick={() => setLayersOpen((v) => !v)}><Icon name="layers" size={15} /> Layers</button>
+      <div ref={layersBox} className="lidar-layers" data-open={layersOpen || undefined}>
+        <button className="lidar-layers-t" aria-expanded={layersOpen} onClick={() => setLayersOpen((v) => !v)} title={layersOpen ? 'Close layers (Esc)' : 'Layers and legend'}>
+          <Icon name={layersOpen ? 'close' : 'layers'} size={15} /> Layers
+        </button>
         {layersOpen && (
           <>
             <div className="lidar-chips" role="group" aria-label="Layers">
