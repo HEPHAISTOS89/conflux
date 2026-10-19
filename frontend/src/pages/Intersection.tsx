@@ -121,7 +121,7 @@ export default function IntersectionPage() {
   const dataset = String(ix.data?.source?.dataset ?? 'FHWA NGSIM vehicle trajectories (USDOT ITS DataHub)');
   const licence = ix.data?.source?.licence ? String(ix.data.source.licence) : null;
   const yieldSum = useMemo(() => { const y = all.filter((c) => c.type === 'yield'); return y.length ? { n: new Set(y.map((c) => `${c.a}@${c.t}`)).size } : null; }, [all]);
-  const caption = () => `${site} · ${dataset} · t = ${clock.now().toFixed(1)} s · Conflux`;
+  const caption = () => `${site} · ${dataset} · t = ${clock.now().toFixed(1)} s · Sightpole`;
   const exportView = () => { const el = stage.current?.querySelector<HTMLElement>('.ix-canvas'); if (el) exportCanvases(`${id}-${view === 'plan' ? 'plan' : '3d'}-t${clock.now().toFixed(1)}.png`, el, caption()); };
   const exportTs = () => { const el = document.querySelector<HTMLElement>('.ix-ts .timespace'); if (el) exportCanvases(`${id}-time-space.png`, el, caption().replace(/ · t = [^·]+/, '')); };
   const exportCsv = () => downloadCSV(`${id}-conflicts${typeF === 'all' ? '' : `-${typeF}`}.csv`, conflicts.map((c) => ({

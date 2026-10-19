@@ -22,7 +22,8 @@ import numpy as np
 
 from . import ssm
 
-SCHEMA = "conflux-site/1.0"
+SCHEMA = "sightpole-site/1.0"
+LEGACY_SCHEMAS = ("conflux-site/1.0",)  # feeds written before the rename stay valid
 HZ = 10
 DT = 1.0 / HZ
 FT = 0.3048
@@ -51,7 +52,7 @@ def read_site(folder: Path) -> dict:
     if not p.exists():
         raise SiteError(f"{p} missing")
     site = json.loads(p.read_text())
-    if site.get("schema") != SCHEMA:
+    if site.get("schema") != SCHEMA and site.get("schema") not in LEGACY_SCHEMAS:
         raise SiteError(f"site.json schema must be '{SCHEMA}', got {site.get('schema')!r}")
     for k in ("id", "name", "city", "hz", "units", "reference", "recorded", "box", "source"):
         if k not in site:

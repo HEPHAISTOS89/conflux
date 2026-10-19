@@ -12,7 +12,18 @@
           "value": "roadscope-ai-demo.vercel.app"
         }
       ],
-      "destination": "https://conflux-safety.vercel.app/:path*",
+      "destination": "https://sightpole.vercel.app/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "conflux-safety.vercel.app"
+        }
+      ],
+      "destination": "https://sightpole.vercel.app/:path*",
       "permanent": true
     }
   ],

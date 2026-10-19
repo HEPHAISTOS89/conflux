@@ -113,7 +113,7 @@ export default function Ask() {
       <PageHeader
         icon="ask"
         title="Ask the data"
-        lede="Questions answered from Conflux's curated tables through eight named tools. The Bedrock model layer is pending AWS verification; answers are rule-based until then."
+        lede="Questions answered from Sightpole's curated tables through eight named tools. The Bedrock model layer is pending AWS verification; answers are rule-based until then."
         source="Bedrock Converse with tool use; rule-based fallback over the same tools"
         actions={chip}
       />

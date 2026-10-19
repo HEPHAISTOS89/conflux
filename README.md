@@ -1,8 +1,8 @@
-# Conflux: a road-safety dashboard for Lubbock County, Texas
+# Sightpole: a road-safety dashboard for Lubbock County, Texas
 
-**Live:** https://conflux-safety.vercel.app
+**Live:** https://sightpole.vercel.app
 
-Conflux turns public Texas road data into answers a traffic engineer can act on. It is built end to end on AWS, from data ingestion to the dashboard.
+Sightpole turns public Texas road data into answers a traffic engineer can act on. It is built end to end on AWS, from data ingestion to the dashboard.
 
 - **Spots near-misses before crashes happen:** measures how close vehicles and pedestrians come to colliding (TTC, PET, DRAC) on real trajectory data.
 - **Ranks the riskiest road segments:** compares 3 years of pedestrian and bicycle crashes (TxDOT CRIS) with what traffic volume predicts.
@@ -13,9 +13,9 @@ This is a first version and is actively improving. Every number comes from a rep
 
 ## Technical summary
 
-Conflux applies Highway Safety Manual (HSM) Part B network screening to the public TxDOT roadway, traffic and crash layers for Lubbock County. The screened outcome is **on-system pedestrian, cyclist and e-scooter crashes** (TxDOT CRIS, via the Active Transportation Crashes layer, 2021-2023, all KABCO severities) snapped to 443 one-mile segments. Negative Binomial safety performance functions (SPFs) are fitted by site type and combined with Empirical Bayes (EB) adjustment. The portal also summarises vulnerable-road-user (VRU) and fatal crashes, and computes FHWA SSAM surrogate safety measures (TTC, PET, DRAC) on real vehicle trajectories at two signalised intersections. For those trajectories it benchmarks a constant-acceleration Kalman/RTS smoother against linear interpolation for repairing occluded tracks, under two gap protocols and two ground truths. Every number in the portal comes from a reproducible Python pipeline. The pipeline is served by a serverless AWS stack (S3, Lambda, EventBridge, EC2, API Gateway, Bedrock, CloudWatch), and each output carries its provenance, licence and stated limitations.
+Sightpole applies Highway Safety Manual (HSM) Part B network screening to the public TxDOT roadway, traffic and crash layers for Lubbock County. The screened outcome is **on-system pedestrian, cyclist and e-scooter crashes** (TxDOT CRIS, via the Active Transportation Crashes layer, 2021-2023, all KABCO severities) snapped to 443 one-mile segments. Negative Binomial safety performance functions (SPFs) are fitted by site type and combined with Empirical Bayes (EB) adjustment. The portal also summarises vulnerable-road-user (VRU) and fatal crashes, and computes FHWA SSAM surrogate safety measures (TTC, PET, DRAC) on real vehicle trajectories at two signalised intersections. For those trajectories it benchmarks a constant-acceleration Kalman/RTS smoother against linear interpolation for repairing occluded tracks, under two gap protocols and two ground truths. Every number in the portal comes from a reproducible Python pipeline. The pipeline is served by a serverless AWS stack (S3, Lambda, EventBridge, EC2, API Gateway, Bedrock, CloudWatch), and each output carries its provenance, licence and stated limitations.
 
-- Portal (production): https://conflux-safety.vercel.app
+- Portal (production): https://sightpole.vercel.app
 - API health: https://tkk01bgzfb.execute-api.us-east-2.amazonaws.com/api/v1/health (OpenAPI at `/api/v1/docs`)
 
 ## 1. Analysis questions and key results

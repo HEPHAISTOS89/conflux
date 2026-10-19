@@ -14,19 +14,19 @@ Win the Texas Tech TransTech Lab Graduate Assistant position (Prof. Hongchao Liu
 
 ## Constraints
 - AWS: $100 total credits, account 287785301961, region us-east-2. Budget alarm first; serverless-first; stop EC2 when idle; cheap Bedrock model + caching. Target < $30 through the deadline.
-- Repo is public (HEPHAISTOS89/conflux, renamed from roadscope-ai). Rebuild in place; keep git history.
+- Repo is public (HEPHAISTOS89/sightpole, renamed from roadscope-ai). Rebuild in place; keep git history.
 - Owner granted full autonomy for design, backend, infra, 3D, animation and deploys. Never email the professors; flag irreversible AWS deletions; respect dataset licences.
 - GitHub Actions disabled to save minutes; verify locally before deploys.
 
 ## Status (2026-10-17)
-- Live: https://conflux-safety.vercel.app (Vercel project conflux, formerly roadscope-ai-demo, team hephaistos1; root dir `frontend`, `/api` rewritten to API Gateway). Deploy via Vercel MCP `create_deployment` with gitSource (local CLI is logged into another account).
+- Live: https://sightpole.vercel.app (Vercel project sightpole, formerly roadscope-ai-demo, team hephaistos1; root dir `frontend`, `/api` rewritten to API Gateway). Deploy via Vercel MCP `create_deployment` with gitSource (local CLI is logged into another account).
 - AWS RoadScopeStack (us-east-2): HTTP API https://tkk01bgzfb.execute-api.us-east-2.amazonaws.com, Lambdas roadscope-api / roadscope-ingest, EC2 worker i-085be087cdef3df92 (self-stops), bucket roadscopestack-data666c94c7-bqgchgwzlg4p. Runbook: docs/DEPLOY.md.
 - Pending on AWS account verification: CloudFront (`cdk deploy -c edge=cloudfront`) and Bedrock model access (analyst currently uses the deterministic fallback).
 - Screening outcome is on-system CRIS ped/bike crashes 2021–2023 (SUM_CRASH_ is an SATP score, not a crash count).
 - Screened population: 395 matched one-mile segments (48 unmatched reported apart), 110 crashes; on-system K+A 43.
 - Peachtree critical conflicts: 27 (34 flagged minus 7 between a duplicate/ID-switched track and its host, lib/lab/quality.ts; overlap flags excluded). 38/170 tracks carry duplicate windows and are faded out of every view.
 - NGSIM x,y is the front-bumper centre (pipeline keeps it; ssm.py gap = spacing − leader length). Renderers place the body `len` behind the point (`bodyCentre` in lib/lab/metrics.ts); never centre a body on the served point.
-- Live host is now https://conflux-safety.vercel.app (rebrand by a parallel session; GitHub repo renamed to HEPHAISTOS89/conflux). The old roadscope-ai-demo host redirects, and its own /api rewrite 308s to the new host, so pages there show no data.
+- Name: Sightpole (chosen 2026-10-19; Conflux and RoadScope before). Live host https://sightpole.vercel.app; GitHub HEPHAISTOS89/sightpole; Vercel project sightpole. conflux-safety.vercel.app and roadscope-ai-demo.vercel.app redirect there. AWS resource names (RoadScopeStack, roadscope-* Lambdas, bucket) are unchanged on purpose: renaming them would recreate resources. CloudWatch site-ingest metrics move to the Sightpole/Sites namespace at the next `cdk deploy`.
 - On-demand ingest: POST /api/v1/ops/ingest (30-min cooldown + S3 lock, IAM scoped to the ingest ARN). First production run 2026-10-17 18:12 UTC, 20,708 records, 11.8 s.
 - AWS CLI uses `aws login` sessions that expire; if `aws sts get-caller-identity` says expired, run `aws login` in a terminal tab and let the owner approve in the browser.
 

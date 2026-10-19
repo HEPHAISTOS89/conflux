@@ -184,11 +184,11 @@ export default function CorridorPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [pin, st.length]);
 
-  const exportCsv = () => downloadCSV(`conflux-corridor-${id}-stations.csv`, st.map((s) => ({
+  const exportCsv = () => downloadCSV(`sightpole-corridor-${id}-stations.csv`, st.map((s) => ({
     route: s.route, dfo_mi: s.dfo, lon: s.lon, lat: s.lat, lanes: s.lanes, speed_limit_mph: s.speed_limit, speed_all_mph: s.speed_all, speed_am_mph: s.speed_am,
     speed_md_mph: s.speed_md, speed_pm_mph: s.speed_pm, aadt: s.aadt, truck_pct: s.truck_pct, pedbike_crashes_per_mi_yr: s.crashes_per_mi, seg_id: s.seg_id,
   })));
-  const exportSld = () => sldRef.current && downloadPNG(`conflux-corridor-${id}-sld.png`, sldRef.current,
+  const exportSld = () => sldRef.current && downloadPNG(`sightpole-corridor-${id}-sld.png`, sldRef.current,
     `${name.split(' (')[0]} SLD · dashed = posted · TxDOT Inventory, AADT, Speed 2024 · CRIS 2021–23`);
   const share = async () => setCopied(await copyLink());
 
@@ -402,7 +402,7 @@ function SpeedScatter({ st, cur, pin, onHover, onPick, id, name, mode, setMode }
     for (const p of pts) { const dd = (X(xv(p.s)) - mx) ** 2 + (Y(p.s.crashes_per_mi!) - my) ** 2; if (dd < d) { d = dd; best = p.i; } }
     onHover(best);
   };
-  const save = () => box.current && downloadPNG(`conflux-corridor-${id}-speed-crash.png`, box.current,
+  const save = () => box.current && downloadPNG(`sightpole-corridor-${id}-speed-crash.png`, box.current,
     `${name.split(' (')[0]}: speed vs ped/bike crash density, 0.25-mi stations · TxDOT Speed 2024 · CRIS 2021–23`);
   if (!pts.length) return <p className="muted">No station has both an operating speed and a crash density on this corridor.</p>;
   const posted = [...new Set(pts.map(({ s }) => s.speed_limit!))].sort((a, b) => a - b);

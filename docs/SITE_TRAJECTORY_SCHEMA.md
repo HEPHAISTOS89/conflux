@@ -30,7 +30,7 @@ Rows may arrive in any order. A track with internal gaps of up to 0.5 s is inter
 
 ```json
 {
-  "schema": "conflux-site/1.0",
+  "schema": "sightpole-site/1.0",
   "id": "lubbock-19th-university",
   "name": "19th St at University Ave",
   "city": "Lubbock, TX",

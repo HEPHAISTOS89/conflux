@@ -220,7 +220,7 @@ export default function ScreeningPage() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const exportCsv = () => downloadCSV(`conflux-screening-${method}-${slug(group)}.csv`,
+  const exportCsv = () => downloadCSV(`sightpole-screening-${method}-${slug(group)}.csv`,
     rows.map((r, i) => ({
       rank: i + 1, seg_id: r.seg_id, name: r.name, route: r.route, dfo_from: r.dfo_from, dfo_to: r.dfo_to, facility: r.fc_group, site_type: r.site_type,
       lanes: r.lanes, speed_limit_mph: r.speed_limit, operating_speed_mph: r.speed_all, aadt: r.aadt, truck_pct: r.truck_pct, crashes_3yr: r.crashes_total, crashes_ka_3yr: r.crashes_ka,
@@ -232,8 +232,8 @@ export default function ScreeningPage() {
     if (!exporting) return;
     const el = figRef.current;
     if (!el) { setExporting(false); return; }
-    downloadPNG(`conflux-screening-${method}-${slug(group)}.png`, el,
-      `Conflux network screening · top ${TOP} by ${meta.label} · ${group} · TxDOT CRIS ped/bike 2021–2023 · HSM Part B`).finally(() => setExporting(false));
+    downloadPNG(`sightpole-screening-${method}-${slug(group)}.png`, el,
+      `Sightpole network screening · top ${TOP} by ${meta.label} · ${group} · TxDOT CRIS ped/bike 2021–2023 · HSM Part B`).finally(() => setExporting(false));
   }, [exporting]); // eslint-disable-line react-hooks/exhaustive-deps
   const exportFig = () => setExporting(true);
   const share = async () => setCopied((await copyLink()) ? 'ok' : 'fail');
@@ -499,8 +499,8 @@ function RankStability({ rows, method, focus, onPick, group }: { rows: Row[]; me
   for (let i = 1; i < labels.length; i++) labels[i].y = Math.max(labels[i].y, labels[i - 1].y + 17);
   const yTicks = [1, 2, 5, 10, 25, 40];
   const cur = top.find((r) => r.seg_id === active);
-  const save = () => box.current && downloadPNG(`conflux-rank-stability-${method}-${slug(group)}.png`, box.current,
-    `Conflux rank stability · top ${N_STAB} by ${METHODS.find((m) => m.id === method)!.label} · ${group} · TxDOT CRIS ped/bike 2021–2023`);
+  const save = () => box.current && downloadPNG(`sightpole-rank-stability-${method}-${slug(group)}.png`, box.current,
+    `Sightpole rank stability · top ${N_STAB} by ${METHODS.find((m) => m.id === method)!.label} · ${group} · TxDOT CRIS ped/bike 2021–2023`);
 
   if (!top.length) return <p className="muted">No segments in this facility group.</p>;
   return (
@@ -577,7 +577,7 @@ function SiteTypes({ spf }: { spf: SpfFull }) {
   const cur = fitted.find(([k]) => k === sel)?.[1];
   if (!cur) return <p className="muted">No site-type model available.</p>;
   const m = cur.model!;
-  const save = () => figRef.current && downloadPNG(`conflux-cure-${slug(sel)}.png`, figRef.current, `CURE plot · ${sel} · NB2 SPF, k = ${m.k.toFixed(2)}/mi · TxDOT CRIS ped/bike 2021–2023`);
+  const save = () => figRef.current && downloadPNG(`sightpole-cure-${slug(sel)}.png`, figRef.current, `CURE plot · ${sel} · NB2 SPF, k = ${m.k.toFixed(2)}/mi · TxDOT CRIS ped/bike 2021–2023`);
   return (
     <div className="spf panel">
       <div className="spf-bar">

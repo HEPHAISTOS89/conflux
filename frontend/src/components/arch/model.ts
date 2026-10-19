@@ -351,7 +351,7 @@ export function deriveLive(d: PlatformStatus | undefined, nowMs = Date.now()): L
     chip: local ? 'Bypassed locally' : `${apiInv != null ? compact(apiInv) : '—'} req · cap 20/s`,
     metrics: [['Throttle', '20 req/s, burst 40'], [`Requests (${win} d)`, apiInv != null ? `${compact(apiInv)} (= API Lambda invocations)` : '—']],
     source: local ? 'Dev server proxies /api straight to uvicorn' : 'Stage settings; requests counted from Lambda invocations' });
-  set('vercel', { state: 'ok', chip: local ? 'Vite dev server' : 'Deployment live', metrics: [['Host', local ? 'localhost' : 'conflux-safety.vercel.app']], source: 'This page' });
+  set('vercel', { state: 'ok', chip: local ? 'Vite dev server' : 'Deployment live', metrics: [['Host', local ? 'localhost' : 'sightpole.vercel.app']], source: 'This page' });
   set('cf', { state: 'pending', chip: 'Not deployed · awaiting AWS', metrics: [['Status', 'In CDK, not deployed'], ['Enable with', 'cdk deploy -c edge=cloudfront']], source: 'Stack definition' });
   set('bedrock', { state: 'pending', chip: 'Fallback active · awaiting AWS', metrics: [['Model', 'Claude Haiku 4.5 (inference profile)'], ['Answers now from', 'Deterministic analyst in the API Lambda']], source: 'Deployment record (docs/DEPLOY.md)' });
   set('cw', { state: d?.metrics ? 'ok' : 'idle', chip: d?.metrics ? `Dashboard + 4 alarms · ${win}-day window` : local ? 'AWS only · not in local mode' : 'Metrics unavailable',

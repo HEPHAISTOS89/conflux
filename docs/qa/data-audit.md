@@ -1,6 +1,6 @@
 # Data audit — processed results vs displayed figures (2026-10-17)
 
-Method: independent Python recomputation from `data/curated/` (no project code), compared with the API responses and with the rendered pages read by headless Chromium on the live host (https://conflux-safety.vercel.app) and on the local build after fixes.
+Method: independent Python recomputation from `data/curated/` (no project code), compared with the API responses and with the rendered pages read by headless Chromium on the live host (https://sightpole.vercel.app) and on the local build after fixes.
 
 ## Figures checked
 
@@ -28,4 +28,4 @@ Fix: `bodyCentre(x, y, h, len)` in `lib/lab/metrics.ts`, applied in every render
 A naive rear-end recomputation (same lane within 1.5 m, centre spacing minus half-lengths, TTC = gap / closing speed, ≥ 0.2 s) finds 56 pairs with TTC ≤ 1.5 s, of which 25 are the pipeline's pairs; the pipeline's 28 come from stricter, documented rules (gap ≥ 1 m, follower ≥ 2 m/s, ≥ 0.3 s contiguous, closing rate consistent with the change in spacing). The extra naive pairs are dominated by the duplicate tracks (654/636, 705/704, 831/830 …) and sub-metre gaps, which the pipeline rightly treats as NGSIM position artefacts. Naive minima (0.01–0.1 s) are therefore lower than the served minima (0.14–0.6 s) for the same reason.
 
 ## Hosting note
-Production moved to https://conflux-safety.vercel.app during this audit (parallel rebrand). On the old host https://roadscope-ai-demo.vercel.app the `/api/*` rewrite now answers `308 → conflux-safety.vercel.app/api/…`; the browser does not complete the cross-origin chain, so the old host's pages show empty figures and "Trajectory replay unavailable". The new host serves every figure above correctly.
+Production moved to https://sightpole.vercel.app during this audit (parallel rebrand). On the old host https://roadscope-ai-demo.vercel.app the `/api/*` rewrite now answers `308 → sightpole.vercel.app/api/…`; the browser does not complete the cross-origin chain, so the old host's pages show empty figures and "Trajectory replay unavailable". The new host serves every figure above correctly.

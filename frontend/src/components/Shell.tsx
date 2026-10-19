@@ -137,8 +137,8 @@ export default function Shell() {
     <div className="shell" data-open={open} data-rail={collapsed && !peek ? 'collapsed' : 'expanded'} data-peek={(collapsed && peek) || undefined}>
       <a className="skip" href="#main">Skip to content</a>
       <header className="topbar">
-        <NavLink to="/" className="brand" aria-label="Conflux home">
-          <Mark /> <span>Conflux</span>
+        <NavLink to="/" className="brand" aria-label="Sightpole home">
+          <Mark /> <span>Sightpole</span>
         </NavLink>
         <div className="topbar-act">
           <button type="button" className="icon-btn" aria-label="Jump to a sheet, corridor, segment or intersection" title="Jump to (⌘K)"
@@ -158,8 +158,8 @@ export default function Shell() {
         onPointerOver={showTip} onPointerEnter={() => window.clearTimeout(peekOff.current)} onPointerLeave={() => { setTip(null); if (peek) endPeek(); }} onFocus={showTip} onBlur={() => setTip(null)}>
         <div className="rail-in">
           <div className="rail-head">
-            <NavLink to="/" className="brand rail-brand" aria-label="Conflux home" tabIndex={collapsed && !peek ? -1 : undefined}>
-              <Mark /> <span>Conflux</span>
+            <NavLink to="/" className="brand rail-brand" aria-label="Sightpole home" tabIndex={collapsed && !peek ? -1 : undefined}>
+              <Mark /> <span>Sightpole</span>
             </NavLink>
             <button type="button" className="rail-toggle" onClick={toggleRail} onPointerEnter={startPeek} aria-label={railLabel} aria-expanded={!collapsed} aria-controls="rail-list"
               aria-keyshortcuts="[">
@@ -213,7 +213,7 @@ export default function Shell() {
             Roadway, traffic and crash data © TxDOT, informational use; not an official TxDOT product.
             FARS: NHTSA, public domain. NGSIM: FHWA, CC BY-SA 3.0.
           </p>
-          <p><a href="https://github.com/HEPHAISTOS89/conflux">Source on GitHub</a></p>
+          <p><a href="https://github.com/HEPHAISTOS89/sightpole">Source on GitHub</a></p>
         </footer>
       </main>
     </div>

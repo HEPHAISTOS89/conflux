@@ -105,7 +105,7 @@ export default function Brief() {
   const kaPct = (c?: Cond) => (c && c.n ? `${Math.round((100 * c.ka) / c.n)}%` : '—');
   const errs = [scr, vru, meta, spf].map((r) => r.error).filter(Boolean);
   const share = async () => setCopied(await copyLink());
-  const exportCsv = () => downloadCSV('conflux-lubbock-county-flagged-sites.csv', v.flagged.map((r, i) => ({
+  const exportCsv = () => downloadCSV('sightpole-lubbock-county-flagged-sites.csv', v.flagged.map((r, i) => ({
     rank: i + 1, route: r.name, seg_id: r.seg_id, dfo_from: r.dfo_from, dfo_to: r.dfo_to, site_type: r.site_type, lanes: r.lanes, speed_limit_mph: r.speed_limit,
     aadt: r.aadt, crashes_3yr: r.crashes_total, crashes_ka_3yr: r.crashes_ka, spf_pred_per_yr: r.spf_pred, eb_expected_per_yr: r.eb_expected, eb_excess_per_yr: r.eb_excess, crit_ratio: r.crit_ratio,
   })));

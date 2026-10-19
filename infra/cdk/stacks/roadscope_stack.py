@@ -245,7 +245,7 @@ class RoadScopeStack(Stack):
                  treat_missing_data=cw.TreatMissingData.NOT_BREACHING)
         site_failed = logs.MetricFilter(
             self, "SiteIngestFailed", log_group=ingest.log_group,
-            metric_namespace="Conflux/Sites", metric_name="SiteIngestFailed", metric_value="1", default_value=0,
+            metric_namespace="Sightpole/Sites", metric_name="SiteIngestFailed", metric_value="1", default_value=0,
             filter_pattern=logs.FilterPattern.string_value("$.event", "=", "site_ingest_failed"),
         ).metric(period=five, statistic="Sum")
         cw.Alarm(self, "SiteIngestFailedAlarm", alarm_name="roadscope-site-ingest-failed", metric=site_failed, threshold=1,
