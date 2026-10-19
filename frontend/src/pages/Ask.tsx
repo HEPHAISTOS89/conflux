@@ -4,7 +4,6 @@ import Info from '../components/Info';
 import { Icon, type IconName } from '../components/Icon';
 import { API_BASE } from '../lib/api';
 import { useReveal } from '../lib/motion';
-import { useTyped, useTypedPlaceholder } from '../lib/typing';
 import type { AskResponse } from '../lib/types';
 import '../styles/ask.css';
 
@@ -21,7 +20,6 @@ const SUGGESTED: { q: string; icon: IconName; tool: string }[] = [
   { q: 'Kalman vs linear repair at Lankershim?', icon: 'path', tool: 'get_repair' },
 ];
 
-const EXAMPLE_LINES = SUGGESTED.map((s) => s.q);
 const clean = (p: string) => p.replace(/\s*\[[a-z_]+:[^\]]+\]/g, '');
 
 type Turn = { id: number; q: string; res?: AskResponse; error?: string; limited?: string; ms?: number };
@@ -57,7 +55,6 @@ async function ask(question: string): Promise<{ res?: AskResponse; error?: strin
 
 export default function Ask() {
   const [q, setQ] = useState('');
-  const [focused, setFocused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [model, setModel] = useState<{ state: ModelState; id?: string }>({ state: 'unknown' });
@@ -96,26 +93,27 @@ export default function Ask() {
   const left = MAX - q.length;
   const isBedrock = model.state === 'bedrock';
 
-  // Model state: a dot and one word; the reason sits behind the info button.
+  // Status, said plainly: this part is work in progress until Bedrock access is granted; the reason sits behind Info.
   const chip = (
     <span className="ask-model-state">
-      <Info label="About the model" text={model.state === 'unknown' ? 'Model' : isBedrock ? 'Bedrock' : 'Fallback'} title={isBedrock ? 'Amazon Bedrock' : 'Rule-based fallback'} align="right">
+      <span className="status" data-s={isBedrock ? 'ok' : 'warn'}><Icon name={isBedrock ? 'ok' : 'warning'} size={14} /> {isBedrock ? 'Bedrock live' : 'In progress: Bedrock pending'}</span>
+      <Info label="About this status" title={isBedrock ? 'Amazon Bedrock' : 'Work in progress'} align="right">
         {isBedrock
           ? <p>Answered by <span className="measure">{model.id}</span> through Bedrock Converse with tool use.</p>
-          : <p>Bedrock model access awaits AWS account verification (or the daily Bedrock cap was reached). The same named tools answer deterministically, over the same curated tables.</p>}
+          : <><p>The Bedrock model layer is not live yet: model access is waiting on AWS account verification. Until then the eight named tools answer by rule, over the same curated tables, so every figure is still real.</p><p>What is missing meanwhile: free-form phrasing and multi-step reasoning; what is already in place: tool routing, rate limits, citations and the Bedrock call path (backend/app/ask.py).</p></>}
         <p>Eight named tools, {RATE} questions per minute per client. Every answer lists its tool calls and cited tables.</p>
       </Info>
     </span>
   );
 
-  const placeholder = useTypedPlaceholder(EXAMPLE_LINES, !q && !focused && !busy, 'Ask about crashes, conflicts or SPFs…');
+  const placeholder = 'Ask about crashes, conflicts or SPFs';
 
   return (
     <div className="page ask" ref={pageRef}>
       <PageHeader
         icon="ask"
         title="Ask the data"
-        lede="Questions answered from Conflux's curated tables through named tools."
+        lede="Questions answered from Conflux's curated tables through eight named tools. The Bedrock model layer is pending AWS verification; answers are rule-based until then."
         source="Bedrock Converse with tool use; rule-based fallback over the same tools"
         actions={chip}
       />
@@ -125,7 +123,6 @@ export default function Ask() {
         <textarea
           id="ask-q" ref={area} rows={2} maxLength={MAX} value={q} disabled={busy}
           placeholder={placeholder}
-          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           aria-describedby="ask-count ask-keys"
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submit(q); } }}
@@ -179,10 +176,8 @@ function TurnView({ t, busy, onRetry }: { t: Turn; busy: boolean; onRetry: () =>
   const paras = r ? r.answer.split(/\n{2,}/) : [];
   const caveat = paras.length > 1 && /^limitations?:/i.test(paras[paras.length - 1]) ? paras.pop() : undefined;
   const shown = paras.map(clean);
-  const full = shown.join('\n\n');
-  const { n, done } = useTyped(full);
-  let offset = 0;
-  const partial = shown.map((p) => { const v = p.slice(0, Math.max(0, n - offset)); offset += p.length + 2; return v; });
+  // answers appear at once: a query result, not a typed message
+  const partial = shown;
   const copy = async () => {
     if (!r) return;
     const text = `Q: ${t.q}\n\n${r.answer}\n\nCited: ${r.citations.join('; ') || 'none'}\nModel: ${r.model}`;
@@ -205,11 +200,10 @@ function TurnView({ t, busy, onRetry }: { t: Turn; busy: boolean; onRetry: () =>
       {r && (
         <div className="ask-card">
           {/* Inline "[tool: file]" tags are shown as citation chips below, so they are dropped from the prose. */}
-          <p className="sr-only">{full}</p>
-          <div className="ask-answer" aria-hidden="true" data-typing={!done || undefined}>
+          <div className="ask-answer">
             {partial.map((p, i) => p && <Para key={i} text={p} />)}
           </div>
-          <div className="ask-after" data-wait={!done || undefined}>
+          <div className="ask-after">
           {r.citations.length > 0 && (
             <ul className="ask-cites" aria-label="Cited tables">
               {r.citations.map((c) => (
