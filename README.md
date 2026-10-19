@@ -6,7 +6,7 @@ Conflux turns public Texas road data into answers a traffic engineer can act on.
 
 - **Spots near-misses before crashes happen:** measures how close vehicles and pedestrians come to colliding (TTC, PET, DRAC) on real trajectory data.
 - **Ranks the riskiest road segments:** compares 3 years of pedestrian and bicycle crashes (TxDOT CRIS) with what traffic volume predicts.
-- **Answers questions in plain English:** an AI assistant (Amazon Bedrock) over the same data, with a rule-based fallback.
+- **AI assistant (in progress):** the question-answering API is built for Amazon Bedrock; until model access is enabled it answers from rules.
 - **Runs itself on AWS:** Python/FastAPI on Lambda, S3, EventBridge, EC2 and CloudWatch handle ingestion, scheduled jobs, monitoring and recovery.
 
 This is a first version and is actively improving. Every number comes from a reproducible Python pipeline and shows its source and licence.
