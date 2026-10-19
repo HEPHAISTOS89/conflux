@@ -40,6 +40,15 @@ export interface Street {
   crosswalks: XY[][];
   /** Stylised cross-street stop bars (EB from the west, WB from the east). */
   crossStops: { dir: 'EB' | 'WB'; a: XY; b: XY }[];
+  /** The same street as flat shapes in the data frame, for the 2-D plan view (one geometry, two renderers). */
+  plan: StreetPlan;
+}
+export interface StreetPlan {
+  asphalt: XY[][];
+  walks: XY[][];
+  /** Triangles as x, y pairs (three per triangle) with their colour. */
+  marks: { pts: number[]; hex: string }[];
+  kerbs: [XY, XY][];
 }
 
 const flat = (g: THREE.BufferGeometry) => { g.rotateX(-Math.PI / 2); return g; };
@@ -61,11 +70,13 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
   const { far } = o;
   const band = road.crossBand;
   const asphaltGeos: THREE.BufferGeometry[] = [];
-  const quad = (x0: number, y0: number, x1: number, y1: number) => asphaltGeos.push(shape([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]));
+  const plan: StreetPlan = { asphalt: [], walks: [], marks: [], kerbs: [] };
+  const pushAsphalt = (pts: XY[]) => { plan.asphalt.push(pts); asphaltGeos.push(shape(pts)); };
+  const quad = (x0: number, y0: number, x1: number, y1: number) => pushAsphalt([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]);
 
   // corridor arms, continued straight beyond the study area with their end cross-section
   let xL = Infinity, xR = -Infinity;
-  road.arms.forEach((a) => asphaltGeos.push(shape(a)));
+  road.arms.forEach((a) => pushAsphalt(a));
   for (const a of road.arms) {
     const n = a.length / 2;
     const ySouth = a[0][1], yNorth = a[n - 1][1];
@@ -80,7 +91,7 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
   if (cross) quad(cross.x0, cross.y0 - 0.5, cross.x1, cross.y1 + 0.5);
   if (band) {
     ySouth = bandEdgeY(band, xMid, 0); yNorth = bandEdgeY(band, xMid, 1);
-    asphaltGeos.push(shape(bandPolygon(band, far.w, far.e)));
+    pushAsphalt(bandPolygon(band, far.w, far.e));
   } else if (cross) {
     quad(far.w, cross.y0, cross.x0 + 0.5, cross.y1);
     quad(cross.x1 - 0.5, cross.y0, far.e, cross.y1);
@@ -91,7 +102,7 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
   /* ---------- markings ---------- */
   const mp: number[] = [], mc: number[] = [];
   const H = o.markH ?? 0.012, w = MUTCD.line * (o.lineScale ?? 1.5);
-  const add = (tri: number[], hex: string, h = H) => { const c = new THREE.Color(hex); for (let i = 0; i < tri.length; i += 2) { mp.push(tri[i], h, -tri[i + 1]); mc.push(c.r, c.g, c.b); } };
+  const add = (tri: number[], hex: string, h = H) => { plan.marks.push({ pts: tri, hex }); const c = new THREE.Color(hex); for (let i = 0; i < tri.length; i += 2) { mp.push(tri[i], h, -tri[i + 1]); mc.push(c.r, c.g, c.b); } };
   const addPolygon = (poly: XY[], hex: string, h: number) => {
     const tri: number[] = [];
     for (let i = 1; i + 1 < poly.length; i++) tri.push(...poly[0], ...poly[i], ...poly[i + 1]);
@@ -114,8 +125,9 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
   const crosswalks: XY[][] = [];
   if (band) {
     // cross-street markings stop at the corridor pavement (no lines inside the box)
-    for (const l of bandLines(band, far.w, xWest - 0.6)) draw(l.kind, l.pts);
-    for (const l of bandLines(band, xEast + 0.6, far.e)) draw(l.kind, l.pts);
+    const clear = band.clearX ?? [xWest, xEast];
+    for (const l of bandLines(band, far.w, Math.min(clear[0], xWest) - 0.6)) draw(l.kind, l.pts);
+    for (const l of bandLines(band, Math.max(clear[1], xEast) + 0.6, far.e)) draw(l.kind, l.pts);
     // stylised stop bars for the cross street: 2 m before the corridor edge, on the approach half (EB south of the centre line)
     const bar = (dir: 'EB' | 'WB') => {
       const x = dir === 'EB' ? xWest - 4.2 : xEast + 4.2;
@@ -123,7 +135,8 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
       crossStops.push({ dir, a, b });
       add(ribbon([a, b], MUTCD.bar), o.colours.stop, H + 0.002);
     };
-    bar('EB'); bar('WB');
+    if (road.crossStops) for (const cs of road.crossStops) { crossStops.push(cs); add(ribbon([cs.a, cs.b], MUTCD.bar), o.colours.stop, H + 0.002); }
+    else { bar('EB'); bar('WB'); }
   } else if (cross) {
     const yCm = (cross.y0 + cross.y1) / 2, half = (cross.y1 - cross.y0) / 2;
     for (const [xa, xb] of [[far.w, cross.x0 - 1], [cross.x1 + 1, far.e]]) {
@@ -194,6 +207,7 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
     // sidewalk slab from the kerb outward at kerb height, plus the kerb face down to the road
     const [ox, oy] = outward;
     const q: XY[] = [a, b, [b[0] + ox * WALK, b[1] + oy * WALK], [a[0] + ox * WALK, a[1] + oy * WALK]];
+    plan.walks.push(q); plan.kerbs.push([a, b]);
     for (const [x, y] of [q[0], q[1], q[2], q[0], q[2], q[3]]) sp.push(x, KH, -y);
     if (KH > 0) for (const [x, y, h] of [[a[0], a[1], 0], [b[0], b[1], 0], [b[0], b[1], KH], [a[0], a[1], 0], [b[0], b[1], KH], [a[0], a[1], KH]] as [number, number, number][]) sp.push(x, h, -y);
   };
@@ -226,7 +240,7 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
   let sidewalks: THREE.BufferGeometry | null = null;
   if (sp.length) { sidewalks = new THREE.BufferGeometry(); sidewalks.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3)); sidewalks.computeVertexNormals(); }
 
-  return { asphalt, markings, kerbs, sidewalks, ext: { xWest, xEast, ySouth, yNorth, xMid, yMid: (ySouth + yNorth) / 2 }, crosswalks, crossStops };
+  return { plan, asphalt, markings, kerbs, sidewalks, ext: { xWest, xEast, ySouth, yNorth, xMid, yMid: (ySouth + yNorth) / 2 }, crosswalks, crossStops };
 }
 
 /* ---------- signal masts ---------- */

@@ -227,6 +227,9 @@
 /* fullscreen: the view panel fills the screen, HUD and controls stay */
 .ix-view:fullscreen, .ix-view.pseudo-fs { width: 100vw; height: 100vh; border-radius: 0; background: var(--paper); display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) auto; }
 .ix-view.pseudo-fs { position: fixed; inset: 0; z-index: 90; height: 100dvh; }
+/* the main column is its own stacking context below the rail: lift it while the lab covers the screen */
+.main:has(.ix-view.pseudo-fs), body:has(.ix-view.pseudo-fs) .topbar ~ * { z-index: 95; }
+body:has(.ix-view.pseudo-fs) .rail, body:has(.ix-view.pseudo-fs) .topbar { z-index: 0; }
 .ix-view:fullscreen .ix-view-bar, .ix-view.pseudo-fs .ix-view-bar { grid-column: 1 / -1; }
 .ix-view:fullscreen .ix-canvas, .ix-view.pseudo-fs .ix-canvas { min-height: 0; }
 .ix-view::backdrop { background: var(--paper); }

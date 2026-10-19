@@ -15,7 +15,7 @@
  *   offsets, lane lines between the density peaks of each direction's offsets, the centre line between
  *   the innermost peaks. Crosswalks are not observable in NGSIM and are not derived.
  */
-import type { IntersectionT, LaneGeom, TrackT } from '../traj';
+import type { Crosswalk, IntersectionT, LaneGeom, TrackT } from '../traj';
 import { percentile, stopLine } from './metrics';
 
 export type XY = [number, number];
@@ -35,6 +35,10 @@ export interface RoadGeom {
   armEdges: { left: XY[]; right: XY[] }[];
   /** Cross street derived from the EB/WB tracks, or null when too few are observed. */
   crossBand: CrossBand | null;
+  /** Cross-street stop bars when the site's crosswalks give their position (otherwise street.ts stylises them). */
+  crossStops?: { dir: 'EB' | 'WB'; a: XY; b: XY }[];
+  /** Source of the geometry: NGSIM lane field, or the surveyed crosswalk polygons of a site feed. */
+  source: 'lanes' | 'crosswalks';
 }
 
 /** The cross street as a band about the axis y = m·x + b; offsets are perpendicular distances from the axis (m, +toward +y). */
@@ -52,6 +56,8 @@ export interface CrossBand {
   skewDeg: number;
   /** Through tracks used. */
   n: number;
+  /** x-range (data m) kept free of band markings: the intersection including its crosswalks. */
+  clearX?: [number, number];
 }
 
 export const MUTCD = { line: 0.1016, dash: 3.048, gap: 9.144, bar: 0.6096, yellowGap: 0.1016 } as const;
@@ -78,7 +84,8 @@ export function xAt(c: XY[], y: number, reach = 2.6): number | null {
   return c[c.length - 1][0];
 }
 
-export function roadGeometry(data: Pick<IntersectionT, 'lanes_geom' | 'tracks' | 'bbox'>, step = 1): RoadGeom {
+export function roadGeometry(data: Pick<IntersectionT, 'lanes_geom' | 'tracks' | 'bbox'> & { crosswalks?: Crosswalk[] }, step = 1): RoadGeom {
+  if (data.crosswalks && data.crosswalks.length >= 3) { const r = crosswalkRoad(data as Pick<IntersectionT, 'tracks' | 'bbox'> & { crosswalks: Crosswalk[] }); if (r) return r; }
   const [[, by0], [, by1]] = data.bbox as [[number, number], [number, number]];
   const lanes = data.lanes_geom
     .filter((l) => l.dir === 'NB' || l.dir === 'SB')
@@ -194,6 +201,7 @@ export function roadGeometry(data: Pick<IntersectionT, 'lanes_geom' | 'tracks' |
     laneW, box, arms, armEdges, lines: done, stops,
     cross: box && Number.isFinite(xBox0) ? { x0: xBox0, x1: xBox1, y0: box.y0, y1: box.y1 } : null,
     crossBand: box ? crossBand(data.tracks) : null,
+    source: 'lanes',
   };
 }
 
@@ -281,6 +289,75 @@ export function crossBand(tracks: TrackT[], minTracks = 6): CrossBand | null {
     m, b, edges, centre, laneLines: laneLines.filter((o) => Math.abs(o - centre) > 1.2),
     lanes: [...pe.map((o) => ({ dir: 'EB' as const, off: o })), ...pw.map((o) => ({ dir: 'WB' as const, off: o }))],
     skewDeg: (Math.atan(m) * 180) / Math.PI, n,
+  };
+}
+
+/* ---------- site feeds: the street from the surveyed crosswalks ---------- */
+
+interface CwBox { xmin: number; xmax: number; ymin: number; ymax: number; cx: number; cy: number }
+const cwBox = (poly: XY[]): CwBox => {
+  const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
+  return { xmin: Math.min(...xs), xmax: Math.max(...xs), ymin: Math.min(...ys), ymax: Math.max(...ys), cx: xs.reduce((a, b) => a + b, 0) / xs.length, cy: ys.reduce((a, b) => a + b, 0) / ys.length };
+};
+
+/** Lateral percentiles of moving samples of a direction (vehicles only), or null below 30 samples. */
+function lateral(tracks: TrackT[], dir: string, axis: 1 | 2, lo: number, hi: number): [number, number] | null {
+  const v: number[] = [];
+  for (const tr of tracks) { if (tr.dir !== dir || tr.cls === 'pedestrian') continue; for (const p of tr.pts) if (p[3] > 1) v.push(p[axis]); }
+  if (v.length < 30) return null;
+  return [percentile(v, lo)!, percentile(v, hi)!];
+}
+
+/**
+ * A four-arm intersection from its surveyed crosswalk polygons (site feeds, docs/SITE_TRAJECTORY_SCHEMA.md): the
+ * box is the pavement between the four crosswalks (crosswalks included), each arm is as wide as its crosswalk is
+ * long, the centre line sits between the two directions' observed traffic and lane lines follow at 3.5 m
+ * (11.5 ft) from it, stop bars lie 1 m upstream of each crosswalk. Returns null without a crosswalk on both axes.
+ */
+export function crosswalkRoad(data: Pick<IntersectionT, 'tracks' | 'bbox'> & { crosswalks: Crosswalk[] }): RoadGeom | null {
+  const [[bx0, by0], [bx1, by1]] = data.bbox as [[number, number], [number, number]];
+  const boxes = data.crosswalks.map((c) => ({ id: c.id, b: cwBox(c.polygon), across: (() => { const b = cwBox(c.polygon); return b.xmax - b.xmin >= b.ymax - b.ymin; })() }));
+  const ns = boxes.filter((c) => c.across).sort((a, b) => a.b.cy - b.b.cy), ew = boxes.filter((c) => !c.across).sort((a, b) => a.b.cx - b.b.cx);
+  if (!ns.length || !ew.length) return null;
+  const S = ns[0].b, N = ns[ns.length - 1].b, Wc = ew[0].b, E = ew[ew.length - 1].b;
+  const laneW = 3.5;
+  const y0 = ns.length > 1 ? S.ymin : Math.min(S.ymin, Wc.ymin, E.ymin), y1 = ns.length > 1 ? N.ymax : Math.max(S.ymax, Wc.ymax, E.ymax);
+  const x0 = ew.length > 1 ? Wc.xmin : Math.min(Wc.xmin, S.xmin, N.xmin), x1 = ew.length > 1 ? E.xmax : Math.max(Wc.xmax, S.xmax, N.xmax);
+  const lines: RoadLine[] = [], arms: XY[][] = [], armEdges: RoadGeom['armEdges'] = [], stops: RoadGeom['stops'] = [];
+  // corridor centre: between southbound traffic (west, smaller x) and northbound traffic (east)
+  const sbX = lateral(data.tracks, 'SB', 1, 5, 95), nbX = lateral(data.tracks, 'NB', 1, 5, 95);
+  const corridorArms: [number, number, number, number, 'S' | 'N'][] = [[S.xmin, S.xmax, by0 - 1, y0, 'S'], [N.xmin, N.xmax, y1, by1 + 1, 'N']];
+  for (const [xa, xb, ya, yb, side] of corridorArms) {
+    const left: XY[] = [[xa, ya], [xa, yb]], right: XY[] = [[xb, ya], [xb, yb]];
+    arms.push([...left, ...right.slice().reverse()]); armEdges.push({ left, right });
+    lines.push({ kind: 'edge', pts: [[xa + 0.25, ya], [xa + 0.25, yb]] }, { kind: 'edge', pts: [[xb - 0.25, ya], [xb - 0.25, yb]] });
+    const centre = sbX && nbX ? (sbX[1] + nbX[0]) / 2 : (xa + xb) / 2;
+    lines.push({ kind: 'centre', pts: [[centre, ya], [centre, yb]] });
+    for (let x = centre + laneW; x < xb - 1.2; x += laneW) lines.push({ kind: 'lane', pts: [[x, ya], [x, yb]] });
+    for (let x = centre - laneW; x > xa + 1.2; x -= laneW) lines.push({ kind: 'lane', pts: [[x, ya], [x, yb]] });
+    // stop bar 1 m upstream of the crosswalk on the approach half (NB east of the centre line, SB west of it)
+    if (side === 'S') stops.push({ dir: 'NB', a: [centre, S.ymin - 1], b: [xb - 0.3, S.ymin - 1], n: 0 });
+    else stops.push({ dir: 'SB', a: [xa + 0.3, N.ymax + 1], b: [centre, N.ymax + 1], n: 0 });
+  }
+  // cross street: axis through the E/W crosswalk centroids, edges at their extents, centre between EB and WB traffic
+  const m = E.cx !== Wc.cx ? (E.cy - Wc.cy) / (E.cx - Wc.cx) : 0;
+  const mx = (E.cx + Wc.cx) / 2, my = (E.cy + Wc.cy) / 2, b = my - m * mx, k = Math.sqrt(1 + m * m);
+  const off = (x: number, y: number) => (y - m * x - b) / k;
+  const edges: [number, number] = [Math.min(off(Wc.cx, Wc.ymin), off(E.cx, E.ymin)), Math.max(off(Wc.cx, Wc.ymax), off(E.cx, E.ymax))];
+  const ebY = lateral(data.tracks, 'EB', 2, 5, 95), wbY = lateral(data.tracks, 'WB', 2, 5, 95);
+  const centre = ebY && wbY ? (off(mx, ebY[1]) + off(mx, wbY[0])) / 2 : (edges[0] + edges[1]) / 2;
+  const laneLines: number[] = [];
+  for (let o = centre + laneW; o < edges[1] - 1.2; o += laneW) laneLines.push(o);
+  for (let o = centre - laneW; o > edges[0] + 1.2; o -= laneW) laneLines.push(o);
+  const band: CrossBand = { m, b, edges, centre, laneLines, lanes: [], skewDeg: (Math.atan(m) * 180) / Math.PI, n: 0, clearX: [x0, x1] };
+  const crossStops: RoadGeom['crossStops'] = [
+    { dir: 'EB', a: bandPoint(band, Wc.xmin - 1, edges[0] + 0.3), b: bandPoint(band, Wc.xmin - 1, centre) },
+    { dir: 'WB', a: bandPoint(band, E.xmax + 1, centre), b: bandPoint(band, E.xmax + 1, edges[1] - 0.3) },
+  ];
+  return {
+    laneW, box: { y0, y1 }, arms, armEdges, lines, stops,
+    cross: { x0, x1, y0, y1 },
+    crossBand: band, crossStops, source: 'crosswalks',
   };
 }
 

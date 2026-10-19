@@ -3,7 +3,8 @@ import Reticle from './Reticle';
 import { focusConflict } from '../lib/lab/hooks';
 import { kinAt, renderPose, type RenderPose } from '../lib/lab/metrics';
 import { labPalette, useThemeName, type LabPalette } from '../lib/lab/palette';
-import { bandLines, bandPolygon, MUTCD, roadGeometry, type RoadGeom, type XY } from '../lib/lab/road';
+import { MUTCD, roadGeometry, type RoadGeom } from '../lib/lab/road';
+import { buildStreet, type Street } from '../lib/lab/street';
 import { ghostFade, trackQuality } from '../lib/lab/quality';
 import { bodyLength, isPedestrian } from '../lib/lab/classes';
 import { activeAt, fitCanvas, leadIn, useClock, useClockFrame, useSelection, type ConflictT, type IntersectionT, type TrackT } from '../lib/traj';
@@ -39,6 +40,15 @@ export default function PlanView({ data, conflicts, occlusion, label }: Props) {
   const [zoomed, setZoomed] = useState(false);
   const [[x0, y0], [x1, y1]] = data.bbox as [[number, number], [number, number]];
   const road = useMemo(() => roadGeometry(data), [data]);
+  // the same street the 3D lab builds (lib/lab/street.ts), drawn flat: one geometry, two renderers
+  const street = useMemo(() => {
+    const pal = labPalette(theme);
+    const [[bx0, by0], [bx1, by1]] = data.bbox as [[number, number], [number, number]];
+    return buildStreet(road, data.bbox as [[number, number], [number, number]], {
+      far: { s: by0 - 60, n: by1 + 60, w: bx0 - 60, e: bx1 + 60 }, crosswalks: !data.crosswalks?.length, crosswalkPolygons: data.crosswalks?.map((c) => c.polygon as [number, number][]),
+      colours: { lane: pal.lane, edge: pal.edge, centre: pal.centre, stop: pal.stop, crosswalk: pal.lane },
+    });
+  }, [road, data, theme]);
   // duplicate / ID-switched tracks fade out while they overlap the vehicle they duplicate (lib/lab/quality.ts)
   const quality = useMemo(() => trackQuality(data.tracks, data.hz), [data]);
   const byId = useMemo(() => new Map(data.tracks.map((t) => [String(t.id), t])), [data]);
@@ -105,7 +115,7 @@ export default function PlanView({ data, conflicts, occlusion, label }: Props) {
       sc.width = c.width; sc.height = c.height;
       const sx = sc.getContext('2d')!;
       sx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawRoad(sx, W, H, road, pal, P, s, data.bbox as [[number, number], [number, number]], vertical, data.crosswalks, data.box);
+      drawRoad(sx, W, H, street, pal, P, s, data.bbox as [[number, number], [number, number]], vertical);
       staticLayer.current = { key, c: sc };
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -398,48 +408,13 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 /** Ground, 50 ft grid, carriageway, MUTCD markings, stop bars, north arrow and scale bar. */
 function drawRoad(
-  ctx: CanvasRenderingContext2D, W: number, H: number, road: RoadGeom, pal: LabPalette,
+  ctx: CanvasRenderingContext2D, W: number, H: number, street: Street, pal: LabPalette,
   P: (x: number, y: number) => [number, number], s: number, bbox: [[number, number], [number, number]], vertical: boolean,
-  crosswalks?: { id: string; polygon: [number, number][] }[], box?: [[number, number], [number, number]],
 ) {
   const [[x0, y0], [x1, y1]] = bbox;
   ctx.fillStyle = pal.ground; ctx.fillRect(0, 0, W, H);
-  const drawCrosswalks = () => {
-    if (!crosswalks?.length) return;
-    for (const cw of crosswalks) {
-      ctx.beginPath();
-      cw.polygon.forEach(([x, y], i) => { const [a, b] = P(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); });
-      ctx.closePath();
-      ctx.globalAlpha = pal.dark ? 0.14 : 0.2; ctx.fillStyle = pal.stop; ctx.fill();
-      ctx.globalAlpha = 0.55; ctx.setLineDash([Math.max(2, 0.6 * s), Math.max(2, 0.6 * s)]); ctx.strokeStyle = pal.stop; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
-      ctx.globalAlpha = 1;
-    }
-  };
-  const siteSheet = !!(box && crosswalks?.length);
-  if (siteSheet && box) {
-    // site feed: the intersection box and crosswalks come from site.json; the legs are the box extended to the
-    // edge of the observed area (stylised: no lane lines are claimed that the feed does not carry)
-    const poly = (pts: [number, number][]) => { ctx.beginPath(); pts.forEach(([x, y], k) => { const [a, b] = P(x, y); k ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.closePath(); };
-    const [[bx0, by0], [bx1, by1]] = box;
-    const gridFt = 50 / 3.281;
-    ctx.strokeStyle = pal.grid; ctx.lineWidth = 1;
-    for (let gx = Math.floor(x0 / gridFt) * gridFt; gx <= x1; gx += gridFt) { const [a] = P(gx, 0); ctx.beginPath(); ctx.moveTo(a, 0); ctx.lineTo(a, H); ctx.stroke(); }
-    for (let gy = Math.floor(y0 / gridFt) * gridFt; gy <= y1; gy += gridFt) { const [, b] = P(0, gy); ctx.beginPath(); ctx.moveTo(0, b); ctx.lineTo(W, b); ctx.stroke(); }
-    ctx.fillStyle = pal.asphalt;
-    poly([[bx0, y0 - 50], [bx1, y0 - 50], [bx1, y1 + 50], [bx0, y1 + 50]]); ctx.fill();
-    poly([[x0 - 50, by0], [x1 + 50, by0], [x1 + 50, by1], [x0 - 50, by1]]); ctx.fill();
-    ctx.strokeStyle = pal.kerb; ctx.lineWidth = 1.5;
-    for (const [xa, xb] of [[bx0, bx0], [bx1, bx1]] as [number, number][]) {
-      for (const [ya, yb] of [[y0 - 50, by0], [by1, y1 + 50]] as [number, number][]) { const [a, b] = P(xa, ya), [c, d] = P(xb, yb); ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); }
-    }
-    for (const [ya, yb] of [[by0, by0], [by1, by1]] as [number, number][]) {
-      for (const [xa, xb] of [[x0 - 50, bx0], [bx1, x1 + 50]] as [number, number][]) { const [a, b] = P(xa, ya), [c, d] = P(xb, yb); ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); }
-    }
-    ctx.setLineDash([3, 5]); ctx.strokeStyle = pal.edge; ctx.lineWidth = 1; poly([[bx0, by0], [bx1, by0], [bx1, by1], [bx0, by1]]); ctx.stroke(); ctx.setLineDash([]);
-    drawCrosswalks();
-  }
-  if (!siteSheet) {
-    // 50 ft grid in the local frame, a heavier line every 250 ft
+  // 50 ft grid in the local frame, a heavier line every 250 ft
+  {
     const g = 50 / FT;
     const span = Math.max(W, H) / s + 60;
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
@@ -456,64 +431,30 @@ function drawRoad(
       }
       ctx.stroke();
     }
-
-    const poly = (pts: XY[]) => { ctx.beginPath(); pts.forEach(([x, y], i) => { const [a, b] = P(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.closePath(); };
-    const line = (pts: XY[]) => { ctx.beginPath(); pts.forEach(([x, y], i) => { const [a, b] = P(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); };
-
-    // cross street derived from the EB/WB tracks (road.crossBand): solid across the corridor, fading beyond the observed edges
-    const band = road.crossBand;
-    if (band && road.cross) {
-      const { x0: cx0, x1: cx1 } = road.cross;
-      const reach = 30;
-      for (const [a, b] of [[cx0, cx0 - reach], [cx1, cx1 + reach]] as [number, number][]) {
-        const [pa, pb] = [P(a, band.m * a + band.b), P(b, band.m * b + band.b)];
-        const grad = ctx.createLinearGradient(pa[0], pa[1], pb[0], pb[1]);
-        grad.addColorStop(0, pal.asphalt); grad.addColorStop(1, pal.ground);
-        ctx.fillStyle = grad;
-        poly(bandPolygon(band, a, b)); ctx.fill();
-      }
-      ctx.fillStyle = pal.asphalt; poly(bandPolygon(band, cx0, cx1)); ctx.fill();
-      ctx.fillStyle = pal.asphalt; poly([[cx0, road.cross.y0], [cx1, road.cross.y0], [cx1, road.cross.y1], [cx0, road.cross.y1]]); ctx.fill();
-    } else if (road.cross) {
-      const { x0: cx0, x1: cx1, y0: cy0, y1: cy1 } = road.cross;
-      const reach = 30;
-      for (const [a, b] of [[cx0, cx0 - reach], [cx1, cx1 + reach]] as [number, number][]) {
-        const [pa, pb] = [P(a, (cy0 + cy1) / 2), P(b, (cy0 + cy1) / 2)];
-        const grad = ctx.createLinearGradient(pa[0], pa[1], pb[0], pb[1]);
-        grad.addColorStop(0, pal.asphalt); grad.addColorStop(1, pal.ground);
-        ctx.fillStyle = grad;
-        poly([[a, cy0 + 1.5], [b, cy0 + 1.5], [b, cy1 - 1.5], [a, cy1 - 1.5]]); ctx.fill();
-      }
-      ctx.fillStyle = pal.asphalt; poly([[cx0, cy0], [cx1, cy0], [cx1, cy1], [cx0, cy1]]); ctx.fill();
-    }
-    ctx.fillStyle = pal.asphalt;
-    for (const a of road.arms) { poly(a); ctx.fill(); }
-    ctx.strokeStyle = pal.kerb; ctx.lineWidth = 1;
-    for (const a of road.arms) { poly(a); ctx.stroke(); }
-
-    // markings: scaled to true width, never thinner than a hairline
-    const px = (m: number) => Math.max(1, m * s);
-    ctx.lineCap = 'butt';
-    const crossMarks = band && road.cross ? [...bandLines(band, road.cross.x0 - 22, road.cross.x0 - 0.6), ...bandLines(band, road.cross.x1 + 0.6, road.cross.x1 + 22)] : [];
-    for (const l of [...road.lines, ...crossMarks]) {
-      if (l.kind === 'lane') {
-        ctx.strokeStyle = pal.lane; ctx.lineWidth = px(MUTCD.line); ctx.setLineDash([MUTCD.dash * s, MUTCD.gap * s]);
-        line(l.pts); ctx.stroke(); ctx.setLineDash([]);
-      } else if (l.kind === 'edge') {
-        ctx.strokeStyle = pal.edge; ctx.lineWidth = px(MUTCD.line); line(l.pts); ctx.stroke();
-      } else {
-        // double yellow: two lines 4 in apart
-        ctx.strokeStyle = pal.centre; ctx.lineWidth = px(MUTCD.line);
-        const d = (MUTCD.line + MUTCD.yellowGap) / 2;
-        const [ax, ay] = l.pts[0], [bx, by] = l.pts[l.pts.length - 1], len = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / len, ny = (bx - ax) / len;
-        line(l.pts.map(([x, y]) => [x - nx * d, y - ny * d] as XY)); ctx.stroke();
-        line(l.pts.map(([x, y]) => [x + nx * d, y + ny * d] as XY)); ctx.stroke();
-      }
-    }
-    ctx.strokeStyle = pal.stop; ctx.lineWidth = px(MUTCD.bar);
-    for (const b of road.stops) { line([b.a, b.b]); ctx.stroke(); }
-  drawCrosswalks();
   }
+  const poly = (pts: [number, number][]) => { ctx.beginPath(); pts.forEach(([x, y], i) => { const [a, b] = P(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.closePath(); };
+  // sidewalks, then the carriageway (arms, box and cross street), kerb lines, then every marking ribbon: the plan of
+  // the very geometry the 3D lab renders (lib/lab/street.ts), so both views always agree
+  ctx.fillStyle = pal.walk;
+  for (const q of street.plan.walks) { poly(q); ctx.fill(); }
+  ctx.fillStyle = pal.asphalt;
+  for (const a of street.plan.asphalt) { poly(a); ctx.fill(); }
+  ctx.strokeStyle = pal.kerb; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const [a, b] of street.plan.kerbs) { const [ax, ay] = P(a[0], a[1]), [bx, by] = P(b[0], b[1]); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); }
+  ctx.stroke();
+  const hairline = MUTCD.line * s < 1.5;
+  let cur = '';
+  for (const m of street.plan.marks) {
+    if (m.hex !== cur) { cur = m.hex; ctx.fillStyle = cur; ctx.strokeStyle = cur; }
+    for (let i = 0; i + 5 < m.pts.length; i += 6) {
+      const [a, b] = P(m.pts[i], m.pts[i + 1]), [c, d] = P(m.pts[i + 2], m.pts[i + 3]), [e, f] = P(m.pts[i + 4], m.pts[i + 5]);
+      ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.lineTo(e, f); ctx.closePath(); ctx.fill();
+      if (hairline) { ctx.lineWidth = 0.5; ctx.stroke(); }
+    }
+  }
+  void vertical;
+
   // north arrow (corridor north, +y) and 50 ft scale bar
   ctx.save();
   const nx = W - 26, ny = H - 30;
