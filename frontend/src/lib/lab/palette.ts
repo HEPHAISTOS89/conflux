@@ -12,6 +12,9 @@ export interface LabPalette {
   car: string; truck: string; ped: string; hot: string; partner: string; sel: string; hov: string;
   trail: string; label: string; labelBg: string; shadow: string; brake: string; lampOff: string; head: string;
   ink: string; ink2: string; ink3: string; critical: string; serious: string; caution: string; accent: string;
+  /** World dressing for the 3D lab: lot ground, concrete, massing, lamps, sky. */
+  lot: string; walk: string; building: string; roof: string; window: string; windowAmt: number; lamp: string; pole: string; housing: string;
+  sky: string; horizon: string; glass: string; tail: string; brake2: string; exposure: number;
 }
 
 const DARK: LabPalette = {
@@ -21,14 +24,18 @@ const DARK: LabPalette = {
   car: '#a7b6c0', truck: '#c9b98a', ped: '#7fd1c8', hot: '#f08159', partner: '#e0a83a', sel: '#b4d0a6', hov: '#f1f1ef',
   trail: '#c8c9c4', label: '#f1f1ef', labelBg: '#161716', shadow: '#000000', brake: '#ff4a3d', lampOff: '#5a2420', head: '#f3ead2',
   ink: '#f1f1ef', ink2: '#c8c9c4', ink3: '#9a9b96', critical: '#f08159', serious: '#e9a35f', caution: '#e0a83a', accent: '#8fa68e',
+  lot: '#121413', walk: '#1d1f1e', building: '#2f3331', roof: '#262927', window: '#ffc77d', windowAmt: 0.9, lamp: '#ffd49a', pole: '#3a3d3b', housing: '#121413',
+  sky: '#070807', horizon: '#161817', glass: '#101315', tail: '#ff3b2c', brake2: '#ff2412', exposure: 1.1,
 };
 const LIGHT: LabPalette = {
   dark: false,
-  ground: '#ecece7', grid: '#e2e2dc', gridMajor: '#d8d8d1',
-  asphalt: '#d8d8d2', kerb: '#c2c2bb', lane: '#8a8b86', edge: '#6f716b', centre: '#a07c1c', stop: '#2a2b29',
+  ground: '#e6e5de', grid: '#d6d6cf', gridMajor: '#c8c8c0',
+  asphalt: '#b4b4ad', kerb: '#8f9089', lane: '#f3f3ee', edge: '#e9e9e3', centre: '#c9a227', stop: '#f8f8f4',
   car: '#41596a', truck: '#86702a', ped: '#1d7a70', hot: '#cf3f2b', partner: '#a86f00', sel: '#3f6a3e', hov: '#161716',
   trail: '#3d3e3b', label: '#161716', labelBg: '#fbfbf9', shadow: '#2a2b29', brake: '#e0281c', lampOff: '#b9a9a5', head: '#fff8e0',
   ink: '#161716', ink2: '#3d3e3b', ink3: '#5f615b', critical: '#cf3f2b', serious: '#cf7426', caution: '#a86f00', accent: '#4d6a4c',
+  lot: '#e3e2db', walk: '#d6d5cd', building: '#eeede8', roof: '#e2e1da', window: '#ffcf86', windowAmt: 0.12, lamp: '#ffcf8a', pole: '#7d807a', housing: '#4a4c49',
+  sky: '#cfd6dc', horizon: '#eceae2', glass: '#2a3238', tail: '#e0281c', brake2: '#ff1f0f', exposure: 1.15,
 };
 
 export type ThemeName = 'dark' | 'light';

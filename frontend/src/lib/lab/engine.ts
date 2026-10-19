@@ -15,6 +15,7 @@ import { bearingDeg, bearingLabel, bodyCentre, conflictPoint, easeInOutCubic, ki
 import { labPalette, type LabPalette } from './palette';
 import { roadGeometry } from './road';
 import { buildSignals, buildStreet } from './street';
+import { beamTexture, createGlows, grainTexture, lidarUnitGeometry, massing, massingMesh, occludedShare, planarUv, radialTexture, streetLightGeometry, streetLightPose, streetLightSpots, type Footprint } from './context';
 import { ghostFade, trackQuality, type Quality } from './quality';
 import { cumulativeDistance, distanceAt, KINDS, kindOf, lampGeometry, pedestrianGeometry, steerAngle, vehicleGeometry, WHEEL, wheelGeometry, wheelOffsets, type VehicleKind } from './vehicles';
 import { bodyLength, isPedestrian } from './classes';
@@ -41,28 +42,28 @@ const heightOf = (cls: string) => (cls === 'truck' || cls === 'bus' ? 3.2 : cls 
  * tag: 1 = tail-lamp band on the rear face (retro-reflective, high-intensity returns), 0 otherwise.
  */
 /** Returns on a standing person: a 0.5 m wide body with most hits on the torso and head, none tagged as lamps. */
-function pedestrianCloud(hgt: number, n: number, rnd: () => number): { p: number[]; tag: number[] } {
-  const p: number[] = [], tag: number[] = [];
+function pedestrianCloud(hgt: number, n: number, rnd: () => number): { p: number[]; tag: number[]; nrm: number[] } {
+  const p: number[] = [], tag: number[] = [], nrm: number[] = [];
   for (let i = 0; i < n; i++) {
     const a = rnd() * Math.PI * 2, y = rnd() * hgt, r = (y > hgt * 0.88 ? 0.11 : y > hgt * 0.3 ? 0.2 : 0.14) * (0.8 + 0.2 * rnd());
-    p.push(Math.cos(a) * r, y, Math.sin(a) * r); tag.push(0);
+    p.push(Math.cos(a) * r, y, Math.sin(a) * r); tag.push(0); nrm.push(Math.cos(a), 0, Math.sin(a));
   }
-  return { p, tag };
+  return { p, tag, nrm };
 }
 
-function vehicleCloud(len: number, wid: number, hgt: number, n: number, rnd: () => number): { p: number[]; tag: number[] } {
-  const p: number[] = [], tag: number[] = [];
+function vehicleCloud(len: number, wid: number, hgt: number, n: number, rnd: () => number): { p: number[]; tag: number[]; nrm: number[] } {
+  const p: number[] = [], tag: number[] = [], nrm: number[] = [];
   for (let i = 0; i < n; i++) {
     const f = rnd();
-    let x: number, y: number, z: number;
-    if (f < 0.35) { x = (rnd() - 0.5) * len; z = (rnd() - 0.5) * wid; y = hgt; }
-    else if (f < 0.7) { x = (rnd() - 0.5) * len; z = Math.sign(rnd() - 0.5) * wid / 2; y = rnd() * hgt; }
-    else { x = Math.sign(rnd() - 0.5) * len / 2; z = (rnd() - 0.5) * wid; y = rnd() * hgt; }
+    let x: number, y: number, z: number, nx = 0, ny = 0, nz = 0;
+    if (f < 0.35) { x = (rnd() - 0.5) * len; z = (rnd() - 0.5) * wid; y = hgt; ny = 1; }
+    else if (f < 0.7) { const sg = Math.sign(rnd() - 0.5); x = (rnd() - 0.5) * len; z = sg * wid / 2; y = rnd() * hgt; nz = sg; }
+    else { const sg = Math.sign(rnd() - 0.5); x = sg * len / 2; z = (rnd() - 0.5) * wid; y = rnd() * hgt; nx = sg; }
     if (y > hgt * 0.62) x *= 0.7; // cabin taper
-    p.push(x, y, z);
+    p.push(x, y, z); nrm.push(nx, ny, nz);
     tag.push(x <= -len / 2 + 0.01 && y > hgt * 0.28 && y < hgt * 0.5 && Math.abs(z) > wid * 0.22 ? 1 : 0);
   }
-  return { p, tag };
+  return { p, tag, nrm };
 }
 
 /** Deterministic PRNG so the simulated returns look the same on every visit. */
@@ -70,7 +71,10 @@ function mulberry(seed: number) {
   return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
-// pose texture: row 0 = (x, z, heading, state 1–7: car, truck, hot, partner, hover, selected, pedestrian), row 1 = (fade 0–1, brake 0–1, –, –)
+// pose texture: row 0 = (x, z, heading, state 1–7: car, truck, hot, partner, hover, selected, pedestrian), row 1 = (fade 0–1, brake 0–1, occluded share 0–1, –)
+// A return exists only where the sensor can see the surface: the face must point toward the sensor, the ray must not be
+// blocked by a nearer road user (occluded share, computed on the CPU), and density falls with range as a spinning
+// LiDAR's angular resolution spreads over distance.
 const CLOUD_VS = /* glsl */ `
 uniform sampler2D uPose;
 uniform float uSize;
@@ -79,22 +83,32 @@ uniform float uOrthoPx;
 uniform float uMaxPx;
 uniform vec3 uCol[7];
 uniform vec3 uBrake;
+uniform vec3 uSensor;
+uniform float uRange;
 attribute float slot;
 attribute float rnd;
 attribute float tag;
+attribute vec3 nrm;
 varying vec3 vCol;
 void main() {
   vec4 p = texelFetch(uPose, ivec2(int(slot), 0), 0);
   vec4 q = texelFetch(uPose, ivec2(int(slot), 1), 0);
-  // fade in/out where a track starts or ends: returns appear as the tracker acquires the target
-  if (p.w < 0.5 || rnd > q.x) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vCol = vec3(0.0); return; }
   float c = cos(p.z), s = sin(p.z);
   vec3 wp = vec3(p.x + position.x * c + position.z * s, position.y, p.y - position.x * s + position.z * c);
+  vec3 wn = vec3(nrm.x * c + nrm.z * s, nrm.y, -nrm.x * s + nrm.z * c);
+  vec3 toS = uSensor - wp;
+  float d = length(toS);
+  float facing = dot(wn, toS / max(d, 0.001));
+  // keep: visible face, not occluded, inside the range-dependent density, inside the track's fade
+  float keep = q.x * (1.0 - 0.92 * q.z) * clamp(28.0 / max(d, 1.0), 0.18, 1.0);
+  if (p.w < 0.5 || facing < 0.08 || rnd > keep) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vCol = vec3(0.0); return; }
   vec4 mv = modelViewMatrix * vec4(wp, 1.0);
   float k = p.w > 4.5 ? 1.3 : 1.0;
   bool persp = projectionMatrix[2][3] == -1.0;
   gl_PointSize = clamp(persp ? uSize * k * uScale / -mv.z : uSize * k * uOrthoPx, 1.2, uMaxPx * k);
-  vCol = mix(uCol[int(p.w + 0.5) - 1], uBrake, tag * q.y);
+  // intensity: grazing incidence and range return weaker; retro-reflective lamp bands stay bright
+  float inten = mix(0.55, 1.0, facing) * mix(1.0, 0.6, clamp(d / uRange, 0.0, 1.0));
+  vCol = mix(uCol[int(p.w + 0.5) - 1] * inten, uBrake, tag * q.y);
   if (tag * q.y > 0.05) gl_PointSize *= 1.35;
   gl_Position = projectionMatrix * mv;
 }`;
@@ -165,12 +179,22 @@ export function createEngine(o: EngineOpts): Engine {
   labels.domElement.className = 'lidar-labels';
   el.insertBefore(labels.domElement, cvs.nextSibling);
 
-  const bg = C(pal.ground);
+  const bg = C(pal.horizon);
   const scene = new THREE.Scene();
   scene.background = bg;
-  scene.fog = new THREE.Fog(bg, 150, 330);
-  scene.add(new THREE.HemisphereLight(0xffffff, bg, pal.dark ? 1.5 : 1.9));
-  const sun = new THREE.DirectionalLight(0xffffff, pal.dark ? 1.5 : 1.2); sun.position.set(-30, 60, 20); scene.add(sun);
+  const FOG: [number, number] = pal.dark ? [120, 420] : [150, 480];
+  scene.fog = new THREE.Fog(bg, FOG[0], FOG[1]);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = pal.exposure;
+  // daylight (light theme) casts real shadows from one sun; night (dark theme) is lit by a moon, street lamps and headlights
+  const daylight = !pal.dark;
+  renderer.shadowMap.enabled = daylight;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  scene.add(new THREE.HemisphereLight(pal.sky, pal.lot, pal.dark ? 1.1 : 1.35));
+  const sun = new THREE.DirectionalLight(pal.dark ? '#c3cfdc' : '#fff4e0', pal.dark ? 0.9 : 2.2);
+  sun.position.set(-55, 95, 45); scene.add(sun);
+  if (pal.dark) { const key = new THREE.DirectionalLight(pal.lamp, 0.35); key.position.set(50, 30, -20); scene.add(key); }
 
   // World mapping: data (x across, y along corridor) → three (X = x, Z = −y), Y up.
   const W = (x: number, y: number, h = 0) => new THREE.Vector3(x, h, -y);
@@ -181,50 +205,73 @@ export function createEngine(o: EngineOpts): Engine {
   const ids = data.tracks.map((t) => String(t.id));
   const N = data.tracks.length;
   const win: [number, number] = [0, data.window_s];
+  if (daylight) {
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    const sc = sun.shadow.camera as THREE.OrthographicCamera;
+    const R = Math.max(bx1 - bx0, by1 - by0) / 2 + 45;
+    sc.left = -R; sc.right = R; sc.top = R; sc.bottom = -R; sc.near = 10; sc.far = 320;
+    sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.04;
+    sun.target.position.copy(mid); scene.add(sun.target);
+  }
+  const flat = (geo: THREE.BufferGeometry) => { geo.rotateX(-Math.PI / 2); return geo; };
 
-  /* ----- ground grid: 50 ft, heavier every 250 ft ----- */
+  /* ----- ground: lot beyond the kerbs, with the 50 ft survey grid kept as an instrument overlay (FOV layer) ----- */
+  const ground = new THREE.Mesh(flat(new THREE.PlaneGeometry(1600, 1600)), new THREE.MeshLambertMaterial({ color: '#ffffff', map: grainTexture(pal.lot, 14, 14) }));
+  ground.position.set(mid.x, -0.02, mid.z); ground.receiveShadow = daylight; scene.add(ground);
+  const grid = new THREE.Group();
   {
     const g = 50 / FT, R = 260, minor: number[] = [], major: number[] = [];
     const k0 = Math.floor((mid.x - R) / g), k1 = Math.ceil((mid.x + R) / g), j0 = Math.floor((-mid.z - R) / g), j1 = Math.ceil((-mid.z + R) / g);
-    for (let k = k0; k <= k1; k++) (k % 5 ? minor : major).push(k * g, -0.03, -(-mid.z - R), k * g, -0.03, -(-mid.z + R));
-    for (let j = j0; j <= j1; j++) (j % 5 ? minor : major).push(mid.x - R, -0.03, -j * g, mid.x + R, -0.03, -j * g);
+    for (let k = k0; k <= k1; k++) (k % 5 ? minor : major).push(k * g, 0.02, -(-mid.z - R), k * g, 0.02, -(-mid.z + R));
+    for (let j = j0; j <= j1; j++) (j % 5 ? minor : major).push(mid.x - R, 0.02, -j * g, mid.x + R, 0.02, -j * g);
     for (const [arr, col] of [[minor, pal.grid], [major, pal.gridMajor]] as [number[], string][]) {
       const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
-      scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: col })));
+      grid.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.6 })));
+    }
+  }
+  scene.add(grid);
+
+  /* ----- street derived from the data: carriageway, cross street from the EB/WB tracks, MUTCD markings, stop bars, kerbs ----- */
+  const road = roadGeometry(data);
+  const FAR = { s: by0 - 300, n: by1 + 300, w: bx0 - 300, e: bx1 + 300 };
+  const street = buildStreet(road, data.bbox as [[number, number], [number, number]], {
+    far: FAR, crosswalks: !data.crosswalks?.length, crosswalkPolygons: data.crosswalks?.map((c) => c.polygon as [number, number][]), lineScale: 1.5, markH: 0.014, kerbHeight: 0.15,
+    colours: { lane: pal.lane, edge: pal.edge, centre: pal.centre, stop: pal.stop, crosswalk: pal.lane },
+  });
+  if (street.asphalt) {
+    const m = new THREE.Mesh(planarUv(street.asphalt), new THREE.MeshLambertMaterial({ color: '#ffffff', map: grainTexture(pal.asphalt, 9) }));
+    m.receiveShadow = daylight; scene.add(m);
+  }
+  { const m = new THREE.Mesh(street.markings, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })); m.receiveShadow = daylight; scene.add(m); }
+  if (street.sidewalks) { const m = new THREE.Mesh(street.sidewalks, new THREE.MeshLambertMaterial({ color: '#ffffff', map: grainTexture(pal.walk, 6, 18) })); planarUv(street.sidewalks); m.receiveShadow = daylight; m.castShadow = daylight; scene.add(m); }
+
+  /* ----- stylised context: low-rise massing and street lights (declared in the Info; not surveyed) ----- */
+  const massingMeshObj = massingMesh(massing(street.ext, FAR, 1016), { building: pal.building, roof: pal.roof, window: pal.window, windowAmt: pal.windowAmt });
+  massingMeshObj.castShadow = daylight; massingMeshObj.receiveShadow = daylight; scene.add(massingMeshObj);
+  const lampSpots = streetLightSpots(street.ext, road.crossBand, FAR);
+  const lampPoses = lampSpots.map(streetLightPose);
+  {
+    const poles = new THREE.InstancedMesh(streetLightGeometry(), new THREE.MeshLambertMaterial({ color: pal.pole }), lampSpots.length);
+    const m = new THREE.Matrix4(), qq = new THREE.Quaternion(), upv = new THREE.Vector3(0, 1, 0);
+    lampPoses.forEach((lp, i) => { qq.setFromAxisAngle(upv, lp.yaw); m.compose(lp.base, qq, new THREE.Vector3(1, 1, 1)); poles.setMatrixAt(i, m); });
+    poles.castShadow = daylight; scene.add(poles);
+    if (pal.dark) {
+      const pools = new THREE.InstancedMesh(flat(new THREE.PlaneGeometry(1, 1)), new THREE.MeshBasicMaterial({
+        map: radialTexture([[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(255,255,255,0.45)'], [1, 'rgba(255,255,255,0)']]),
+        color: C(pal.lamp).multiplyScalar(0.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+      }), lampSpots.length);
+      lampPoses.forEach((lp, i) => { m.compose(new THREE.Vector3(lp.head.x, 0.03, lp.head.z), new THREE.Quaternion(), new THREE.Vector3(20, 1, 20)); pools.setMatrixAt(i, m); });
+      pools.renderOrder = 2; scene.add(pools);
     }
   }
 
-  /* ----- street derived from the data: carriageway, cross street from the EB/WB tracks, MUTCD markings, stop bars ----- */
-  const road = roadGeometry(data);
-  const flat = (geo: THREE.BufferGeometry) => { geo.rotateX(-Math.PI / 2); return geo; };
-  const FADE = 30;
-  const street = buildStreet(road, data.bbox as [[number, number], [number, number]], {
-    far: { s: by0 - FADE, n: by1 + FADE, w: bx0 - FADE - 10, e: bx1 + FADE + 10 }, crosswalks: false, lineScale: 1.5, markH: 0.014,
-    colours: { lane: pal.lane, edge: pal.edge, centre: pal.centre, stop: pal.stop, crosswalk: pal.stop },
-  });
-  {
-    // beyond the observed corridor the pavement fades into the ground (outside the study area): vertex alpha by distance from the bbox
-    const g = street.asphalt;
-    if (g) {
-      const pos = g.attributes.position, n = pos.count, col = new Float32Array(n * 3), a = C(pal.asphalt), gnd = C(pal.ground), tmpc = new THREE.Color();
-      for (let i = 0; i < n; i++) {
-        const x = pos.getX(i), y = -pos.getZ(i);
-        const d = Math.max(bx0 - x, x - bx1, by0 - y, y - by1, 0);
-        tmpc.copy(a).lerp(gnd, Math.min(1, d / FADE));
-        col[i * 3] = tmpc.r; col[i * 3 + 1] = tmpc.g; col[i * 3 + 2] = tmpc.b;
-      }
-      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-      scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true })));
-    }
-    scene.add(new THREE.LineSegments(street.kerbs, new THREE.LineBasicMaterial({ color: pal.kerb })));
-    scene.add(new THREE.Mesh(street.markings, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-  }
   /* ----- signal heads on mast arms; phase inferred from flow (components/world/signals.ts) ----- */
   const nbBar = road.stops.find((s) => s.dir === 'NB'), sbBar = road.stops.find((s) => s.dir === 'SB');
   const plan = inferSignals(data.tracks, { nbBar: nbBar?.a[1] ?? null, sbBar: sbBar?.a[1] ?? null, xMid: street.ext.xMid }, data.window_s, data.hz);
   const sig = buildSignals(road, street);
-  if (sig.structure) scene.add(new THREE.Mesh(sig.structure, new THREE.MeshLambertMaterial({ color: pal.ink3 })));
-  const sigLamps = new THREE.InstancedMesh(new THREE.CircleGeometry(0.13, 16), new THREE.MeshBasicMaterial({ color: 0xffffff }), Math.max(1, sig.lampCount));
+  if (sig.structure) { const m = new THREE.Mesh(sig.structure, new THREE.MeshLambertMaterial({ color: pal.housing })); m.castShadow = daylight; scene.add(m); }
+  const sigLamps = new THREE.InstancedMesh(new THREE.CircleGeometry(0.13, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), Math.max(1, sig.lampCount));
   {
     const m = new THREE.Matrix4(), qq = new THREE.Quaternion();
     let k = 0;
@@ -232,8 +279,14 @@ export function createEngine(o: EngineOpts): Engine {
     sigLamps.count = k;
     scene.add(sigLamps);
   }
-  const SIG = [C(pal.critical), C(pal.caution), C(pal.dark ? '#2ee6a0' : '#0fa36a')], SIG_OFF = C(pal.dark ? '#1b1d1c' : '#5a5c59');
+  const SIG = [C(pal.dark ? '#ff3a26' : '#e5261a'), C(pal.dark ? '#ffb21e' : '#e89a00'), C(pal.dark ? '#2ee6a0' : '#0fa36a')], SIG_OFF = C(pal.dark ? '#1b1d1c' : '#5a5c59');
   const lastLamp: Record<Group, Lamp | -1> = { ns: -1, ew: -1 };
+
+  /* ----- glows: street lamps (static), signal lamps, vehicle lamps ----- */
+  const GLOW_LAMPS = lampSpots.length, GLOW_SIG = sig.heads.length, GLOW_VEH = N * 4;
+  const glows = createGlows(GLOW_LAMPS + GLOW_SIG + GLOW_VEH, FOG, pal.dark);
+  scene.add(glows.points);
+  { const lc = C(pal.lamp); lampPoses.forEach((lp, i) => glows.set(i, lp.head, lc, pal.dark ? 2.6 : 1.2, pal.dark ? 1 : 0.35)); }
   const quality = o.quality ?? trackQuality(data.tracks, data.hz);
 
   /* ----- simulated ground returns: rings of the sensor's down-looking channels (cloud layer) ----- */
@@ -260,10 +313,12 @@ export function createEngine(o: EngineOpts): Engine {
   scene.add(groundPts);
 
   /* ----- sensor pole, head and FOV ----- */
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, SENSOR.z, 8), new THREE.MeshLambertMaterial({ color: pal.ink3 }));
-  pole.position.set(SENSOR.x, SENSOR.z / 2, -SENSOR.y); scene.add(pole);
-  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.4, 16), new THREE.MeshLambertMaterial({ color: pal.ink2 }));
-  head.position.set(SENSOR.x, SENSOR.z + 0.2, -SENSOR.y); scene.add(head);
+  {
+    const unit = lidarUnitGeometry(SENSOR.z);
+    const pole = new THREE.Mesh(unit.structure, new THREE.MeshLambertMaterial({ color: pal.pole }));
+    const puck = new THREE.Mesh(unit.puck, new THREE.MeshPhongMaterial({ color: pal.dark ? '#2a2d2b' : '#3a3d3b', shininess: 80, specular: C('#9aa0a3') }));
+    for (const m of [pole, puck]) { m.position.set(SENSOR.x, 0, -SENSOR.y); m.castShadow = daylight; scene.add(m); }
+  }
   const fov = new THREE.Group();
   const cone = new THREE.Mesh(new THREE.ConeGeometry(SENSOR.range, SENSOR.z, 96, 1, true),
     new THREE.MeshBasicMaterial({ color: pal.accent, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false }));
@@ -284,21 +339,22 @@ export function createEngine(o: EngineOpts): Engine {
   const poseTex = new THREE.DataTexture(poseArr, N, 2, THREE.RGBAFormat, THREE.FloatType);
   poseTex.needsUpdate = true;
   const rand = mulberry(20251017);
-  const cp: number[] = [], cs: number[] = [], cr: number[] = [], ct: number[] = [];
+  const cp: number[] = [], cs: number[] = [], cr: number[] = [], ct: number[] = [], cn: number[] = [];
   data.tracks.forEach((tr, i) => {
-    const { p, tag } = isPedestrian(tr) ? pedestrianCloud(heightOf(tr.cls), 90, rand) : vehicleCloud(tr.len_m, tr.w_m, heightOf(tr.cls), tr.cls === 'truck' || tr.cls === 'bus' ? 1300 : 520, rand);
-    cp.push(...p); ct.push(...tag);
+    const { p, tag, nrm } = isPedestrian(tr) ? pedestrianCloud(heightOf(tr.cls), 160, rand) : vehicleCloud(tr.len_m, tr.w_m, heightOf(tr.cls), tr.cls === 'truck' || tr.cls === 'bus' ? 2200 : 900, rand);
+    cp.push(...p); ct.push(...tag); cn.push(...nrm);
     for (let k = 0; k < p.length / 3; k++) { cs.push(i); cr.push(rand() * 0.999); }
   });
   const cloudGeo = new THREE.BufferGeometry();
   cloudGeo.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3));
+  cloudGeo.setAttribute('nrm', new THREE.Float32BufferAttribute(cn, 3));
   cloudGeo.setAttribute('slot', new THREE.Float32BufferAttribute(cs, 1));
   cloudGeo.setAttribute('rnd', new THREE.Float32BufferAttribute(cr, 1));
   cloudGeo.setAttribute('tag', new THREE.Float32BufferAttribute(ct, 1));
   const cols = [pal.car, pal.truck, pal.hot, pal.partner, pal.hov, pal.sel, pal.ped].map(C);
   const cloudMat = new THREE.ShaderMaterial({
     vertexShader: CLOUD_VS, fragmentShader: CLOUD_FS, fog: false,
-    uniforms: { uPose: { value: poseTex }, uSize: { value: 0.24 }, uScale: { value: 300 }, uOrthoPx: { value: 4 }, uMaxPx: { value: 3.4 * Math.min(2, devicePixelRatio) }, uCol: { value: cols }, uBrake: { value: C(pal.brake) } },
+    uniforms: { uPose: { value: poseTex }, uSize: { value: 0.24 }, uScale: { value: 300 }, uOrthoPx: { value: 4 }, uMaxPx: { value: 3.4 * Math.min(2, devicePixelRatio) }, uCol: { value: cols }, uBrake: { value: C(pal.brake) }, uSensor: { value: sensorWorld }, uRange: { value: SENSOR.range } },
   });
   const cloud = new THREE.Points(cloudGeo, cloudMat);
   cloud.frustumCulled = false;
@@ -330,8 +386,32 @@ export function createEngine(o: EngineOpts): Engine {
       fade, wheelX: vg.wheelX,
     };
     cm.body.setColorAt(0, cols[0]); cm.tail.setColorAt(0, C(pal.lampOff));
+    cm.body.castShadow = daylight; cm.glass.castShadow = daylight;
     classMeshes.set(k, cm);
   }
+  // pedestrians: two legs per person swing with the travelled distance (stride 1.3 m)
+  const pedIdx = data.tracks.map((tr, i) => (isPedestrian(tr) ? i : -1)).filter((i) => i >= 0);
+  const legSlot = new Int32Array(N).fill(-1); pedIdx.forEach((i, k) => { legSlot[i] = k; });
+  const legFade = new THREE.InstancedBufferAttribute(new Float32Array(Math.max(1, pedIdx.length * 2)).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
+  const legGeo = new THREE.CapsuleGeometry(0.075, 0.62, 2, 8).translate(0, -0.31, 0); legGeo.setAttribute('aFade', legFade);
+  const legs = mkInst(legGeo, withFade(new THREE.MeshLambertMaterial({ color: pal.dark ? '#5f6a70' : '#3b4a52' })), Math.max(1, pedIdx.length * 2));
+  legs.castShadow = daylight; if (!pedIdx.length) legs.count = 0;
+  // turn indicators: inferred from the recorded turning movement (left/right), blinking at 1.5 Hz until the turn is done
+  const indGeo = (side: 1 | -1) => mergeGeometries([new THREE.BoxGeometry(0.03, 0.08, 0.14).translate(0.5, 0.7, side * 0.44), new THREE.BoxGeometry(0.03, 0.08, 0.14).translate(-0.5, 0.78, side * 0.44)].map((g) => g.toNonIndexed()))!;
+  const indFade = new THREE.InstancedBufferAttribute(new Float32Array(N).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
+  const indL = indGeo(-1), indR = indGeo(1); indL.setAttribute('aFade', indFade); indR.setAttribute('aFade', indFade);
+  const indicators = { L: mkInst(indL, withFade(new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false })), N), R: mkInst(indR, withFade(new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false })), N) };
+  const cAmber = C('#ffb21e'), cIndOff = C(pal.dark ? '#3a2a12' : '#8a7a5a');
+  const turnEnd = data.tracks.map((tr) => {
+    if (tr.move !== 'left' && tr.move !== 'right' || tr.pts.length < 4) return -1;
+    const k0 = kinAt(tr, tr.pts[0][0], data.hz); if (!k0) return -1;
+    for (const pt of tr.pts) { const kk = kinAt(tr, pt[0], data.hz); if (kk && Math.abs(Math.atan2(Math.sin(kk.h - k0.h), Math.cos(kk.h - k0.h))) > 0.9) return pt[0] + 0.8; }
+    return tr.pts[tr.pts.length - 1][0];
+  });
+  // headlight throw on the road at night
+  const beams = pal.dark ? mkInst(flat(new THREE.PlaneGeometry(1, 1)).translate(0.5, 0, 0), new THREE.MeshBasicMaterial({ map: beamTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), N) : null;
+  if (beams) { beams.renderOrder = 2; beams.setColorAt(0, C('#000000')); }
+  const cBeam = C(pal.head).multiplyScalar(0.3), cHeadGlow = C(pal.head), cTailGlow = C(pal.tail);
   const wheelFade = new THREE.InstancedBufferAttribute(new Float32Array(N * 4).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
   const wheelGeo = wheelGeometry(); wheelGeo.setAttribute('aFade', wheelFade);
   const wheels = mkInst(wheelGeo, withFade(new THREE.MeshLambertMaterial({ vertexColors: true })), N * 4);
@@ -460,6 +540,7 @@ export function createEngine(o: EngineOpts): Engine {
     renderer.setSize(W0, H0, false); labels.setSize(W0, H0);
     persp.aspect = W0 / H0; persp.updateProjectionMatrix(); fitOrtho();
     cloudMat.uniforms.uScale.value = (H0 * renderer.getPixelRatio()) / 2;
+    glows.fit(H0, persp.fov, renderer.getPixelRatio());
     dirty = true;
   };
   const ro = new ResizeObserver(resize); ro.observe(el);
@@ -479,17 +560,43 @@ export function createEngine(o: EngineOpts): Engine {
   const applyLayers = () => {
     groundPts.visible = layers.cloud;
     cloud.visible = layers.cloud; for (const im of vehicleParts) im.visible = !layers.cloud;
+    shadows.visible = !layers.cloud && !daylight; // blob shadows only where there is no shadow map
     trails.visible = layers.trails; proj.visible = layers.projection;
-    zones.visible = layers.zones; fov.visible = layers.fov;
+    zones.visible = layers.zones; fov.visible = layers.fov; grid.visible = layers.fov;
+    if (beams) beams.visible = !layers.cloud;
+    legs.visible = indicators.L.visible = indicators.R.visible = !layers.cloud;
     dirty = true;
   };
 
+  const fpNow: (Footprint & { i: number; d: number })[] = [];
+  const occl = new Float32Array(N);
+  /** Line of sight from the sensor: nearer road users hide farther ones (share of three rays blocked). */
+  const occlusionPass = () => {
+    fpNow.sort((a, b) => a.d - b.d);
+    occl.fill(0);
+    for (let j = 0; j < fpNow.length; j++) {
+      const f = fpNow[j];
+      occl[f.i] = occludedShare(SENSOR.x, SENSOR.y, f, fpNow.slice(0, j).filter((g) => g.d < f.d - 0.5));
+    }
+  };
   const update = (t: number) => {
     tNow = t;
     const act = activeAt(conflicts, t);
     const hot = new Set(act.flatMap((k) => [String(k.a), String(k.b)]));
     posOf.clear(); kinOf.clear();
     let nb = 0;
+    // occlusion of the simulated returns: footprints of everything in range at t (data frame, body centres)
+    fpNow.length = 0;
+    for (let i = 0; i < N; i++) {
+      const tr = data.tracks[i];
+      const k = renderPose(tr, t, data.hz, win);
+      if (!k) continue;
+      const [cx, cy] = bodyCentre(k.x, k.y, k.h, bodyLength(tr));
+      const d = Math.hypot(cx - SENSOR.x, cy - SENSOR.y);
+      if (d < SENSOR.range) fpNow.push({ i, d, x: cx, y: cy, h: k.h, len: bodyLength(tr), w: tr.w_m });
+    }
+    occlusionPass();
+    const blinkOn = (t % 0.667) < 0.333;
     for (let i = 0; i < N; i++) {
       const tr = data.tracks[i], id = ids[i];
       const k = renderPose(tr, t, data.hz, win);
@@ -503,6 +610,8 @@ export function createEngine(o: EngineOpts): Engine {
         for (const m of [pick, shadows]) m.setMatrixAt(i, zero);
         for (const m of [cm.body, cm.glass, cm.head, cm.tail]) m.setMatrixAt(slot, zero);
         for (let w = 0; w < 4; w++) wheels.setMatrixAt(i * 4 + w, zero);
+        indicators.L.setMatrixAt(i, zero); indicators.R.setMatrixAt(i, zero); beams?.setMatrixAt(i, zero);
+        if (legSlot[i] >= 0) { legs.setMatrixAt(legSlot[i] * 2, zero); legs.setMatrixAt(legSlot[i] * 2 + 1, zero); }
         const tg = tags.get(id); if (tg) tg.visible = false;
         continue;
       }
@@ -512,7 +621,7 @@ export function createEngine(o: EngineOpts): Engine {
       const ped = kinds[i] === 'ped';
       const state = isSel ? 6 : isHov ? 5 : isPartner ? 4 : hot.has(id) ? 3 : ped ? 7 : tr.cls === 'truck' || tr.cls === 'bus' ? 2 : 1;
       poseArr[i * 4] = pos.x; poseArr[i * 4 + 1] = pos.z; poseArr[i * 4 + 2] = k.h; poseArr[i * 4 + 3] = state;
-      poseArr[N * 4 + i * 4] = k.fade; poseArr[N * 4 + i * 4 + 1] = k.brake;
+      poseArr[N * 4 + i * 4] = k.fade; poseArr[N * 4 + i * 4 + 1] = k.brake; poseArr[N * 4 + i * 4 + 2] = occl[i];
       const h = heightOf(tr.cls);
       q.setFromAxisAngle(up, k.h);
       m4.compose(sc.set(pos.x, 0, pos.z), q, ped ? v3.set(1, 1, 1) : v3.set(tr.len_m, 1, tr.w_m));
@@ -520,8 +629,32 @@ export function createEngine(o: EngineOpts): Engine {
       cm.fade.setX(slot, k.fade);
       cm.body.setColorAt(slot, cols[state - 1]);
       cm.tail.setColorAt(slot, lampC.copy(lampOff).lerp(lampOn, k.brake));
-      if (ped) { for (let w = 0; w < 4; w++) wheels.setMatrixAt(i * 4 + w, zero); }
-      else if (!layers.cloud) {
+      if (ped) {
+        for (let w = 0; w < 4; w++) wheels.setMatrixAt(i * 4 + w, zero);
+        indicators.L.setMatrixAt(i, zero); indicators.R.setMatrixAt(i, zero); beams?.setMatrixAt(i, zero);
+        if (!layers.cloud && legSlot[i] >= 0) {
+          // legs swing about the hip with the stride; still legs when standing
+          const sw = k.v > 0.3 ? Math.sin((distanceAt(tr, cums[i], t, data.hz) / 1.3) * Math.PI * 2) * 0.55 : 0;
+          fwdV.set(Math.cos(k.h), 0, -Math.sin(k.h)); sideV.set(Math.sin(k.h), 0, Math.cos(k.h));
+          for (let l = 0; l < 2; l++) {
+            wp.copy(pos).addScaledVector(sideV, l ? 0.1 : -0.1).setY(0.86);
+            wq.setFromAxisAngle(sideV, (l ? -sw : sw)); wq.multiplyQuaternions(wq, q);
+            m4.compose(wp, wq, v3.set(1, 1, 1));
+            legs.setMatrixAt(legSlot[i] * 2 + l, m4); legFade.setX(legSlot[i] * 2 + l, k.fade);
+          }
+        }
+      } else if (!layers.cloud) {
+        // indicators (inferred from the turning movement) and night headlight throw
+        const turning = turnEnd[i] > 0 && t <= turnEnd[i];
+        const left = tr.move === 'left';
+        indicators.L.setMatrixAt(i, m4); indicators.R.setMatrixAt(i, m4); indFade.setX(i, k.fade);
+        indicators.L.setColorAt(i, turning && left && blinkOn ? cAmber : cIndOff);
+        indicators.R.setColorAt(i, turning && !left && blinkOn ? cAmber : cIndOff);
+        if (beams) {
+          fwdV.set(Math.cos(k.h), 0, -Math.sin(k.h));
+          m4.compose(wp.copy(pos).addScaledVector(fwdV, bodyLength(tr) / 2 - 0.2).setY(0.02), q, v3.set(15, 1, 7.5)); beams.setMatrixAt(i, m4);
+          beams.setColorAt(i, lampC.copy(cBeam).multiplyScalar(k.fade * Math.min(1, 0.35 + k.v / 6)));
+        }
         // wheels roll with the travelled distance; the front pair steers with the yaw rate (bicycle model)
         fwdV.set(Math.cos(k.h), 0, -Math.sin(k.h)); sideV.set(Math.sin(k.h), 0, Math.cos(k.h));
         const spin = distanceAt(tr, cums[i], t, data.hz) / WHEEL.r;
@@ -553,8 +686,26 @@ export function createEngine(o: EngineOpts): Engine {
       } else { const tg = tags.get(id); if (tg) tg.visible = false; }
     }
     for (let i = nb; i < MAX_BOXES; i++) boxes[i].visible = false;
+    // vehicle lamp glows (bodies on): head lamps, tail lamps brighter on braking
+    for (let i = 0; i < N; i++) {
+      const base = GLOW_LAMPS + GLOW_SIG + i * 4;
+      const k = kinOf.get(ids[i]), pos = posOf.get(ids[i]);
+      if (!k || !pos || layers.cloud || kinds[i] === 'ped') { for (let g = 0; g < 4; g++) glows.hide(base + g); continue; }
+      const tr = data.tracks[i], L = bodyLength(tr);
+      fwdV.set(Math.cos(k.h), 0, -Math.sin(k.h)); sideV.set(Math.sin(k.h), 0, Math.cos(k.h));
+      const hy = tr.cls === 'truck' || tr.cls === 'bus' ? 1.0 : 0.76, hw = tr.w_m / 2 - 0.3, br = k.brake;
+      const front = wp.copy(pos).addScaledVector(fwdV, L / 2 + 0.05).setY(hy).clone(), back = wp.copy(pos).addScaledVector(fwdV, -L / 2 - 0.05).setY(hy + 0.06).clone();
+      const hs = pal.dark ? 2.3 : 0.9, ha = (pal.dark ? 0.85 : 0.3) * k.fade;
+      glows.set(base, front.clone().addScaledVector(sideV, hw), cHeadGlow, hs, ha);
+      glows.set(base + 1, front.clone().addScaledVector(sideV, -hw), cHeadGlow, hs, ha);
+      const ts = (pal.dark ? 1.0 : 0.6) + 1.5 * br, ta = ((pal.dark ? 0.42 : 0.2) + 0.58 * br) * k.fade;
+      glows.set(base + 2, back.clone().addScaledVector(sideV, hw), cTailGlow, ts, ta);
+      glows.set(base + 3, back.clone().addScaledVector(sideV, -hw), cTailGlow, ts, ta);
+    }
+    glows.commit();
     poseTex.needsUpdate = true;
-    for (const m of [pick, shadows, wheels]) m.instanceMatrix.needsUpdate = true;
+    for (const m of [pick, shadows, wheels, legs, indicators.L, indicators.R, ...(beams ? [beams] : [])]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
+    legFade.needsUpdate = true; indFade.needsUpdate = true;
     for (const cm of classMeshes.values()) { for (const m of [cm.body, cm.glass, cm.head, cm.tail]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; } cm.fade.needsUpdate = true; }
     wheelFade.needsUpdate = true;
     pick.boundingSphere = null; pick.boundingBox = null;
@@ -566,6 +717,7 @@ export function createEngine(o: EngineOpts): Engine {
       for (const hd of sig.heads) { const on = lamps[hd.g]; [0, 1, 2].forEach((slot2) => { const li = (2 - slot2) as Lamp; sigLamps.setColorAt(kk++, li === on ? SIG[li] : SIG_OFF); }); }
       if (sigLamps.instanceColor) sigLamps.instanceColor.needsUpdate = true;
       lastLamp.ns = lamps.ns; lastLamp.ew = lamps.ew;
+      sig.heads.forEach((hd, j) => { const on = lamps[hd.g]; glows.set(GLOW_LAMPS + j, hd.lamps[2 - on], SIG[on], pal.dark ? 3.2 : 1.6, pal.dark ? 1 : 0.6); });
     }
 
     // trails: 3 s for every road user in view (faint), selected and partners in colour; ends at the drawn pose

@@ -25,11 +25,11 @@ export const PRESETS: { id: PresetId; name: string }[] = [
   { id: 'sensor', name: 'Sensor POV' },
 ];
 const LAYERS: { id: keyof Layers; name: string; tip: string }[] = [
-  { id: 'cloud', name: 'Point cloud', tip: 'Simulated LiDAR returns; off shows vehicle bodies' },
+  { id: 'cloud', name: 'Point cloud', tip: 'Simulated LiDAR returns: only faces the sensor can see, thinned with range and hidden behind nearer road users; off shows bodies with wheels, brake lamps and turn indicators inferred from the recorded turning movement' },
   { id: 'trails', name: 'Trails', tip: 'Last 3 s of every vehicle; selected in colour' },
   { id: 'projection', name: 'Projection', tip: '2 s constant-acceleration projection of the selected vehicles: a kinematic extrapolation, not a prediction model' },
   { id: 'zones', name: 'Conflict zones', tip: 'Location of every screened conflict, coloured by severity; brighter while active' },
-  { id: 'fov', name: 'Sensor FOV', tip: `Assumed sensor model: ${SENSOR.vMin}° to +${SENSOR.vMax}° vertical, ${SENSOR.range} m range, ${(BLIND_R * 3.281).toFixed(0)} ft blind radius under the pole` },
+  { id: 'fov', name: 'Survey grid and sensor FOV', tip: `Assumed sensor model: ${SENSOR.vMin}° to +${SENSOR.vMax}° vertical, ${SENSOR.range} m range, ${(BLIND_R * 3.281).toFixed(0)} ft blind radius under the pole` },
 ];
 
 /** Roadside-LiDAR 3D lab, or the plan view with an explanation where WebGL2 is unavailable. */
@@ -120,7 +120,7 @@ function Lidar3D({ data, conflicts, label }: Props) {
     return () => window.removeEventListener('keydown', key);
   }, []);
 
-  const PT = { car: CHART.sb, truck: CHART.eb, hot: CHART.critical, sel: CHART.accent, partner: CHART.caution };
+  const PT = { car: CHART.sb, truck: CHART.eb, hot: CHART.critical, sel: CHART.accent, partner: CHART.caution, ped: labPalette(theme).ped };
   if (glError) {
     return (
       <div className="lidar lidar-fallback">
@@ -182,7 +182,9 @@ function Lidar3D({ data, conflicts, label }: Props) {
               <span><i style={{ background: PT.hot }} />in conflict now</span>
               <span><i style={{ background: PT.sel }} />selected</span>
               <span><i style={{ background: PT.partner }} />partner</span>
+              <span><i style={{ background: PT.ped }} />pedestrian</span>
               <span><i className="bar" />stop bar</span>
+              <span className="lidar-legend-note">Street, lanes, stop bars and signal phase derived from the tracks; buildings, street lights and (NGSIM) crosswalks stylised</span>
             </div>
           </>
         )}

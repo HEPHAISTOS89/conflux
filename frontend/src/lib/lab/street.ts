@@ -22,13 +22,17 @@ export interface StreetOpts {
   markH?: number;
   /** Line width multiplier for the markings (1 = MUTCD 4 in; a touch wider reads better from a distance). */
   lineScale?: number;
+  /** Raise the sidewalks by this much with a vertical kerb face (0 = flat strips). */
+  kerbHeight?: number;
+  /** Surveyed crosswalk polygons (site feeds): drawn as continental ladders clipped to the polygon. */
+  crosswalkPolygons?: XY[][];
 }
 export interface Street {
   asphalt: THREE.BufferGeometry | null;
   /** Vertex-coloured triangles: lane lines, edges, centre lines, stop bars, crosswalks. */
   markings: THREE.BufferGeometry;
   kerbs: THREE.BufferGeometry;
-  /** 3 m concrete strips outside every kerb (stylised context). */
+  /** 3 m concrete strips outside every kerb (stylised context), raised by `kerbHeight` with a kerb face. */
   sidewalks: THREE.BufferGeometry | null;
   /** Lateral extent of the corridor pavement at the box, and the cross street's edge y at the corridor centre. */
   ext: { xWest: number; xEast: number; ySouth: number; yNorth: number; xMid: number; yMid: number };
@@ -88,6 +92,11 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
   const mp: number[] = [], mc: number[] = [];
   const H = o.markH ?? 0.012, w = MUTCD.line * (o.lineScale ?? 1.5);
   const add = (tri: number[], hex: string, h = H) => { const c = new THREE.Color(hex); for (let i = 0; i < tri.length; i += 2) { mp.push(tri[i], h, -tri[i + 1]); mc.push(c.r, c.g, c.b); } };
+  const addPolygon = (poly: XY[], hex: string, h: number) => {
+    const tri: number[] = [];
+    for (let i = 1; i + 1 < poly.length; i++) tri.push(...poly[0], ...poly[i], ...poly[i + 1]);
+    add(tri, hex, h);
+  };
   const draw = (kind: string, pts: XY[]) => {
     if (pts.length < 2) return;
     if (kind === 'lane') for (const d of dashes(pts)) add(ribbon(d, w), o.colours.lane);
@@ -121,6 +130,26 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
       draw('centre', [[xa, yCm], [xb, yCm]]);
       draw('edge', [[xa, cross.y0 + 0.5], [xb, cross.y0 + 0.5]]); draw('edge', [[xa, cross.y1 - 0.5], [xb, cross.y1 - 0.5]]);
       if (half > 6.5) { draw('lane', [[xa, yCm - half / 2], [xb, yCm - half / 2]]); draw('lane', [[xa, yCm + half / 2], [xb, yCm + half / 2]]); }
+    }
+  }
+  if (o.crosswalkPolygons?.length) {
+    // surveyed polygons: bars across the polygon's short axis, clipped to it
+    const BAR = 0.61, GAP = 0.61;
+    for (const poly of o.crosswalkPolygons) {
+      if (poly.length < 3) continue;
+      const { cx, cy, ax, ay } = principalAxis(poly);
+      // axis = long direction of the polygon; bars run along the long axis, laid along the short one
+      const bx = -ay, by = ax; // short axis
+      let lo = Infinity, hi = -Infinity, lo2 = Infinity, hi2 = -Infinity;
+      for (const [x, y] of poly) { const u = (x - cx) * ax + (y - cy) * ay, v = (x - cx) * bx + (y - cy) * by; lo = Math.min(lo, u); hi = Math.max(hi, u); lo2 = Math.min(lo2, v); hi2 = Math.max(hi2, v); }
+      for (let v = lo2 + GAP; v + BAR <= hi2 - GAP + 1e-6; v += BAR + GAP) {
+        const bar: XY[] = [
+          [cx + ax * lo + bx * v, cy + ay * lo + by * v], [cx + ax * hi + bx * v, cy + ay * hi + by * v],
+          [cx + ax * hi + bx * (v + BAR), cy + ay * hi + by * (v + BAR)], [cx + ax * lo + bx * (v + BAR), cy + ay * lo + by * (v + BAR)],
+        ];
+        const clipped = clipPolygon(bar, poly);
+        if (clipped.length >= 3) { crosswalks.push(clipped); addPolygon(clipped, o.colours.crosswalk, H + 0.001); }
+      }
     }
   }
   if (o.crosswalks) {
@@ -159,12 +188,14 @@ export function buildStreet(road: RoadGeom, bbox: [[number, number], [number, nu
   const kp: number[] = [], sp: number[] = [];
   const WALK = 3;
   let outward: XY = [0, 0];
+  const KH = o.kerbHeight ?? 0;
   const seg = (a: XY, b: XY) => {
     kp.push(a[0], 0.01, -a[1], b[0], 0.01, -b[1]);
-    // sidewalk quad from the kerb outward
+    // sidewalk slab from the kerb outward at kerb height, plus the kerb face down to the road
     const [ox, oy] = outward;
     const q: XY[] = [a, b, [b[0] + ox * WALK, b[1] + oy * WALK], [a[0] + ox * WALK, a[1] + oy * WALK]];
-    for (const [x, y] of [q[0], q[1], q[2], q[0], q[2], q[3]]) sp.push(x, 0.0, -y);
+    for (const [x, y] of [q[0], q[1], q[2], q[0], q[2], q[3]]) sp.push(x, KH, -y);
+    if (KH > 0) for (const [x, y, h] of [[a[0], a[1], 0], [b[0], b[1], 0], [b[0], b[1], KH], [a[0], a[1], 0], [b[0], b[1], KH], [a[0], a[1], KH]] as [number, number, number][]) sp.push(x, h, -y);
   };
   const line = (pts: XY[]) => { for (let i = 1; i < pts.length; i++) seg(pts[i - 1], pts[i]); };
   road.armEdges.forEach((e, i) => {
@@ -280,4 +311,41 @@ export function asphaltTexture(base: string, metres = 8, size = 256): THREE.Canv
   t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / metres, 1 / metres);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   return t;
+}
+
+
+/** Centroid and unit long axis of a polygon (principal component of its vertices). */
+export function principalAxis(poly: XY[]): { cx: number; cy: number; ax: number; ay: number } {
+  const n = poly.length;
+  const cx = poly.reduce((s, p) => s + p[0], 0) / n, cy = poly.reduce((s, p) => s + p[1], 0) / n;
+  let sxx = 0, syy = 0, sxy = 0;
+  for (const [x, y] of poly) { sxx += (x - cx) ** 2; syy += (y - cy) ** 2; sxy += (x - cx) * (y - cy); }
+  const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  return { cx, cy, ax: Math.cos(ang), ay: Math.sin(ang) };
+}
+
+/** Sutherland–Hodgman clip of `subject` against a convex `clip` polygon (either winding). */
+export function clipPolygon(subject: XY[], clip: XY[]): XY[] {
+  // orient the clip polygon counter-clockwise
+  let area = 0;
+  for (let i = 0; i < clip.length; i++) { const [x0, y0] = clip[i], [x1, y1] = clip[(i + 1) % clip.length]; area += x0 * y1 - x1 * y0; }
+  const cw = area < 0 ? [...clip].reverse() : clip;
+  let out = subject;
+  for (let i = 0; i < cw.length && out.length; i++) {
+    const [ex0, ey0] = cw[i], [ex1, ey1] = cw[(i + 1) % cw.length];
+    const inside = (p: XY) => (ex1 - ex0) * (p[1] - ey0) - (ey1 - ey0) * (p[0] - ex0) >= -1e-9;
+    const cross = (p: XY, q: XY): XY => {
+      const dx = q[0] - p[0], dy = q[1] - p[1], ex = ex1 - ex0, ey = ey1 - ey0;
+      const den = dx * ey - dy * ex;
+      const t = den === 0 ? 0 : ((ex0 - p[0]) * ey - (ey0 - p[1]) * ex) / den;
+      return [p[0] + dx * t, p[1] + dy * t];
+    };
+    const inp = out; out = [];
+    for (let j = 0; j < inp.length; j++) {
+      const cur = inp[j], prev = inp[(j + inp.length - 1) % inp.length];
+      if (inside(cur)) { if (!inside(prev)) out.push(cross(prev, cur)); out.push(cur); }
+      else if (inside(prev)) out.push(cross(prev, cur));
+    }
+  }
+  return out;
 }
