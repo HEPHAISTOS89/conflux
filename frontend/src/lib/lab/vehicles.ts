@@ -137,9 +137,12 @@ export function wheelOffsets(wheelX: [number, number], widthM: number): [number,
 
 /** Pedestrian body in metres (not scaled by the instance like vehicles): a 1.7 m capsule torso with a head. */
 export function pedestrianGeometry(): THREE.BufferGeometry {
-  const torso = new THREE.CapsuleGeometry(0.19, 0.95, 3, 10).translate(0, 0.78, 0);
-  const head = new THREE.SphereGeometry(0.11, 10, 8).translate(0, 1.58, 0);
-  const g = mergeGeometries([torso, head], false)!;
+  // hips at 0.86 m, shoulders at 1.42 m, head to 1.72 m; the legs are separate instances (lib/lab/engine.ts)
+  const torso = new THREE.CapsuleGeometry(0.17, 0.42, 3, 10).translate(0, 1.12, 0);
+  const shoulders = new THREE.CapsuleGeometry(0.2, 0.14, 2, 10).rotateZ(Math.PI / 2).translate(0, 1.36, 0);
+  const neck = new THREE.CylinderGeometry(0.05, 0.06, 0.1, 8).translate(0, 1.48, 0);
+  const head = new THREE.SphereGeometry(0.11, 12, 10).translate(0, 1.61, 0);
+  const g = mergeGeometries([torso, shoulders, neck, head].map((x) => x.toNonIndexed()), false)!;
   g.computeVertexNormals();
   return g;
 }

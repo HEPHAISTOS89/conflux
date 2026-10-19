@@ -283,8 +283,8 @@ export function createEngine(o: EngineOpts): Engine {
   const lastLamp: Record<Group, Lamp | -1> = { ns: -1, ew: -1 };
 
   /* ----- glows: street lamps (static), signal lamps, vehicle lamps ----- */
-  const GLOW_LAMPS = lampSpots.length, GLOW_SIG = sig.heads.length, GLOW_VEH = N * 4;
-  const glows = createGlows(GLOW_LAMPS + GLOW_SIG + GLOW_VEH, FOG, pal.dark);
+  const GLOW_LAMPS = lampSpots.length, GLOW_SIG = sig.heads.length, GLOW_VEH = N * 4, GLOW_IND = N * 2;
+  const glows = createGlows(GLOW_LAMPS + GLOW_SIG + GLOW_VEH + GLOW_IND, FOG, pal.dark);
   scene.add(glows.points);
   { const lc = C(pal.lamp); lampPoses.forEach((lp, i) => glows.set(i, lp.head, lc, pal.dark ? 2.6 : 1.2, pal.dark ? 1 : 0.35)); }
   const quality = o.quality ?? trackQuality(data.tracks, data.hz);
@@ -393,15 +393,15 @@ export function createEngine(o: EngineOpts): Engine {
   const pedIdx = data.tracks.map((tr, i) => (isPedestrian(tr) ? i : -1)).filter((i) => i >= 0);
   const legSlot = new Int32Array(N).fill(-1); pedIdx.forEach((i, k) => { legSlot[i] = k; });
   const legFade = new THREE.InstancedBufferAttribute(new Float32Array(Math.max(1, pedIdx.length * 2)).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
-  const legGeo = new THREE.CapsuleGeometry(0.075, 0.62, 2, 8).translate(0, -0.31, 0); legGeo.setAttribute('aFade', legFade);
+  const legGeo = new THREE.CapsuleGeometry(0.08, 0.7, 2, 8).translate(0, -0.38, 0); legGeo.setAttribute('aFade', legFade);
   const legs = mkInst(legGeo, withFade(new THREE.MeshLambertMaterial({ color: pal.dark ? '#5f6a70' : '#3b4a52' })), Math.max(1, pedIdx.length * 2));
   legs.castShadow = daylight; if (!pedIdx.length) legs.count = 0;
   // turn indicators: inferred from the recorded turning movement (left/right), blinking at 1.5 Hz until the turn is done
-  const indGeo = (side: 1 | -1) => mergeGeometries([new THREE.BoxGeometry(0.03, 0.08, 0.14).translate(0.5, 0.7, side * 0.44), new THREE.BoxGeometry(0.03, 0.08, 0.14).translate(-0.5, 0.78, side * 0.44)].map((g) => g.toNonIndexed()))!;
+  const indGeo = (side: 1 | -1) => mergeGeometries([new THREE.BoxGeometry(0.08, 0.1, 0.06).translate(0.47, 0.72, side * 0.5), new THREE.BoxGeometry(0.08, 0.1, 0.06).translate(-0.47, 0.8, side * 0.5)].map((g) => g.toNonIndexed()))!;
   const indFade = new THREE.InstancedBufferAttribute(new Float32Array(N).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
   const indL = indGeo(-1), indR = indGeo(1); indL.setAttribute('aFade', indFade); indR.setAttribute('aFade', indFade);
   const indicators = { L: mkInst(indL, withFade(new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false })), N), R: mkInst(indR, withFade(new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false })), N) };
-  const cAmber = C('#ffb21e'), cIndOff = C(pal.dark ? '#3a2a12' : '#8a7a5a');
+  const cAmber = C('#ffb21e'), cIndGlow = C('#ff9a12'), cIndOff = C(pal.dark ? '#3a2a12' : '#8a7a5a');
   const turnEnd = data.tracks.map((tr) => {
     if (tr.move !== 'left' && tr.move !== 'right' || tr.pts.length < 4) return -1;
     const k0 = kinAt(tr, tr.pts[0][0], data.hz); if (!k0) return -1;
@@ -596,7 +596,7 @@ export function createEngine(o: EngineOpts): Engine {
       if (d < SENSOR.range) fpNow.push({ i, d, x: cx, y: cy, h: k.h, len: bodyLength(tr), w: tr.w_m });
     }
     occlusionPass();
-    const blinkOn = (t % 0.667) < 0.333;
+    const blinkOn = (t % 0.8) < 0.4;
     for (let i = 0; i < N; i++) {
       const tr = data.tracks[i], id = ids[i];
       const k = renderPose(tr, t, data.hz, win);
@@ -701,6 +701,15 @@ export function createEngine(o: EngineOpts): Engine {
       const ts = (pal.dark ? 1.0 : 0.6) + 1.5 * br, ta = ((pal.dark ? 0.42 : 0.2) + 0.58 * br) * k.fade;
       glows.set(base + 2, back.clone().addScaledVector(sideV, hw), cTailGlow, ts, ta);
       glows.set(base + 3, back.clone().addScaledVector(sideV, -hw), cTailGlow, ts, ta);
+      // turn indicator halo on the turning side (front and rear corner) while it blinks on
+      const ib = GLOW_LAMPS + GLOW_SIG + GLOW_VEH + i * 2;
+      const turning = turnEnd[i] > 0 && tNow <= turnEnd[i] && blinkOn;
+      if (turning) {
+        const sgn = tr.move === 'left' ? -1 : 1;
+        // on the wing, a little behind the bumper so it reads apart from the head/tail lamp glow
+        glows.set(ib, front.clone().addScaledVector(fwdV, -0.35).addScaledVector(sideV, sgn * (tr.w_m / 2 + 0.05)).setY(hy + 0.04), cIndGlow, pal.dark ? 3.0 : 2.2, k.fade);
+        glows.set(ib + 1, back.clone().addScaledVector(fwdV, 0.3).addScaledVector(sideV, sgn * (tr.w_m / 2 + 0.05)).setY(hy + 0.08), cIndGlow, pal.dark ? 3.0 : 2.2, k.fade);
+      } else { glows.hide(ib); glows.hide(ib + 1); }
     }
     glows.commit();
     poseTex.needsUpdate = true;
