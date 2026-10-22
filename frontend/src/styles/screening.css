@@ -29,6 +29,7 @@
 @keyframes row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .seg-name { font-weight: var(--w-strong); display: flex; align-items: center; gap: 8px; }
 .seg-id { font-size: var(--t-label); color: var(--ink-3); white-space: nowrap; }
+.seg-cty { font-family: var(--f-ui, var(--f-head)); color: var(--ink-2); }
 .scr-table-wrap td.measure, .scr-table-wrap th { white-space: nowrap; }
 .scr-table-wrap td:first-child { padding-right: 4px; }
 .scr-table-wrap table.data td, .scr-table-wrap table.data th { padding-left: 8px; padding-right: 8px; }

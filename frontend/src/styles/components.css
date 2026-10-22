@@ -7,7 +7,11 @@
 /* Page header: icon, title, the figures that matter. Explanations open from the info button. */
 /* Page header: title and actions on one line, then a strip of equal figure cards. */
 .ph { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'title actions' 'figs figs'; align-items: center; gap: var(--s5) var(--s6); }
-.ph-title { grid-area: title; display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ph-title { grid-area: title; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+/* Scope: the county or region a sheet shows, set by the shell's Region control; reads as part of the title line. */
+.ph-scope { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 4px 10px; border-radius: var(--r-pill); background: var(--raise); font: var(--w-strong) var(--t-label)/1.3 var(--f-body); color: var(--ink-2); white-space: nowrap; }
+.ph-scope .icon { color: var(--accent); }
+@media (max-width: 640px) { .ph-title { flex-wrap: wrap; } .ph-scope { margin-left: 48px; } }
 .ph-title h1 { font-size: var(--t-h1); line-height: 1.1; min-width: 0; }
 .ph-title .mi-btn { width: 32px; height: 32px; color: var(--ink-3); }
 .ph-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-m); background: var(--raise); color: var(--accent); flex: none; }
@@ -46,6 +50,8 @@
 .sel-list { position: absolute; z-index: 45; top: calc(100% + 6px); left: 0; min-width: 100%; width: max-content; max-width: min(440px, calc(100vw - 32px)); max-height: 320px; overflow: auto; margin: 0; padding: 6px; list-style: none; background: var(--sheet); border-radius: var(--r-l); translate: var(--dx, 0) 0; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28); outline: none; animation: sel-in 140ms var(--ease-out) both; } /* taste-skill-ignore: listbox floats */
 @keyframes sel-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
 .sel-list[data-up] { top: auto; bottom: calc(100% + 6px); }
+.sel-list[data-portal] { position: fixed; top: var(--top); left: var(--left); min-width: var(--w); z-index: 60; }
+.sel-list[data-portal][data-up] { top: auto; bottom: var(--bottom); }
 .sel-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; min-height: var(--ctl-m); padding: 8px 10px; border-radius: var(--r-m); font-size: var(--t-ui); line-height: 1.3; cursor: pointer; }
 .sel-list li small { white-space: nowrap; }
 .sel-list li:not(:has(.icon:first-child)) { grid-template-columns: minmax(0, 1fr) auto auto; }

@@ -11,6 +11,7 @@ import { reducedMotion, useReveal } from '../lib/motion';
 import { copyLink, downloadCSV, downloadPNG } from '../lib/export';
 import { CHART, nf, SEV_HEX, SEV_LABEL } from '../lib/format';
 import type { FC, Severity, VruProps } from '../lib/types';
+import { countyQuery, regionBounds, regionLabel, useCounties, useCounty } from '../lib/region';
 import '../styles/vru.css';
 
 type Crash = Omit<VruProps, 'mode'> & { mode: string; intersection?: string | null; contributing?: string | null; ka_count?: number };
@@ -145,6 +146,9 @@ function fromUrl(p: URLSearchParams) {
 
 export default function Vru() {
   const [params, setParams] = useSearchParams();
+  const [county] = useCounty();
+  const counties = useCounties();
+  const scope = regionLabel(county, counties.list);
   const init = useMemo(() => fromUrl(params), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [sevOff, setSevOff] = useState<Set<Severity>>(init.sevOff);
   const [modeOff, setModeOff] = useState<Set<string>>(init.modeOff);
@@ -163,14 +167,16 @@ export default function Vru() {
     if (focus) p.set('focus', `${focus.kind}:${focus.key}`);
     if (ysrc !== 'pbcat') p.set('yield', ysrc);
     if (selId) p.set('crash', selId);
+    if (county) p.set('county', county); // the shell's region choice rides along
     if (p.toString() !== params.toString()) setParams(p, { replace: true });
-  }, [sevOff, modeOff, year, cell, focus, ysrc, selId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sevOff, modeOff, year, cell, focus, ysrc, selId, county]); // eslint-disable-line react-hooks/exhaustive-deps
   const [hover, setHover] = useState<Crash | null>(null);
   const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle');
   useEffect(() => { if (copied === 'idle') return; const t = setTimeout(() => setCopied('idle'), 1600); return () => clearTimeout(t); }, [copied]);
 
-  // 307 points: fetch once, filter on the client so every control answers instantly.
-  const pts = useApi<FC<Crash>>('/vru');
+  // A few hundred points per scope: fetch once, filter on the client so every control answers instantly.
+  const pts = useApi<FC<Crash>>(`/vru${countyQuery(county, true)}`);
+  const scopeBounds = useMemo(() => regionBounds(county, counties.list), [county, counties.list]);
   const all = useMemo(() => (pts.data?.features ?? []) as (FC<Crash>['features'][number])[], [pts.data]);
   const years = useMemo(() => [...new Set(all.map((f) => f.properties.year))].sort(), [all]);
   const span = years.length ? `${years[0]}–${years[years.length - 1]}` : '2021–2023';
@@ -281,13 +287,17 @@ export default function Vru() {
     const t = setTimeout(() => setPulse(false), 60);
     return () => clearTimeout(t);
   }, [selId]);
-  const mapSources = useMemo<MapLayer[]>(() => [...sources, {
+  const ctySource = useMemo<MapLayer | null>(() => counties.data ? {
+    id: 'cty', data: { ...counties.data, features: counties.data.features.filter((f) => !county || f.properties.id === county) } as any,
+    layers: [{ id: 'cty-line', type: 'line', paint: { 'line-color': CHART.axis, 'line-width': 1, 'line-opacity': 0.55, 'line-dasharray': [2, 2] } } as any],
+  } : null, [counties.data, county]);
+  const mapSources = useMemo<MapLayer[]>(() => [...(ctySource ? [ctySource] : []), ...sources, {
     id: 'vru-sel', data: { type: 'FeatureCollection', features: selFeature ? [selFeature] : [] },
     layers: [
       { id: 'vru-sel-halo', type: 'circle', paint: { 'circle-radius': pulse ? 30 : 11, 'circle-color': CHART.accent, 'circle-opacity': pulse ? 0.45 : 0, 'circle-radius-transition': { duration: pulse ? 0 : 420, delay: 0 }, 'circle-opacity-transition': { duration: pulse ? 0 : 420, delay: 0 } } } as any,
       { id: 'vru-sel-ring', type: 'circle', paint: { 'circle-radius': 11, 'circle-opacity': 0, 'circle-stroke-color': CHART.ink, 'circle-stroke-width': 2.5 } } as any,
     ],
-  }], [sources, selFeature, pulse]);
+  }], [sources, selFeature, pulse, ctySource]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -306,9 +316,9 @@ export default function Vru() {
       : focus.kind === 'speed' ? `Posted ${SPEED_BINS.find(([k]) => k === focus.key)?.[1]} mph`
         : `${YIELD.find((y) => y.key === focus.key)?.label} (${ysrc === 'pbcat' ? 'PBCAT' : 'CRIS factor'})`
     : null;
-  const suffix = `${year ?? span.replace('–', '-')}${filtered ? '-filtered' : ''}`;
+  const suffix = `${county ?? 'spag'}-${year ?? span.replace('–', '-')}${filtered ? '-filtered' : ''}`;
   const exportCsv = () => downloadCSV(`sightpole-vru-crashes-${suffix}.csv`, feats.map(({ properties: p, geometry: g }) => ({
-    crash_id: p.id, date: p.date, year: p.year, hour: p.hour, dow: p.dow != null ? DOW[p.dow] : '', severity: p.severity, mode: p.mode,
+    crash_id: p.id, county: p.county, date: p.date, year: p.year, hour: p.hour, dow: p.dow != null ? DOW[p.dow] : '', severity: p.severity, mode: p.mode,
     pbcat: p.pbcat, light: p.light, light_group: lightGroup(p.light), speed_limit_mph: p.speed_limit, street: p.street, on_system: p.on_system,
     intersection: p.intersection, contributing: p.contributing, lon: (g.coordinates as number[])[0], lat: (g.coordinates as number[])[1],
   })));
@@ -316,7 +326,7 @@ export default function Vru() {
     const [lo, hi] = wilson(r.ka, r.n);
     return { group: r.label, crashes: r.n, ka: r.ka, ka_share_pct: r.n ? +(100 * r.ka / r.n).toFixed(1) : '', ci95_lo_pct: +(100 * lo).toFixed(1), ci95_hi_pct: +(100 * hi).toFixed(1) };
   }));
-  const caption = `Sightpole · TxDOT CRIS VRU crashes, Lubbock County ${year ?? span}${filtered ? ' (filtered)' : ''}`;
+  const caption = `Sightpole · TxDOT CRIS VRU crashes, ${scope} ${year ?? span}${filtered ? ' (filtered)' : ''}`;
 
   const pk = heat.peak;
   // One-line findings computed from the same rows the charts draw.
@@ -353,12 +363,13 @@ export default function Vru() {
       <PageHeader
         icon="ped"
         title="Pedestrian and cyclist crashes"
+        scope={scope}
         lede={agg.n
           ? sevOff.size
             ? <>{nf(agg.n)} crashes shown with the severity filter on; across all severities in this view, {pct(share.ka, share.n)}% of {nf(share.n)} were fatal or suspected serious injury (KA).</>
             : <>{pct(agg.ka, agg.n)}% of {nf(agg.n)} crashes were fatal or suspected serious injury (KA); {pct(agg.unlit, agg.n)}% occurred on dark, unlit roads.</>
           : pts.loading ? 'Loading crash records…' : 'No crashes match these filters.'}
-        source={<>Observed: TxDOT CRIS, Lubbock County, on and off system, {year ?? span}. KA shares, Wilson intervals, peak window and groupings are derived from those records. Informational use only; crash records are protected from discovery and use in litigation (23 U.S.C. §407). Counts are not exposure-adjusted rates.</>}
+        source={<>Observed: TxDOT CRIS, {regionLabel(county, counties.list, true)}, on and off system, {year ?? span}. KA shares, Wilson intervals, peak window and groupings are derived from those records. Informational use only; crash records are protected from discovery and use in litigation (23 U.S.C. §407). Counts are not exposure-adjusted rates.</>}
         readouts={[
           { label: <>Crashes <MetricInfo spec={COUNT_SPEC} align="right" /></>, value: pts.loading ? null : agg.n },
           { label: <>KA <MetricInfo spec={KA_SPEC} align="right" /></>, value: pts.loading ? null : agg.ka, tone: 'alert', unit: agg.n ? `${pct(agg.ka, agg.n)}%` : undefined },
@@ -402,6 +413,7 @@ export default function Vru() {
           <MapView
             label="Pedestrian and cyclist crash locations coloured by KABCO severity"
             sources={mapSources}
+            bounds={scopeBounds}
             interactiveLayers={['vru-pt']}
             onHover={(f) => setHover((f?.properties as Crash) ?? null)}
             onClick={(_, f) => setSelId((f.properties as Crash).id)}

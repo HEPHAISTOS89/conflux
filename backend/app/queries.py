@@ -22,31 +22,70 @@ def _num(v: Any) -> float:
     return float(v) if isinstance(v, (int, float)) else float("-inf")
 
 
-def network(metric: str | None = None) -> dict[str, Any]:
+# ---------- region / county dimension ----------
+class UnknownCounty(LookupError):
+    """The county filter names no county of the study region."""
+
+
+def counties() -> dict[str, Any]:
+    """County polygons with per-county roll-ups (curated/counties.geojson), ordered by name."""
+    fc = store.load("counties.geojson")
+    return {**fc, "features": sorted(fc["features"], key=lambda f: f["properties"]["name"])}
+
+
+def county_list() -> list[dict[str, Any]]:
+    return [f["properties"] for f in counties()["features"]]
+
+
+def resolve_county(county: str | None) -> dict[str, Any] | None:
+    """Accept a county slug ('hale'), name ('Hale') or TxDOT county number ('96'); None = whole region."""
+    if county is None or county.strip() == "" or county.strip().lower() in ("all", "spag", "region"):
+        return None
+    key = county.strip().lower()
+    for c in county_list():
+        if key in (c["id"], c["name"].lower(), str(c.get("county_nbr"))):
+            return c
+    raise UnknownCounty(county)
+
+
+def in_county(props: dict[str, Any], c: dict[str, Any] | None) -> bool:
+    return c is None or props.get("county_id") == c["id"] or props.get("county_nbr") == c.get("county_nbr")
+
+
+def _county_fields(c: dict[str, Any] | None) -> dict[str, Any]:
+    return {"county": c["id"] if c else None, "county_name": c["name"] if c else None}
+
+
+def network(metric: str | None = None, county: str | None = None) -> dict[str, Any]:
     fc = store.load("network.geojson")
-    if metric is None:
-        return fc
-    feats = [{**f, "properties": {**f["properties"], "value": f["properties"].get(metric)}} for f in fc["features"]]
-    return {**fc, "metric": metric, "features": feats}
+    c = resolve_county(county)
+    feats = [f for f in fc["features"] if in_county(f["properties"], c)]
+    if metric is not None:
+        feats = [{**f, "properties": {**f["properties"], "value": f["properties"].get(metric)}} for f in feats]
+    return {**fc, "metric": metric, **_county_fields(c), "features": feats}
 
 
-def screening(method: str = "eb_excess", limit: int = 25, f_system: int | None = None) -> dict[str, Any]:
+def screening(method: str = "eb_excess", limit: int = 25, f_system: int | None = None, county: str | None = None) -> dict[str, Any]:
     """Rank the screened population under one HSM Part B measure.
 
     The population is the same for every measure: segments the pipeline could score (``rank`` set,
     i.e. AADT and a site type joined). Unscored segments (no inventory/AADT match) are reported in
     ``unscreened`` instead of being ranked last, so counts and "of N" figures agree across measures
     and pages. Ties keep the EB rank order (stable sort on the EB-ranked list).
+
+    ``county`` subsets the region (SPFs, EB and critical rates stay those of the regional population;
+    only the ranking is restricted, so a county rank is a position within that county).
     """
     field = METHOD_FIELD[method]
-    allrows = [f["properties"] for f in store.load("network.geojson")["features"]]
+    c = resolve_county(county)
+    allrows = [f["properties"] for f in store.load("network.geojson")["features"] if in_county(f["properties"], c)]
     if f_system is not None:
         allrows = [r for r in allrows if r.get("f_system") == f_system]
     rows = sorted((r for r in allrows if r.get("rank") is not None), key=lambda r: r["rank"])
     out = [r for r in allrows if r.get("rank") is None]
     rows = sorted(rows, key=lambda r: _num(r.get(field)), reverse=True)
     items = [{**r, "screen_rank": i + 1, "score": r.get(field)} for i, r in enumerate(rows[:limit])]
-    return {"method": method, "field": field, "f_system": f_system, "total": len(rows), "items": items,
+    return {"method": method, "field": field, "f_system": f_system, **_county_fields(c), "total": len(rows), "items": items,
             "unscreened": {"segments": len(out), "crashes": sum(int(r.get("crashes_total") or 0) for r in out),
                            "reason": "no Roadway Inventory / AADT match (no site type or exposure)"}}
 
@@ -59,9 +98,10 @@ def corridor(corridor_id: str) -> dict[str, Any] | None:
     return None
 
 
-def vru(mode: str | None = None, severity: str | None = None, year: int | None = None) -> dict[str, Any]:
+def vru(mode: str | None = None, severity: str | None = None, year: int | None = None, county: str | None = None) -> dict[str, Any]:
     fc = store.load("vru_crashes.geojson")
-    feats = fc["features"]
+    c = resolve_county(county)
+    feats = [f for f in fc["features"] if in_county(f["properties"], c)]
     if mode:
         feats = [f for f in feats if f["properties"].get("mode") == mode]
     if severity:
@@ -69,11 +109,12 @@ def vru(mode: str | None = None, severity: str | None = None, year: int | None =
         feats = [f for f in feats if f["properties"].get("severity") in sev]
     if year is not None:
         feats = [f for f in feats if f["properties"].get("year") == year]
-    return {**fc, "features": feats}
+    return {**fc, **_county_fields(c), "features": feats}
 
 
-def vru_summary() -> dict[str, Any]:
-    props = [f["properties"] for f in store.load("vru_crashes.geojson")["features"]]
+def vru_summary(county: str | None = None) -> dict[str, Any]:
+    c = resolve_county(county)
+    props = [f["properties"] for f in store.load("vru_crashes.geojson")["features"] if in_county(f["properties"], c)]
     heat = [[0] * 24 for _ in range(7)]
     for p in props:
         h, d = p.get("hour"), p.get("dow")
@@ -81,6 +122,7 @@ def vru_summary() -> dict[str, Any]:
             heat[d][h] += 1
     years = [p["year"] for p in props if isinstance(p.get("year"), int)]
     return {
+        **_county_fields(c),
         "total": len(props),
         "years": [min(years), max(years)] if years else [],
         "by_severity": {s: sum(1 for p in props if p.get("severity") == s) for s in SEVERITIES},
@@ -89,6 +131,7 @@ def vru_summary() -> dict[str, Any]:
         "by_light": dict(Counter(p.get("light") for p in props if p.get("light")).most_common()),
         "by_pbcat": dict(Counter(p.get("pbcat") for p in props if p.get("pbcat")).most_common(10)),
         "top_streets": dict(Counter(p.get("street") for p in props if p.get("street")).most_common(10)),
+        "by_county": dict(Counter(p.get("county") for p in props if p.get("county")).most_common()),
         "ka_total": sum(1 for p in props if p.get("severity") in ("K", "A")),
         # on-system subset = the crashes the network screening uses
         "on_system": {"total": sum(1 for p in props if p.get("on_system")),
@@ -160,3 +203,9 @@ def intersections_index() -> list[dict[str, Any]]:
                     "n_tracks": len(d["tracks"]), "t_start": min(ts) if ts else None,
                     "t_end": max(ts) if ts else None, "n_conflicts": n_conf})
     return out
+
+
+def fatal(county: str | None = None) -> dict[str, Any]:
+    fc = store.load("fatal_crashes.geojson")
+    c = resolve_county(county)
+    return {**fc, **_county_fields(c), "features": [f for f in fc["features"] if in_county(f["properties"], c)]}

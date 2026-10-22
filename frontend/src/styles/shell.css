@@ -24,6 +24,15 @@
 .rail-toggle:hover { background: var(--paper-2); color: var(--ink); }
 .rail ul { position: relative; list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 
+/* Region selector: full width in the open rail; when collapsed it becomes an icon that expands the rail. */
+.rail-region { display: grid; }
+.rail-region .sel, .rail-region .sel-btn { width: 100%; }
+.rail-region .sel-btn { justify-content: flex-start; padding-left: 12px; }
+.rail-region .sel-btn .sel-v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-region[data-scope='county'] .sel-btn > .icon:first-child { color: var(--accent); }
+.rail-region .sel-list { width: max(100%, 260px); }
+.topbar-region { display: none; }
+
 /* Nav item: 40 px minimum, 16 px icon on the label's first line, labels wrap to two lines instead of truncating. */
 .rail-link {
   position: relative; z-index: 1;
@@ -159,7 +168,17 @@ table.data tbody tr[data-active='true'] td:first-child { color: var(--accent); }
   .rail ul, .rail-tools { grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 4px; }
   .rail-tools { margin-top: var(--s2); }
   .shell[data-open='true'] .rail { opacity: 1; transform: none; pointer-events: auto; visibility: visible; transition-delay: 0s; }
-  .rail-head, .rail-theme { display: none; } /* brand and theme switch live in the top bar */
+  .rail-head, .rail-theme, .rail-region { display: none; } /* brand, theme switch and region live in the top bar */
+  .topbar { min-width: 0; }
+  .topbar .brand { flex: none; }
+  .topbar-act { flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+  .topbar-region { display: flex; justify-content: flex-end; flex: 1 1 auto; min-width: 0; }
+  .topbar-region .sel { flex: 0 1 max-content; min-width: 0; max-width: 100%; }
+  .topbar-region .sel-btn { width: 100%; max-width: 100%; }
+  .topbar-region .sel-btn { padding-right: 8px; }
+  .topbar-region .sel-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-region .sel-list { right: 0; left: auto; }
+  @media (max-width: 420px) { .topbar .brand span { display: none; } }
   .rail-about.mi-pop { left: 16px; bottom: 16px; }
 }
 /* MapLibre controls on the charcoal basemap */

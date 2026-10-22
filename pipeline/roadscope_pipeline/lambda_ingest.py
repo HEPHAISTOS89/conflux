@@ -24,7 +24,7 @@ from .trajectory import site as site_mod
 
 SITE_FILES = ("site.json", "tracks.csv", "tracks.json")
 
-CURATED = ["network.geojson", "corridors.json", "vru_crashes.geojson", "spf.json", "manifest.json"]
+CURATED = ["network.geojson", "corridors.json", "vru_crashes.geojson", "spf.json", "counties.geojson", "manifest.json"]
 TYPES = {".json": "application/json", ".geojson": "application/geo+json"}
 
 

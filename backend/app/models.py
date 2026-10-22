@@ -70,6 +70,8 @@ class Screening(BaseModel):
     method: str
     field: str
     f_system: int | None
+    county: str | None = None
+    county_name: str | None = None
     total: int
     items: list[Segment]
     unscreened: dict[str, Any] = {}
@@ -108,6 +110,8 @@ class CorridorSummary(Open):
 
 
 class VruSummary(BaseModel):
+    county: str | None = None
+    county_name: str | None = None
     total: int
     years: list[int]
     by_severity: dict[str, int]
@@ -116,6 +120,7 @@ class VruSummary(BaseModel):
     by_light: dict[str, int]
     by_pbcat: dict[str, int]
     top_streets: dict[str, int]
+    by_county: dict[str, int] = {}
     ka_total: int
     on_system: dict[str, int] = {}
     severity_by_condition: list[dict[str, Any]] = []

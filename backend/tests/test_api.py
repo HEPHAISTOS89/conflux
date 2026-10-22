@@ -54,7 +54,7 @@ def test_screening_sorted(client: TestClient, method: str, field: str) -> None:
 def test_screening_filters_and_validation(client: TestClient) -> None:
     d = client.get(f"{API}/screening", params={"f_system": 3}).json()
     assert d["total"] == 2 and all(i["f_system"] == 3 for i in d["items"])
-    for bad in ({"method": "nope"}, {"limit": 0}, {"limit": 5000}, {"f_system": 9}):
+    for bad in ({"method": "nope"}, {"limit": 0}, {"limit": 5001}, {"f_system": 9}):
         assert client.get(f"{API}/screening", params=bad).status_code == 422
 
 
@@ -269,3 +269,43 @@ def test_screening_excludes_unscored_segments(client: TestClient, monkeypatch: p
         d = client.get(f"{API}/screening", params={"method": method, "limit": 100}).json()
         assert d["total"] == 4 and "UNSCORED" not in {i["seg_id"] for i in d["items"]}
         assert d["unscreened"]["segments"] == 1 and d["unscreened"]["crashes"] == 99
+
+
+# ---------- county dimension (SPAG region) ----------
+def test_counties_route(client: TestClient) -> None:
+    fc = client.get(f"{API}/counties").json()
+    names = [f["properties"]["name"] for f in fc["features"]]
+    assert names == sorted(names) and {"id", "county_nbr", "segments", "vru_crashes", "bbox"} <= fc["features"][0]["properties"].keys()
+
+
+def test_county_filter_across_routes(client: TestClient) -> None:
+    all_net = client.get(f"{API}/network").json()
+    lub = client.get(f"{API}/network", params={"county": "lubbock"}).json()
+    hale = client.get(f"{API}/network", params={"county": "96"}).json()  # TxDOT county number
+    assert len(all_net["features"]) == 4 and len(lub["features"]) == 3 and len(hale["features"]) == 1
+    assert all_net["county"] is None and lub["county"] == "lubbock" and hale["county_name"] == "Hale"
+
+    scr = client.get(f"{API}/screening", params={"county": "Hale", "limit": 10}).json()
+    assert scr["total"] == 1 and scr["county"] == "hale" and scr["items"][0]["screen_rank"] == 1
+    region = client.get(f"{API}/screening", params={"limit": 10}).json()
+    assert region["total"] == 4 and region["county"] is None
+
+    assert len(client.get(f"{API}/vru", params={"county": "hale"}).json()["features"]) == 1
+    s = client.get(f"{API}/vru/summary", params={"county": "lubbock"}).json()
+    assert s["total"] == 4 and s["county_name"] == "Lubbock" and s["by_county"] == {"Lubbock": 4}
+    assert client.get(f"{API}/vru/summary").json()["by_county"] == {"Lubbock": 4, "Hale": 1}
+    assert len(client.get(f"{API}/fatal", params={"county": "hale"}).json()["features"]) == 0
+
+
+def test_county_aliases_and_unknown(client: TestClient) -> None:
+    for alias in ("all", "spag", "region"):
+        assert client.get(f"{API}/screening", params={"county": alias}).json()["county"] is None
+    r = client.get(f"{API}/screening", params={"county": "travis"})
+    assert r.status_code == 404 and "travis" in r.json()["detail"]
+    assert client.get(f"{API}/network", params={"county": "x;drop"}).status_code == 422
+
+
+def test_ask_fallback_county(client: TestClient, no_bedrock: None) -> None:
+    d = client.post(f"{API}/ask", json={"question": "How many pedestrian crashes in Hale County?"}).json()
+    call = next(c for c in d["tool_calls"] if c["name"] in ("vru_count", "vru_summary"))
+    assert call["input"].get("county") == "Hale"

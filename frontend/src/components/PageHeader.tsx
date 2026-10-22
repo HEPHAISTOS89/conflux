@@ -10,14 +10,15 @@ export interface Readout { label: ReactNode; value: number | null | undefined; u
  * The explanation (`lede`) and data line (`source`) are not printed on the page; they open from the
  * info button beside the title, so the sheet leads with its figures.
  */
-export default function PageHeader({ icon, title, lede, source, readouts = [], actions }: {
-  icon: IconName; title: string; lede?: ReactNode; source?: ReactNode; readouts?: Readout[]; actions?: ReactNode;
+export default function PageHeader({ icon, title, scope, lede, source, readouts = [], actions }: {
+  icon: IconName; title: string; scope?: string; lede?: ReactNode; source?: ReactNode; readouts?: Readout[]; actions?: ReactNode;
 }) {
   return (
     <header className="ph" data-r="1">
       <div className="ph-title">
         <span className="ph-icon"><Icon name={icon} size={20} weight="duotone" /></span>
         <h1>{title}</h1>
+        {scope && <span className="ph-scope"><Icon name="county" size={14} />{scope}</span>}
         {(lede || source) && (
           <Info label={`About ${title}`} title={title}>
             {lede && <p>{lede}</p>}

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import requests
 
-from .sources import LAYERS, LUBBOCK_ENVELOPE, TXDOT_LICENCE, layer_url, now_iso
+from .sources import LAYERS, REGION_ENVELOPE, TXDOT_LICENCE, layer_url, now_iso
 
 PAGE = 2000
 
@@ -56,13 +56,16 @@ def fetch_layer(key: str, raw_dir: Path, refresh: bool = False) -> tuple[list[di
         blob = cache.read_bytes()
         payload = json.loads(blob)
     else:
-        feats = query_all(url, cfg["where"], LUBBOCK_ENVELOPE if cfg["envelope"] else None)
-        payload = {"url": url, "where": cfg["where"], "fetched_at": now_iso(), "features": feats}
+        feats = query_all(url, cfg["where"], REGION_ENVELOPE if cfg["envelope"] else None, cfg.get("out_fields", "*"))
+        payload = {"url": url, "where": cfg["where"], "envelope": REGION_ENVELOPE if cfg["envelope"] else None,
+                   "out_fields": cfg.get("out_fields", "*"), "fetched_at": now_iso(), "features": feats}
         blob = json.dumps(payload).encode()
         raw_dir.mkdir(parents=True, exist_ok=True)
         cache.write_bytes(blob)
     entry = {
         "id": key, "url": url, "licence": TXDOT_LICENCE, "records": len(payload["features"]),
+        "filter": (f"where {cfg['where']}" if cfg["where"] != "1=1" else "") +
+                  (f"{'; ' if cfg['where'] != '1=1' else ''}envelope {REGION_ENVELOPE} (SPAG region)" if cfg["envelope"] else ""),
         "fetched_at": payload["fetched_at"], "sha256": hashlib.sha256(blob).hexdigest(),
     }
     return payload["features"], entry

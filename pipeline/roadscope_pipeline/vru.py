@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import datetime as dt
 
+from .sources import COUNTY_BY_NAME, COUNTY_BY_NBR, county_slug
+
 MODES = {"Ped": "ped", "Bike": "bike", "ES": "scooter"}  # ES = e-scooter rider
 DOW = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
 
@@ -39,6 +41,9 @@ def to_geojson(feats):
         mode = MODES.get(a.get("PedBikeES"))
         date = dt.datetime.fromtimestamp(a["Crash_Date"] / 1000, dt.timezone.utc).date() if a.get("Crash_Date") else None
         dow = (a.get("Day_of_Wee") or "").upper()
+        nbr = COUNTY_BY_NAME.get((a.get("County") or "").strip().upper())
+        if nbr is None:  # outside the SPAG counties (the layer query is already county-filtered)
+            continue
         out.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(lon, 5), round(lat, 5)]},
                     "properties": {
                         "id": str(a["Crash_ID"]), "date": date.isoformat() if date else None,
@@ -49,5 +54,7 @@ def to_geojson(feats):
                         "street": _clean(a.get("Street_Nam")), "on_system": a.get("On_System_") == "Yes",
                         "highway": _clean(a.get("Highway_Nu")), "intersection": _clean(a.get("Intersec_4")),
                         "contributing": _clean(a.get("Contributi")), "ka_count": a.get("KACount"),
+                        "county": COUNTY_BY_NBR[nbr], "county_nbr": nbr, "county_id": county_slug(COUNTY_BY_NBR[nbr]),
+                        "city": _clean(a.get("City")), "district": a.get("DIST_NM"),
                     }})
     return {"type": "FeatureCollection", "features": out}

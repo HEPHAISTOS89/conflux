@@ -43,11 +43,20 @@ CITATION = {
 
 
 # ---------- tools ----------
-def t_query_screening(method: str = "eb_excess", limit: int = 10, f_system: int | None = None) -> dict[str, Any]:
+def _county_arg(county: str | None) -> str | None:
+    try:
+        c = queries.resolve_county(county)
+    except queries.UnknownCounty:
+        return None
+    return c["id"] if c else None
+
+
+def t_query_screening(method: str = "eb_excess", limit: int = 10, f_system: int | None = None,
+                      county: str | None = None) -> dict[str, Any]:
     if method not in queries.METHOD_FIELD:
         method = "eb_excess"
-    res = queries.screening(method, max(1, min(int(limit), 20)), f_system)
-    keep = ("seg_id", "route", "name", "f_system", "aadt", "len_mi", "crashes_total", "crash_years",
+    res = queries.screening(method, max(1, min(int(limit), 20)), f_system, _county_arg(county))
+    keep = ("seg_id", "route", "name", "county", "f_system", "aadt", "len_mi", "crashes_total", "crash_years",
             "rate_100mvmt", "crit_ratio", "epdo", "spf_pred", "eb_expected", "eb_excess", "screen_rank")
     return {**res, "items": [{k: r.get(k) for k in keep} for r in res["items"]]}
 
@@ -63,8 +72,8 @@ def t_get_corridor(corridor_id: str | None = None) -> dict[str, Any]:
                            "summary": c.get("summary", {})} for c in rows]}
 
 
-def t_vru_summary() -> dict[str, Any]:
-    s = queries.vru_summary()
+def t_vru_summary(county: str | None = None) -> dict[str, Any]:
+    s = queries.vru_summary(_county_arg(county))
     s.pop("hour_dow")
     return s
 
@@ -75,16 +84,16 @@ LIGHT = {"dark not lighted": "NOT LIGHTED", "dark-not-lighted": "NOT LIGHTED", "
 
 
 def t_vru_count(mode: str | None = None, severity: str | None = None, light: str | None = None,
-                year: int | None = None) -> dict[str, Any]:
-    """Count VRU crashes matching every given filter (severity like 'K,A')."""
+                year: int | None = None, county: str | None = None) -> dict[str, Any]:
+    """Count VRU crashes matching every given filter (severity like 'K,A'); county = one SPAG county or the region."""
     sev = {x.strip().upper() for x in severity.split(",")} if severity else None
-    rows = [f["properties"] for f in store.load("vru_crashes.geojson")["features"]]
+    rows = [f["properties"] for f in queries.vru(county=_county_arg(county))["features"]]
     hit = [r for r in rows
            if (not mode or r.get("mode") == mode)
            and (not sev or r.get("severity") in sev)
            and (not light or light.upper() in str(r.get("light") or "").upper())
            and (not year or r.get("year") == year)]
-    return {"filters": {"mode": mode, "severity": severity, "light": light, "year": year},
+    return {"filters": {"mode": mode, "severity": severity, "light": light, "year": year, "county": _county_arg(county)},
             "count": len(hit), "of_total": len(rows),
             "by_severity": {k: sum(r.get("severity") == k for r in hit) for k in "KABCO"}}
 
@@ -188,19 +197,20 @@ TOOLS: dict[str, Callable[..., dict[str, Any]]] = {
 
 _S = {"type": "object", "properties": {}}
 TOOL_SPECS: list[dict[str, Any]] = [
-    {"toolSpec": {"name": "query_screening", "description": "Rank one-mile Lubbock County segments by an HSM screening method; outcome is on-system ped/bike/e-scooter crashes 2021-2023 (epdo is null, not computed).",
+    {"toolSpec": {"name": "query_screening", "description": "Rank one-mile state-system segments of the 15-county SPAG region (South Plains, Texas) by an HSM screening method; outcome is on-system ped/bike/e-scooter crashes 2021-2023 (epdo is null, not computed). Optional county restricts the ranking to one county.",
                   "inputSchema": {"json": {"type": "object", "properties": {
                       "method": {"type": "string", "enum": list(queries.METHOD_FIELD)},
                       "limit": {"type": "integer", "minimum": 1, "maximum": 20},
-                      "f_system": {"type": "integer", "description": "FHWA functional class 1-7"}}}}}},
+                      "f_system": {"type": "integer", "description": "FHWA functional class 1-7"},
+                      "county": {"type": "string", "description": "SPAG county name, e.g. 'Lubbock', 'Hale'; omit for the whole region"}}}}}},
     {"toolSpec": {"name": "get_corridor", "description": "Corridor profile summary by id; omit id to list corridors.",
                   "inputSchema": {"json": {"type": "object", "properties": {"corridor_id": {"type": "string"}}}}}},
-    {"toolSpec": {"name": "vru_summary", "description": "Pedestrian/bicycle crash summary (KABCO, PBCAT, light, streets).",
-                  "inputSchema": {"json": _S}}},
-    {"toolSpec": {"name": "vru_count", "description": "Count pedestrian/bicycle crashes matching filters: mode ped|bike|scooter, severity e.g. 'K,A', light substring e.g. 'NOT LIGHTED', year.",
+    {"toolSpec": {"name": "vru_summary", "description": "Pedestrian/bicycle crash summary (KABCO, PBCAT, light, streets, by county) for the SPAG region or one county.",
+                  "inputSchema": {"json": {"type": "object", "properties": {"county": {"type": "string", "description": "SPAG county name; omit for the region"}}}}}},
+    {"toolSpec": {"name": "vru_count", "description": "Count pedestrian/bicycle crashes matching filters: mode ped|bike|scooter, severity e.g. 'K,A', light substring e.g. 'NOT LIGHTED', year, county.",
                   "inputSchema": {"json": {"type": "object", "properties": {
                       "mode": {"type": "string", "enum": ["ped", "bike", "scooter"]}, "severity": {"type": "string"},
-                      "light": {"type": "string"}, "year": {"type": "integer"}}}}}},
+                      "light": {"type": "string"}, "year": {"type": "integer"}, "county": {"type": "string"}}}}}},
     {"toolSpec": {"name": "intersection_conflicts", "description": "Surrogate-safety conflicts (TTC/PET/DRAC) at an NGSIM intersection.",
                   "inputSchema": {"json": {"type": "object", "properties": {
                       "intersection_id": {"type": "string"},
@@ -278,9 +288,19 @@ def _f(v: Any, nd: int = 2) -> str:
     return f"{v:,.{nd}f}" if isinstance(v, float) else str(v)
 
 
+def _county_in(ql: str) -> str | None:
+    try:
+        names = [c["name"] for c in queries.county_list()]
+    except store.MissingData:
+        return None
+    return next((n for n in names if re.search(r"\b" + n.lower() + r"\b", ql)), None)
+
+
 def _route(q: str) -> list[tuple[str, dict[str, Any]]]:
     ql = q.lower()
     plan: list[tuple[str, dict[str, Any]]] = []
+    county = _county_in(ql)
+    cty: dict[str, Any] = {"county": county} if county else {}
     try:
         for c in store.load("corridors.json"):
             keys = [str(c["id"]), c["name"], *c.get("routes", [])]
@@ -302,7 +322,8 @@ def _route(q: str) -> list[tuple[str, dict[str, Any]]]:
         if lt: f["light"] = lt
         y = re.search(r"\b(20[12]\d)\b", ql)
         if y: f["year"] = int(y.group(1))
-        plan.append(("vru_count", f) if f.keys() - {"mode"} or re.search(r"how many|count|number", ql) else ("vru_summary", {}))
+        f.update(cty)
+        plan.append(("vru_count", f) if f.keys() - {"mode", "county"} or re.search(r"how many|count|number", ql) else ("vru_summary", cty))
     repair = re.search(r"\b(repair|kalman|rts|smoother|occlu\w*|interpolat\w*|gap)", ql)
     if repair:
         ids = store.intersection_ids()
@@ -327,7 +348,7 @@ def _route(q: str) -> list[tuple[str, dict[str, Any]]]:
         method = ("epdo" if "epdo" in ql else "critical_ratio" if "critical" in ql
                   else "rate" if re.search(r"\brate\b", ql) else "frequency" if re.search(r"frequen|most crash", ql)
                   else "eb_excess")
-        plan.append(("query_screening", {"method": method, "limit": 5}))
+        plan.append(("query_screening", {"method": method, "limit": 5, **cty}))
     return plan
 
 

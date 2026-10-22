@@ -1,4 +1,4 @@
-"""FARS fatal crashes, Lubbock County (STATE=48, COUNTY=303)."""
+"""FARS fatal crashes, SPAG counties (STATE=48, COUNTY = 3-digit FIPS county codes in sources.COUNTIES)."""
 from __future__ import annotations
 
 import datetime as dt
@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-from .sources import FARS_LICENCE, FARS_URL, FARS_YEARS
+from .sources import COUNTY_BY_NBR, COUNTY_NBR_BY_FIPS, FARS_LICENCE, FARS_URL, FARS_YEARS, county_slug
 
 
 def download(raw_dir: Path, years=FARS_YEARS, refresh=False) -> list[dict]:
@@ -48,8 +48,9 @@ def build(raw_dir: Path, refresh=False):
     feats, sources = [], []
     for e in entries:
         df = read_accident(e["path"])
-        sub = df[(df["STATE"] == 48) & (df["COUNTY"] == 303)]
+        sub = df[(df["STATE"] == 48) & (df["COUNTY"].isin(list(COUNTY_NBR_BY_FIPS)))]
         for _, r in sub.iterrows():
+            nbr = COUNTY_NBR_BY_FIPS[int(r["COUNTY"])]
             lat, lon = float(r["LATITUDE"]), float(r["LONGITUD"])
             if not (-90 < lat < 90 and -180 < lon < 180):  # 77.7777/88.8888/99.9999 = not reported
                 continue
@@ -61,7 +62,8 @@ def build(raw_dir: Path, refresh=False):
                                          "fatals": int(r["FATALS"]), "route": None if pd.isna(r.get("TWAY_ID")) else str(r["TWAY_ID"]),
                                          "light": _name(r, "LGT_COND"), "weather": weather,
                                          "peds": int(r["PEDS"]) if "PEDS" in r and not pd.isna(r["PEDS"]) else None,
-                                         "func_sys": _name(r, "FUNC_SYS")}})
+                                         "func_sys": _name(r, "FUNC_SYS"),
+                                         "county": COUNTY_BY_NBR[nbr], "county_nbr": nbr, "county_id": county_slug(COUNTY_BY_NBR[nbr])}})
         sources.append({"id": f"fars_{e['year']}", "url": e["url"], "licence": FARS_LICENCE,
                         "records": int(len(sub)), "fetched_at": e["fetched_at"], "sha256": e["sha256"]})
     return {"type": "FeatureCollection", "features": feats}, sources
