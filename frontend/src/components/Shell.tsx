@@ -6,6 +6,8 @@ import { Icon, type IconName } from './Icon';
 import { useTheme } from '../lib/theme';
 import { reducedMotion } from '../lib/motion';
 import CommandPalette from './CommandPalette';
+import Select from './Select';
+import { REGION_COUNT, REGION_NAME, regionLabel, useCounties, useCounty, withCounty } from '../lib/region';
 
 const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Atlas', icon: 'atlas' },
@@ -26,6 +28,10 @@ const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isCon
 
 export default function Shell() {
   const meta = useApi<Manifest>('/meta');
+  const [county, setCounty] = useCounty();
+  const counties = useCounties();
+  // A slug that names no SPAG county (an old or mistyped link) falls back to the whole region once the list is known.
+  useEffect(() => { if (county && counties.list && !counties.list.some((c) => c.id === county)) setCounty(null); }, [county, counties.list, setCounty]);
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readRail);
   // Peek: hovering the expand button opens the collapsed rail over the page; a click pins it open.
@@ -130,6 +136,14 @@ export default function Shell() {
   };
 
   const asOf = meta.data?.generated_at ? new Date(meta.data.generated_at) : null;
+  const scope = regionLabel(county, counties.list);
+  const regionSelect = (
+    <Select<string> label="Region" icon="county" value={county ?? 'all'} compact portal onChange={(v) => setCounty(v === 'all' ? null : v)}
+      options={[
+        { value: 'all', label: REGION_NAME, hint: `${REGION_COUNT} counties` },
+        ...(counties.list ?? []).map((c) => ({ value: c.id, label: `${c.name} County`, hint: `${c.segments_screened.toLocaleString('en-US')} seg · ${c.vru_crashes} VRU` })),
+      ]} />
+  );
   const themeLabel = `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`;
   const railLabel = collapsed ? (peek ? 'Keep sidebar open' : 'Expand sidebar') : 'Collapse sidebar';
 
@@ -137,10 +151,11 @@ export default function Shell() {
     <div className="shell" data-open={open} data-rail={collapsed && !peek ? 'collapsed' : 'expanded'} data-peek={(collapsed && peek) || undefined}>
       <a className="skip" href="#main">Skip to content</a>
       <header className="topbar">
-        <NavLink to="/" className="brand" aria-label="Sightpole home">
+        <NavLink to={withCounty('/', county)} className="brand" aria-label="Sightpole home">
           <Mark /> <span>Sightpole</span>
         </NavLink>
         <div className="topbar-act">
+          <div className="topbar-region">{regionSelect}</div>
           <button type="button" className="icon-btn" aria-label="Jump to a sheet, corridor, segment or intersection" title="Jump to (⌘K)"
             onClick={() => window.dispatchEvent(new Event('rs:palette'))}>
             <Icon name="search" size={16} />
@@ -158,7 +173,7 @@ export default function Shell() {
         onPointerOver={showTip} onPointerEnter={() => window.clearTimeout(peekOff.current)} onPointerLeave={() => { setTip(null); if (peek) endPeek(); }} onFocus={showTip} onBlur={() => setTip(null)}>
         <div className="rail-in">
           <div className="rail-head">
-            <NavLink to="/" className="brand rail-brand" aria-label="Sightpole home" tabIndex={collapsed && !peek ? -1 : undefined}>
+            <NavLink to={withCounty('/', county)} className="brand rail-brand" aria-label="Sightpole home" tabIndex={collapsed && !peek ? -1 : undefined}>
               <Mark /> <span>Sightpole</span>
             </NavLink>
             <button type="button" className="rail-toggle" onClick={toggleRail} onPointerEnter={startPeek} aria-label={railLabel} aria-expanded={!collapsed} aria-controls="rail-list"
@@ -167,11 +182,18 @@ export default function Shell() {
             </button>
           </div>
 
+          {/* Region: the one filter every sheet shares. Collapsed rail: the county icon expands the rail to reach it. */}
+          <div className="rail-region" data-scope={county ? 'county' : 'region'}>
+            {collapsed && !peek
+              ? <button type="button" className="rail-link rail-tool" data-tip={`Region: ${scope}`} onClick={toggleRail} aria-label={`Region: ${scope}. Expand the sidebar to change it`}><Icon name="county" size={16} /><span className="rail-text">{scope}</span></button>
+              : regionSelect}
+          </div>
+
           <ul id="rail-list" ref={list}>
             <li ref={ind} className="rail-ind" aria-hidden="true" />
             {NAV.map((n) => (
               <li key={n.to}>
-                <NavLink to={n.to} end={n.to === '/'} className="rail-link" data-tip={n.label}>
+                <NavLink to={withCounty(n.to, county)} end={n.to === '/'} className="rail-link" data-tip={n.label}>
                   <Icon name={n.icon} size={16} />
                   <span className="rail-text">{n.label}</span>
                 </NavLink>
@@ -196,8 +218,9 @@ export default function Shell() {
       {about && (
         <div ref={aboutPop} id="rail-about" role="dialog" aria-label="About the data" className="mi-pop rail-about">
           <span className="mi-head"><b>About the data</b></span>
-          <span className="mi-row"><span>District</span><span>TxDOT Lubbock (05)</span></span>
-          <span className="mi-row"><span>County</span><span className="num">152 · Lubbock</span></span>
+          <span className="mi-row"><span>Region</span><span>South Plains (SPAG), {REGION_COUNT} counties</span></span>
+          <span className="mi-row"><span>Districts</span><span>TxDOT Lubbock (05), Childress (25)</span></span>
+          <span className="mi-row"><span>Showing</span><span>{scope}</span></span>
           <span className="mi-row"><span>Data build</span><span className="num">{meta.loading ? '…' : asOf ? asOf.toISOString().slice(0, 10) : <span className="status-bad">offline</span>}</span></span>
           <span className="mi-row"><span>Sources</span><span>TxDOT CRIS, Roadway Inventory, AADT · NHTSA FARS · FHWA NGSIM</span></span>
           <span className="mi-note">TxDOT data for informational use; not an official TxDOT product. FARS public domain. NGSIM CC BY-SA 3.0.</span>

@@ -8,6 +8,7 @@ import { useApi } from '../lib/api';
 import { useReveal } from '../lib/motion';
 import { nf } from '../lib/format';
 import type { Manifest } from '../lib/types';
+import { REGION_COUNT } from '../lib/region';
 import '../styles/methods.css';
 
 // MathML Core elements are not in @types/react's IntrinsicElements; declare the ones used here.
@@ -127,6 +128,12 @@ export default function Methods() {
   const ssm = [{ name: SITES[0][1], d: sp.data, err: sp.error }, { name: SITES[1][1], d: sl.data, err: sl.error }, { name: SITES[2][1], d: st.data, err: st.error }];
   const active = useSpy();
   const { hash } = useLocation();
+  const m = meta.data?.metrics as { segments?: number; segments_screened?: number; region?: { counties?: number; segments_dropped_outside?: Record<string, number> }; by_county?: { name: string; segments: number }[] } | undefined;
+  const sites = Object.values(spf.data?.site_types ?? {});
+  const fittedCrashes = sites.filter((t) => t.fitted).map((t) => t.crashes);
+  const pooledSites = sites.filter((t) => !t.fitted);
+  const pooledCrashes = pooledSites.map((t) => t.crashes);
+  const rng = (xs: number[]) => (xs.length ? (Math.min(...xs) === Math.max(...xs) ? nf(xs[0]) : `${nf(Math.min(...xs))}–${nf(Math.max(...xs))}`) : '—');
   // Deep links (#m-ssm, #metric-ttc) land after the async sections have laid out.
   useEffect(() => {
     if (!hash) return;
@@ -140,7 +147,7 @@ export default function Methods() {
         icon="methods"
         title="Methods and data"
         lede={`Formula, threshold, input data and limitations for every metric on the portal: ${METRICS.length} metrics, ${meta.data?.sources.length ?? '—'} sources, ${(meta.data?.metrics?.segments as number | undefined) ?? '—'} segments of about one mile, ${SITES.length} conflict sites.`}
-        source={meta.data ? `Manifest built ${date(meta.data.generated_at)} · Lubbock County roadway and crashes; NGSIM Los Angeles and Atlanta trajectories` : 'Loading manifest…'}
+        source={meta.data ? `Manifest built ${date(meta.data.generated_at)} · roadway and crashes for the ${m?.region?.counties ?? REGION_COUNT} SPAG counties (South Plains, Texas); NGSIM Los Angeles and Atlanta trajectories` : 'Loading manifest…'}
       />
 
       <div className="methods-layout">
@@ -187,7 +194,12 @@ export default function Methods() {
 
           <Sec id="m-screening">
             <h2 id="m-screening-h">Network screening</h2>
-            <Fold label="Scope and outcome"><p>Lubbock County state-system roadway, split by DFO into <span className="num">443</span> segments of about one mile.
+            <Fold label="Scope and outcome"><p>State-system roadway of the {m?.region?.counties ?? REGION_COUNT} counties of the South Plains Association of Governments
+              (Bailey, Cochran, Crosby, Dickens, Floyd, Garza, Hale, Hockley, King, Lamb, Lubbock, Lynn, Motley, Terry, Yoakum), split by DFO into
+              <span className="num"> {nf(m?.segments)}</span> segments of about one mile, <span className="num">{nf(m?.segments_screened ?? spf.data?.n)}</span> of them with an
+              inventory and AADT match (n for every SPF). A segment belongs to the county containing its midpoint (TxDOT county boundaries);
+              {m?.region?.segments_dropped_outside?.outside_spag_counties ? <> <span className="num">{nf(m.region.segments_dropped_outside.outside_spag_counties)}</span> segments pulled by the region envelope lie outside the fifteen counties and are dropped.</> : null}
+              SPFs, EB weights and critical rates are fitted once on this regional population; a county view restricts the ranking, not the model.
               Outcome: <strong>{spf.data?.outcome ?? 'on-system pedestrian, cyclist and e-scooter crashes (TxDOT CRIS via the Active Transportation Crashes layer), all KABCO severities'}</strong>,
               <span className="num"> {spf.data?.crash_period ?? '2021–2023'}</span> (<i>Y</i> = <span className="num">{spf.data?.crash_years ?? 3}</span> years).
               Crashes snap (≤ 5 m) to the nearest segment, which carries length-weighted AADT and a Roadway Inventory site type
@@ -229,13 +241,14 @@ export default function Methods() {
             {spf.error && <div className="error-box">{spf.error}</div>}
             {spf.loading && <div className="skeleton m-skel" />}
             {spf.data && <SpfTable s={spf.data} />}
-            <Fold label="Estimation and caveats"><p>{spf.data?.estimation ?? 'NB2 maximum likelihood with offset ln L + ln Y'}. Covariates <i>x<sub>j</sub></i> (lanes, divided,
+            <Fold label="Estimation and caveats"><p>{spf.data?.estimation ?? 'NB2 maximum likelihood with offset ln L + ln Y'}. Fitted on the regional population, n = <span className="num">{nf(spf.data?.n)}</span> segments
+              with <span className="num">{nf(spf.data?.crashes)}</span> crashes. Covariates <i>x<sub>j</sub></i> (lanes, divided,
               posted speed) are chosen by AIC, at most one per 10 crashes. Site types under 30 segments or 20 crashes use a pooled model
               (ln AADT, urban, lanes, speed). Fit: MAD, Pearson χ²/df and CURE share outside ±2σ* (Hauer and Bamfo 1997).
               Segments without AADT or site type are excluded.</p>
-            <p>NB2 SPFs by site type, outcome {spf.data?.crash_period ?? '2021–2023'} ped/bike crashes; k per mile (k<sub>seg</sub> = k/L). Coefficients on ln μ; speed in posted mph. With 24–56 crashes per site type, standard errors are wide
-              and the urban minor arterial ln AADT term is not distinguishable from zero. Use as screening baselines; they are not causal models.
-              Fallback GOF (0–2 crashes) is not informative.</p></Fold>
+            <p>NB2 SPFs by site type, outcome {spf.data?.crash_period ?? '2021–2023'} ped/bike crashes; k per mile (k<sub>seg</sub> = k/L). Coefficients on ln μ; speed in posted mph. With {rng(fittedCrashes)} crashes per fitted site type, standard errors are wide;
+              a k at its lower bound means the data show no extra-Poisson variation for that type. Use as screening baselines; they are not causal models.
+              Fallback GOF ({rng(pooledCrashes)} crashes per type) is not informative.</p></Fold>
           </Sec>
 
           <Sec id="m-ssm">
@@ -316,7 +329,8 @@ export default function Methods() {
                 snapped CRIS crashes; K/A/B weighted about 10× C/O). It is not an all-crash count and not the SPF outcome
                 (kept as <code>satp_crash_score</code>).</Fold></li>
               <li><Fold label="AADT count year unpublished"><code>TxDOT_AADT.AADT_CUR</code> has no published count year and differs from Roadway Inventory 2024 ADT; presumably later than 2021–2023.</Fold></li>
-              <li><Fold label="Five rural site types use the pooled SPF">Only three urban site types support their own SPF; the other five (all rural, 0–2 crashes) rest on the pooled fallback.</Fold></li>
+              <li><Fold label={`${pooledSites.length || 'Five'} site types use the pooled SPF`}>Only {sites.length - pooledSites.length || 'three'} urban site types support their own SPF; the other {pooledSites.length || 'five'} ({rng(pooledCrashes)} crashes each, mostly rural) rest on the pooled fallback. Pedestrian and cyclist crashes on rural state roads are rare, so rural rankings are driven by the few observed crashes.</Fold></li>
+              <li><Fold label="County ranks are positions in the regional ranking">Selecting a county keeps the regional SPFs, EB weights and critical rates (site-type reference populations span all fifteen counties) and filters the ranked list, so county figures are comparable across counties; thirteen counties have fewer than ten on-system ped/bike crashes in 2021–2023.</Fold></li>
               <li><Fold label="No EPDO: no sourced severity weights">EPDO is not computed: no sourced severity weights. Severity analysis is confined to the VRU and FARS layers.</Fold></li>
               <li><Fold label="NGSIM stands in for roadside LiDAR">Trajectories are NGSIM (Los Angeles and Atlanta, 2005–2006), a stand-in for roadside LiDAR; conflict counts are not Lubbock findings. NGSIM has no pedestrians, so pedestrian PET and failure to yield run only on the SinD site.</Fold></li>
               <li><Fold label="SinD pedestrian site: non-commercial licence, signalised, drone">The pedestrian site is a 90 s window of the public SinD sample (Tianjin, drone video, 10 Hz, Xu et al. 2022), licensed CC0 as modified by its authors to exclude commercial purposes: shown here for non-commercial research and display only. Vehicle boxes are centred in the feed (converted to the front-bumper reference); pedestrians are points with an assumed 0.5 m footprint. Signal states are available in the dataset but not applied to the measures.</Fold></li>

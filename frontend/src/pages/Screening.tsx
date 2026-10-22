@@ -12,6 +12,7 @@ import { copyLink, downloadCSV, downloadPNG } from '../lib/export';
 import { bboxOf, CHART, nf, SEV_HEX } from '../lib/format';
 import { reducedMotion, useReveal } from '../lib/motion';
 import type { FC, SegmentProps, Spf } from '../lib/types';
+import { countyQuery, regionBounds, regionLabel, useCounties, useCounty, withCounty } from '../lib/region';
 import '../styles/screening.css';
 
 const CRIS = <>TxDOT CRIS on-system ped/bike crashes 2021–2023; TxDOT Roadway Inventory 2024; TxDOT AADT (AADT_CUR)</>;
@@ -146,6 +147,10 @@ function ranksBy(rows: Row[]) {
 
 export default function ScreeningPage() {
   const [params, setParams] = useSearchParams();
+  const [county] = useCounty();
+  const counties = useCounties();
+  const scope = regionLabel(county, counties.list);
+  const cq = countyQuery(county);
   const method = (METHODS.find((m) => m.id === params.get('method'))?.id ?? 'eb_excess') as MethodId;
   const group = (GROUPS as readonly string[]).includes(params.get('group') ?? '') ? params.get('group')! : 'All';
   const focus = params.get('seg');
@@ -154,8 +159,10 @@ export default function ScreeningPage() {
   // retry: a new query token re-requests a failed endpoint without reloading the page
   const [retry, setRetry] = useState(0);
   const rq = retry ? `${'&'}retry=${retry}` : '';
-  const net = useApi<FC<SegmentProps & { fc_group?: string }>>(`/network${rq ? `?${rq.slice(1)}` : ''}`);
-  const scr = useApi<Screening>(`/screening?method=${method}&limit=1000${rq}`);
+  const qs = (...parts: string[]) => { const s = parts.filter(Boolean).map((x) => x.replace(/^[?&]/, '')).join('&'); return s ? `?${s}` : ''; };
+  const net = useApi<FC<SegmentProps & { fc_group?: string }>>(`/network${qs(rq, cq)}`);
+  // limit covers the whole regional population (4,090 scored segments); the client filters by facility and county
+  const scr = useApi<Screening>(`/screening?method=${method}&limit=5000${rq}${cq}`);
   const spf = useApi<SpfFull>(`/spf${rq ? `?${rq.slice(1)}` : ''}`);
   const meta = METHODS.find((m) => m.id === method)!;
   const gridRef = useReveal<HTMLElement>();
@@ -182,12 +189,14 @@ export default function ScreeningPage() {
   // Fit only on request (double-click, F, deep link); n nudges the bounds so the same segment can be refitted.
   const [fit, setFit] = useState<{ id: string; n: number } | null>(() => (focus ? { id: focus, n: 0 } : null));
   const fitFeature = fit && net.data?.features.find((f) => f.properties.seg_id === fit.id);
+  // Without a fit request the map frames the selected county (or the whole region) from the county extents.
+  const scopeBounds = useMemo(() => regionBounds(county, counties.list), [county, counties.list]);
   const bounds = useMemo(() => {
-    if (!fitFeature || !fit) return undefined;
-    const [[a, b], [c, d]] = bboxOf(fitFeature.geometry.coordinates as number[][]);
+    if (!fitFeature || !fit) return scopeBounds;
+    const [[a, b], [c, d]] = bboxOf((fitFeature.geometry.type === 'MultiLineString' ? (fitFeature.geometry.coordinates as number[][][]).flat() : fitFeature.geometry.coordinates) as number[][]);
     const e = fit.n * 1e-7;
     return [[a - e, b], [c, d]] as [[number, number], [number, number]];
-  }, [fitFeature, fit]);
+  }, [fitFeature, fit, scopeBounds]);
   const fitTo = (id: string) => setFit((f) => ({ id, n: (f?.n ?? 0) + 1 }));
 
   useFlip(rowEls as React.RefObject<Map<string, HTMLElement>>, rows.map((r) => r.seg_id).join(','), wrapRef);
@@ -220,9 +229,9 @@ export default function ScreeningPage() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const exportCsv = () => downloadCSV(`sightpole-screening-${method}-${slug(group)}.csv`,
+  const exportCsv = () => downloadCSV(`sightpole-screening-${county ?? 'spag'}-${method}-${slug(group)}.csv`,
     rows.map((r, i) => ({
-      rank: i + 1, seg_id: r.seg_id, name: r.name, route: r.route, dfo_from: r.dfo_from, dfo_to: r.dfo_to, facility: r.fc_group, site_type: r.site_type,
+      rank: i + 1, seg_id: r.seg_id, county: r.county, name: r.name, route: r.route, dfo_from: r.dfo_from, dfo_to: r.dfo_to, facility: r.fc_group, site_type: r.site_type,
       lanes: r.lanes, speed_limit_mph: r.speed_limit, operating_speed_mph: r.speed_all, aadt: r.aadt, truck_pct: r.truck_pct, crashes_3yr: r.crashes_total, crashes_ka_3yr: r.crashes_ka,
       crashes_per_yr: r.crashes_per_yr, rate_100mvmt: r.rate_100mvmt, crit_rate: r.crit_rate, crit_ratio: r.crit_ratio, spf_pred_per_yr: r.spf_pred, eb_expected_per_yr: r.eb_expected, eb_excess_per_yr: r.eb_excess,
     })));
@@ -232,8 +241,8 @@ export default function ScreeningPage() {
     if (!exporting) return;
     const el = figRef.current;
     if (!el) { setExporting(false); return; }
-    downloadPNG(`sightpole-screening-${method}-${slug(group)}.png`, el,
-      `Sightpole network screening · top ${TOP} by ${meta.label} · ${group} · TxDOT CRIS ped/bike 2021–2023 · HSM Part B`).finally(() => setExporting(false));
+    downloadPNG(`sightpole-screening-${county ?? 'spag'}-${method}-${slug(group)}.png`, el,
+      `Sightpole network screening · ${scope} · top ${TOP} by ${meta.label} · ${group} · TxDOT CRIS ped/bike 2021–2023 · HSM Part B`).finally(() => setExporting(false));
   }, [exporting]); // eslint-disable-line react-hooks/exhaustive-deps
   const exportFig = () => setExporting(true);
   const share = async () => setCopied((await copyLink()) ? 'ok' : 'fail');
@@ -259,7 +268,12 @@ export default function ScreeningPage() {
       { id: 'sel-line', type: 'line', paint: { 'line-color': CHART.ink, 'line-width': 2, 'line-gap-width': ['interpolate', ['linear'], ['zoom'], 9, 5, 13, 9] }, layout: { 'line-cap': 'round', 'line-join': 'round' } } as any,
     ],
   }), [focusFeature, pulse]);
-  const mapSources = useMemo(() => (sources.length ? [...sources, selSource] : []), [sources, selSource]);
+  // County lines: thin rules so a reader places a segment; the selected county (or every county in region view) is drawn.
+  const ctySource = useMemo<MapLayer | null>(() => counties.data ? {
+    id: 'cty', data: { ...counties.data, features: counties.data.features.filter((f) => !county || f.properties.id === county) } as any,
+    layers: [{ id: 'cty-line', type: 'line', paint: { 'line-color': CHART.axis, 'line-width': 1, 'line-opacity': 0.55, 'line-dasharray': [2, 2] } } as any],
+  } : null, [counties.data, county]);
+  const mapSources = useMemo(() => (sources.length ? [...(ctySource ? [ctySource] : []), ...sources, selSource] : []), [sources, selSource, ctySource]);
 
   const methodHead = method === 'eb_excess' ? <Term k="EB excess" /> : method === 'critical_ratio' ? <Term k="Critical ratio">R/Rc</Term> : method === 'rate' ? 'Per 100 MVMT' : 'Crashes, 3 yr';
   const dp = method === 'frequency' ? 0 : method === 'rate' ? 1 : 2;
@@ -269,8 +283,9 @@ export default function ScreeningPage() {
       <PageHeader
         icon="rank"
         title="Network screening"
-        lede={<>{nf(scr.data?.total)} one-mile on-system segments in Lubbock County, ranked by pedestrian and bicyclist crashes{unscr?.segments ? <> ({nf(unscr.segments)} more lack an inventory or AADT match and are not ranked)</> : null}.</>}
-        source={<>Derived from TxDOT CRIS 2021–2023 (on-system ped/bike crashes), TxDOT Roadway Inventory 2024 and TxDOT AADT (AADT_CUR); method per {HSM}.</>}
+        scope={scope}
+        lede={<>{nf(scr.data?.total)} one-mile on-system segments in {regionLabel(county, counties.list, true)}, ranked by pedestrian and bicyclist crashes{unscr?.segments ? <> ({nf(unscr.segments)} more lack an inventory or AADT match and are not ranked)</> : null}.{county ? ' SPFs, EB and critical rates are fitted on the whole 15-county population; the rank is this county\u2019s position within it.' : ''}</>}
+        source={<>Derived from TxDOT CRIS 2021–2023 (on-system ped/bike crashes), TxDOT Roadway Inventory 2024 and TxDOT AADT (AADT_CUR), SPAG counties; method per {HSM}.</>}
         readouts={[
           { label: <span className="rd-l">Sites flagged <MetricInfo spec={SPECS.eb_excess} align="right" /></span>, value: scr.data ? head.flagged : null, unit: `/ ${nf(rows.length)}`, tone: 'alert' },
           { label: <span className="rd-l">Top EB excess</span>, value: head.top, unit: 'crashes/yr', digits: 2 },
@@ -281,7 +296,7 @@ export default function ScreeningPage() {
           <button type="button" className="btn ghost" onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={16} /><span>Download CSV</span></button>
           <button type="button" className="btn ghost" onClick={exportFig} disabled={!rows.length}><Icon name="image" size={16} /><span>Download PNG</span></button>
           <button type="button" className="btn ghost" onClick={share} aria-live="polite"><Icon name={copied === 'ok' ? 'check' : 'link'} size={16} /><span>{copied === 'ok' ? 'Copied' : copied === 'fail' ? 'Copy blocked' : 'Copy link'}</span></button>
-          <Link to="/brief" className="btn ghost"><Icon name="sheet" size={16} /><span>Open brief</span></Link>
+          <Link to={withCounty('/brief', county)} className="btn ghost"><Icon name="sheet" size={16} /><span>Open brief</span></Link>
         </>}
       />
 
@@ -329,7 +344,7 @@ export default function ScreeningPage() {
                   <td className="r measure rank">{i + 1}</td>
                   <td>
                     <div className="seg-name">{r.name}{(r.crit_ratio ?? 0) > 1 && (r.eb_excess ?? 0) > 0 && <i className="scr-both" role="img" aria-label="confirmed by both tests" title="Confirmed: EB excess > 0 and R/Rc > 1" />}</div>
-                    <div className="measure seg-id">{nf(r.dfo_from, 2)}–{nf(r.dfo_to, 2)} · {nf(r.lanes)} ln · {nf(r.speed_limit)} mph</div>
+                    <div className="measure seg-id">{nf(r.dfo_from, 2)}–{nf(r.dfo_to, 2)} · {nf(r.lanes)} ln · {nf(r.speed_limit)} mph{!county && r.county ? <span className="seg-cty"> · {r.county}</span> : null}</div>
                   </td>
                   <td className="r measure opt">{nf(r.aadt)}</td>
                   <td className="r measure">{nf(r.crashes_total)}</td>
@@ -362,7 +377,7 @@ export default function ScreeningPage() {
 
       {exporting && net.data && (
         <div className="scr-export" ref={figRef} aria-hidden="true">
-          <NetworkFigure fc={net.data} rankOf={rankOf} focus={focus} title={`Top ${TOP} segments by ${meta.label}${group !== 'All' ? ` · ${group}` : ''}`} />
+          <NetworkFigure fc={net.data} rankOf={rankOf} focus={focus} scopeLabel={scope} title={`Top ${TOP} segments by ${meta.label}${group !== 'All' ? ` · ${group}` : ''}`} />
         </div>
       )}
 
@@ -426,9 +441,10 @@ function SegmentCard({ s, rank, onFit, onClose }: { s: Row; rank?: number; onFit
 }
 
 /** Vector rendering of the screened network for PNG export (equirectangular, cos φ corrected). */
-function NetworkFigure({ fc, rankOf, focus, title }: { fc: FC<SegmentProps>; rankOf: Map<string, number>; focus: string | null; title: string }) {
+function NetworkFigure({ fc, rankOf, focus, title, scopeLabel }: { fc: FC<SegmentProps>; rankOf: Map<string, number>; focus: string | null; title: string; scopeLabel: string }) {
   const W = 1200, H = 900, pad = 40, head = 56;
-  const all = fc.features.flatMap((f) => f.geometry.coordinates as number[][]);
+  const coords = (f: FC<SegmentProps>['features'][number]) => (f.geometry.type === 'MultiLineString' ? (f.geometry.coordinates as number[][][]).flat() : f.geometry.coordinates as number[][]);
+  const all = fc.features.flatMap(coords);
   const [[a, b], [c, d]] = bboxOf(all);
   const k = Math.cos(((b + d) / 2) * Math.PI / 180);
   const s = Math.min((W - 2 * pad) / ((c - a) * k), (H - head - 2 * pad) / (d - b));
@@ -440,7 +456,7 @@ function NetworkFigure({ fc, rankOf, focus, title }: { fc: FC<SegmentProps>; ran
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
       <rect width={W} height={H} fill={CHART.ground} />
       <text x={pad} y={36} fill={CHART.ink} fontSize={22} fontWeight={600}>{title}</text>
-      <text x={W - pad} y={36} fill={CHART.axis} fontSize={14} textAnchor="end">Lubbock County state system · 1-mi segments</text>
+      <text x={W - pad} y={36} fill={CHART.axis} fontSize={14} textAnchor="end">{scopeLabel} state system · 1-mi segments</text>
       {ranked.map(({ f, r }) => (
         <path key={f.properties.seg_id} d={path(f.geometry.coordinates as number[][])} fill="none" strokeLinecap="round"
           stroke={r <= TOP ? col(r) : CHART.areaFill} strokeWidth={r <= TOP ? 5 : 1.6} />

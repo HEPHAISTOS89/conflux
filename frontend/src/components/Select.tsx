@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
 import { useFloatFit } from './useFloatFit';
 
@@ -7,9 +8,11 @@ export interface Option<T extends string> { value: T; label: string; hint?: stri
 /**
  * Listbox select: keyboard (↑ ↓ Home End Enter Esc, type-ahead), focus return, outside click,
  * optional per-option hint (counts, units). Renders a native-feeling trigger in the portal's style.
+ * `portal` renders the listbox at the document root with a fixed position, for triggers inside a
+ * scrolling box (the side rail) that would otherwise clip it.
  */
-export default function Select<T extends string>({ value, options, onChange, label, icon, compact }: {
-  value: T; options: Option<T>[]; onChange: (v: T) => void; label: string; icon?: IconName; compact?: boolean;
+export default function Select<T extends string>({ value, options, onChange, label, icon, compact, portal }: {
+  value: T; options: Option<T>[]; onChange: (v: T) => void; label: string; icon?: IconName; compact?: boolean; portal?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(() => Math.max(0, options.findIndex((o) => o.value === value)));
@@ -18,7 +21,20 @@ export default function Select<T extends string>({ value, options, onChange, lab
   const list = useRef<HTMLUListElement>(null);
   const typed = useRef({ s: '', t: 0 });
   const current = options.find((o) => o.value === value) ?? options[0];
-  useFloatFit(list, open);
+  // Portal mode: pin the listbox to the trigger's rectangle, re-measured on scroll and resize.
+  const [pos, setPos] = useState<{ top: number; bottom: number; left: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!open || !portal) { setPos(null); return; }
+    const place = () => {
+      const r = btn.current?.getBoundingClientRect();
+      if (r) setPos({ top: r.bottom + 6, bottom: window.innerHeight - r.top + 6, left: r.left, w: r.width });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+  }, [open, portal]);
+  useFloatFit(list, open && (!portal || pos !== null), 12, portal ? btn : undefined);
 
   useEffect(() => {
     if (!open) return;
@@ -65,8 +81,14 @@ export default function Select<T extends string>({ value, options, onChange, lab
         <span className="sel-v">{current?.label}</span>
         <Icon name="caretUpDown" size={14} />
       </button>
-      {open && (
-        <ul ref={list} id={`${id}-list`} role="listbox" tabIndex={-1} className="sel-list" aria-label={label}
+      {open && (portal ? (pos && createPortal(listEl(pos), document.body)) : listEl(null))}
+    </div>
+  );
+
+  function listEl(p: { top: number; bottom: number; left: number; w: number } | null) {
+    return (
+        <ul ref={list} id={`${id}-list`} role="listbox" tabIndex={-1} className="sel-list" aria-label={label} data-portal={p ? '' : undefined}
+          style={p ? ({ '--top': `${p.top}px`, '--bottom': `${p.bottom}px`, '--left': `${p.left}px`, '--w': `${p.w}px` } as React.CSSProperties) : undefined}
           aria-activedescendant={`${id}-${active}`} onKeyDown={onKey}>
           {options.map((o, i) => (
             <li key={o.value} id={`${id}-${i}`} role="option" aria-selected={o.value === value} data-active={i === active || undefined}
@@ -78,7 +100,6 @@ export default function Select<T extends string>({ value, options, onChange, lab
             </li>
           ))}
         </ul>
-      )}
-    </div>
-  );
+    );
+  }
 }

@@ -1,8 +1,8 @@
-# Sightpole: a road-safety dashboard for Lubbock County, Texas
+# Sightpole: a road-safety dashboard for the South Plains (SPAG) region, Texas
 
 **Live:** https://sightpole.vercel.app
 
-Sightpole turns public Texas road data into answers a traffic engineer can act on. It is built end to end on AWS, from data ingestion to the dashboard.
+Sightpole covers the 15 counties of the South Plains Association of Governments (SPAG) around Lubbock, with a county filter on every page. It turns public Texas road data into answers a traffic engineer can act on. It is built end to end on AWS, from data ingestion to the dashboard.
 
 - **Spots near-misses before crashes happen:** measures how close vehicles and pedestrians come to colliding (TTC, PET, DRAC) on real trajectory data.
 - **Ranks the riskiest road segments:** compares 3 years of pedestrian and bicycle crashes (TxDOT CRIS) with what traffic volume predicts.
@@ -13,7 +13,7 @@ This is a first version and is actively improving. Every number comes from a rep
 
 ## Technical summary
 
-Sightpole applies Highway Safety Manual (HSM) Part B network screening to the public TxDOT roadway, traffic and crash layers for Lubbock County. The screened outcome is **on-system pedestrian, cyclist and e-scooter crashes** (TxDOT CRIS, via the Active Transportation Crashes layer, 2021-2023, all KABCO severities) snapped to 443 one-mile segments. Negative Binomial safety performance functions (SPFs) are fitted by site type and combined with Empirical Bayes (EB) adjustment. The portal also summarises vulnerable-road-user (VRU) and fatal crashes, and computes FHWA SSAM surrogate safety measures (TTC, PET, DRAC) on real vehicle trajectories at two signalised intersections. For those trajectories it benchmarks a constant-acceleration Kalman/RTS smoother against linear interpolation for repairing occluded tracks, under two gap protocols and two ground truths. Every number in the portal comes from a reproducible Python pipeline. The pipeline is served by a serverless AWS stack (S3, Lambda, EventBridge, EC2, API Gateway, Bedrock, CloudWatch), and each output carries its provenance, licence and stated limitations.
+Sightpole applies Highway Safety Manual (HSM) Part B network screening to the public TxDOT roadway, traffic and crash layers for the fifteen counties of the South Plains Association of Governments (Bailey, Cochran, Crosby, Dickens, Floyd, Garza, Hale, Hockley, King, Lamb, Lubbock, Lynn, Motley, Terry, Yoakum), with a county filter on every sheet. The screened outcome is **on-system pedestrian, cyclist and e-scooter crashes** (TxDOT CRIS, via the Active Transportation Crashes layer, 2021-2023, all KABCO severities) snapped to 4,121 one-mile segments (4,090 screened). Negative Binomial safety performance functions (SPFs) are fitted by site type and combined with Empirical Bayes (EB) adjustment. The portal also summarises vulnerable-road-user (VRU) and fatal crashes, and computes FHWA SSAM surrogate safety measures (TTC, PET, DRAC) on real vehicle trajectories at two signalised intersections. For those trajectories it benchmarks a constant-acceleration Kalman/RTS smoother against linear interpolation for repairing occluded tracks, under two gap protocols and two ground truths. Every number in the portal comes from a reproducible Python pipeline. The pipeline is served by a serverless AWS stack (S3, Lambda, EventBridge, EC2, API Gateway, Bedrock, CloudWatch), and each output carries its provenance, licence and stated limitations.
 
 - Portal (production): https://sightpole.vercel.app
 - API health: https://tkk01bgzfb.execute-api.us-east-2.amazonaws.com/api/v1/health (OpenAPI at `/api/v1/docs`)
@@ -27,7 +27,7 @@ Sightpole applies Highway Safety Manual (HSM) Part B network screening to the pu
 | 3 | Where and how are pedestrians, cyclists and scooter riders injured or killed? | KABCO and PBCAT breakdown of TxDOT CRIS active-transportation crashes; FARS 2018-2023 | VRU / fatal maps |
 | 4 | What near-crash risk do intersections carry before any crash occurs? | SSAM TTC / PET conflicts with DRAC flag; occlusion repair | Intersection lab |
 
-### 1.1 Network screening (ped/bike crashes 2021-2023, Y = 3)
+### 1.1 Network screening (ped/bike crashes 2021-2023, Y = 3; table below is the original Lubbock County run, the live portal screens the 15 SPAG counties: 4,090 segments, 139 crashes)
 
 443 one-mile segments; 395 have AADT and a site type and are screened. **114 on-system ped/bike crashes** are snapped to segments (100 % of on-system points within 5 m; 193 off-system crashes excluded); 110 fall on the 395 screened segments, and 64 segments have at least one crash. Five segments have an EB excess above 0.25 crashes/yr.
 
@@ -64,7 +64,7 @@ GOF on the fallback site types is not informative (0-2 crashes); their CURE curv
 ### 1.3 Vulnerable road users and fatalities
 
 - TxDOT CRIS active-transportation crashes, 2021-2023, countywide (on and off system): 307 (220 pedestrian, 78 bicycle, 9 scooter). KABCO: K 42, A 44, B 120, C 92, O 9, so **KA = 86**. 114 are on the state system and form the screening outcome. The most frequent PBCAT type is *Pedestrian Failed To Yield* (100).
-- NHTSA FARS 2018-2023, Lubbock County: **278 fatal crashes, 301 fatalities**.
+- NHTSA FARS 2018-2023, SPAG counties: **461 fatal crashes, 519 fatalities** (Lubbock County 278).
 
 ### 1.4 Intersection conflicts (NGSIM, 10 Hz, 90 s windows, FHWA SSAM detection)
 
@@ -96,12 +96,12 @@ Short/long columns pool the by-gap bins (gap-frame-weighted RMSE). Against raw t
 
 | Source | Records | Licence | How fetched |
 |---|---:|---|---|
-| TxDOT AADT (`TxDOT_AADT/FeatureServer/0`) | 5,785 | (c) TxDOT, informational; attribution and disclaimer | ArcGIS REST, Lubbock envelope |
+| TxDOT AADT (`TxDOT_AADT/FeatureServer/0`) | 15,054 | (c) TxDOT, informational; attribution and disclaimer | ArcGIS REST, SPAG region envelope |
 | TxDOT Roadway Inventory 2024 | 11,156 | (c) TxDOT, as above | ArcGIS REST |
 | TxDOT Segment Crash Results (SATP; one-mile segment geometry, `SUM_CRASH_` kept only as `satp_crash_score`) | 443 | (c) TxDOT, as above | ArcGIS REST |
 | TxDOT Statewide Speed 2024 | 2,738 | (c) TxDOT, as above | ArcGIS REST |
 | TxDOT Active Transportation Crashes (CRIS, 2021-2023; screening outcome = 114 on-system) | 307 | (c) TxDOT, as above | ArcGIS REST |
-| NHTSA FARS 2018-2023 (national CSV, filtered to Lubbock County) | 24 / 58 / 38 / 59 / 49 / 51 | Public domain (US Government work) | `static.nhtsa.gov` zip per year |
+| NHTSA FARS 2018-2023 (national CSV, filtered to the 15 SPAG counties by FIPS) | 461 crashes | Public domain (US Government work) | `static.nhtsa.gov` zip per year |
 | NGSIM Lankershim | 55,554 rows | USDOT ITS DataHub, CC BY-SA 3.0 | SODA API `data.transportation.gov/resource/8ect-6jqj` |
 | NGSIM Peachtree | 27,237 rows | USDOT ITS DataHub, CC BY-SA 3.0 | SODA API, as above |
 
@@ -224,7 +224,7 @@ Deployment is described in [docs/DEPLOY.md](docs/DEPLOY.md).
 
 The methods here are aligned with the following published work. This project has no affiliation with the lab.
 
-- Igene, Luo et al., *Sensors* (2024): LiDAR-calibrated microsimulation combined with Negative Binomial crash models. RoadScope's site-type NB SPF + EB screening follows the same modelling family.
+- Igene, Luo et al., *Sensors* (2024): LiDAR-calibrated microsimulation combined with Negative Binomial crash models. Sightpole's site-type NB SPF + EB screening follows the same modelling family.
 - Luo et al., *Sensors* (2025): vehicle trajectory repair under full occlusion with roadside LiDAR. The occluder-protocol benchmark addresses the same problem with a generic Kalman/RTS baseline; it does not reproduce that method.
 - Zhang, Luo et al., *PLOS ONE* (2025): anchor-free real-time vehicle tracking with LiDAR data, the tracking stage that produces the roadside-LiDAR trajectories that conflict and repair methods consume (NGSIM video trajectories stand in for them here).
 - Pedestrian failure-to-yield research: the ped/bike screening and the PBCAT breakdown (where *Pedestrian Failed To Yield* is the most frequent type) give a county-level siting layer for that kind of countermeasure work.

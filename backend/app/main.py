@@ -11,6 +11,7 @@ from typing import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from .routers import ask, data, intersections, ops
 
@@ -43,6 +44,8 @@ def cors_config(raw: str) -> tuple[list[str], str | None]:
 log = _setup_logging()
 app = FastAPI(title="RoadScope API", version=ops.VERSION, docs_url="/api/v1/docs", openapi_url="/api/v1/openapi.json")
 _origins, _regex = cors_config(os.environ.get("CORS_ORIGINS", DEFAULT_ORIGINS))
+# The regional network GeoJSON is ~3 MB; API Gateway does not compress, so gzip here (Mangum base64-encodes it).
+app.add_middleware(GZipMiddleware, minimum_size=2048)
 app.add_middleware(CORSMiddleware, allow_origins=_origins, allow_origin_regex=_regex,
                    allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"], expose_headers=["ETag"], max_age=600)
 

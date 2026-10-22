@@ -3,7 +3,7 @@ import type { SegmentProps } from '../../lib/types';
 
 export type Seg = SegmentProps & {
   fc_group?: string; crashes_per_yr?: number; dfo_from?: number; dfo_to?: number; speed_all?: number;
-  site_type?: string; spf_model?: string; crash_period?: string; crashes_ka?: number;
+  site_type?: string; spf_model?: string; crash_period?: string; crashes_ka?: number; county?: string; county_id?: string;
 };
 
 /** Element width in CSS pixels, tracked with a ResizeObserver (charts draw at true size, never scaled text). */

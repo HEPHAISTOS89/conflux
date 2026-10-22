@@ -5,7 +5,7 @@ import { useLayoutEffect, type RefObject } from 'react';
  * CSS `translate` property (so entrance animations on `transform` still run) and flips it above its anchor
  * when there is no room below. Re-measures on resize and scroll while open.
  */
-export function useFloatFit(ref: RefObject<HTMLElement | null>, open: boolean, margin = 12) {
+export function useFloatFit(ref: RefObject<HTMLElement | null>, open: boolean, margin = 12, anchorRef?: RefObject<HTMLElement | null>) {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!open || !el) return;
@@ -15,18 +15,20 @@ export function useFloatFit(ref: RefObject<HTMLElement | null>, open: boolean, m
       const r = el.getBoundingClientRect();
       const vw = document.documentElement.clientWidth, vh = window.innerHeight;
       // Keep clear of the fixed side rail: the usable area starts at the main column, not the viewport edge.
-      const main = document.getElementById('main')?.getBoundingClientRect();
+      // (A panel anchored inside the rail itself, like the Region listbox, is allowed over the rail.)
+      const anchorEl = anchorRef?.current ?? el.parentElement;
+      const main = anchorEl?.closest('#rail') ? null : document.getElementById('main')?.getBoundingClientRect();
       const minL = Math.max(margin, (main?.left ?? 0) + margin);
       let dx = 0;
       if (r.right > vw - margin) dx = vw - margin - r.right;
       if (r.left + dx < minL) dx = minL - r.left;
       el.style.setProperty('--dx', `${Math.round(dx)}px`);
-      const anchor = el.parentElement?.getBoundingClientRect();
+      const anchor = (anchorRef?.current ?? el.parentElement)?.getBoundingClientRect();
       if (r.bottom > vh - margin && anchor && anchor.top - r.height - 8 > margin) el.setAttribute('data-up', '');
     };
     fit();
     window.addEventListener('resize', fit);
     window.addEventListener('scroll', fit, true);
     return () => { window.removeEventListener('resize', fit); window.removeEventListener('scroll', fit, true); };
-  }, [ref, open, margin]);
+  }, [ref, open, margin, anchorRef]);
 }

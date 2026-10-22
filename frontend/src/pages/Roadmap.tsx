@@ -33,7 +33,7 @@ const ITEMS: Item[] = [
   { status: 'planned', icon: 'sensor', t: 'Roadside LiDAR ingestion', line: 'Edge unit sends 10 Hz object lists to S3 under a pilot/ prefix.', needs: 'Pilot site, power and backhaul, data-sharing agreement' },
   { status: 'planned', icon: 'pedestrian', t: 'Failure-to-yield rate', line: 'Pedestrian detection and driver yielding rate per crosswalk and hour.', needs: 'Labelled pedestrian tracks from the pilot sensor' },
   { status: 'planned', icon: 'trend', t: 'Before/after with CIs', line: 'Treated-vs-control comparison of conflicts and yielding, with n and 95% intervals.', needs: '≥ 3 months before and after per treated site, matched controls' },
-  { status: 'planned', icon: 'county', t: 'SPAG 15-county coverage', line: 'Screening and VRU views for all 15 South Plains counties.', needs: 'CRIS and AADT extracts for the other 14 counties' },
+  { status: 'done', icon: 'county', t: 'SPAG 15-county coverage', line: 'Screening, VRU and brief for all 15 South Plains counties, with a county filter.', to: '/screening' },
   { status: 'planned', icon: 'offline', t: 'Sensor health telemetry', line: 'Uptime, frame completeness and packet gaps per site, alarmed in CloudWatch.', needs: 'Edge-unit heartbeat as CloudWatch custom metrics' },
 ];
 

@@ -200,6 +200,36 @@ Owner asked for a check that the processed data and every displayed figure are r
 - **Pipeline SSM reviewed**: the 28 served rear-end events are a strict subset of a naive recomputation (56 pairs) because the pipeline requires gap ≥ 1 m, follower ≥ 2 m/s, a ≥ 0.3 s run and closing-rate consistency; 25 of the 28 pairs reappear in the naive pass, the 3 others fall just below the naive run length. The naive minima are lower because sub-metre gaps are exactly the NGSIM overlap artefacts the pipeline rejects. No defect.
 - **Live host**: the parallel rebrand moved production to https://sightpole.vercel.app; the old host's `/api` rewrite now 308-redirects cross-origin, so pages on the old host render without data. Not changed here (owned by the other session), recorded in CLAUDE.md.
 
+## SPAG region: fifteen counties (2026-10-18)
+Owner brief: the pilot's dashboard is for the South Plains Association of Governments (Lubbock County plus 14
+neighbours); the portal screened Lubbock County alone.
+- **Pipeline**: county registry in `sources.py` (name, TxDOT number, FIPS, district; roster verified against SPAG's
+  TARC profile, identifiers against TxDOT's County_Boundaries layer). Layers with a county field are filtered by it
+  (Roadway Inventory `CO`, CRIS `County`, FARS `COUNTY` FIPS); the segment results, AADT and speed layers are pulled
+  for the region envelope and each segment is attributed to the county containing its midpoint (numpy
+  point-in-polygon, `counties.py`); 721 envelope segments outside the fifteen counties are dropped and reported.
+  New `counties.geojson` (simplified polygons + per-county roll-ups) and `metrics.by_county` in the manifest.
+  Roadway Inventory requests 20 fields instead of 150 (18 MB raw instead of ~70). Corridor sheets stay Lubbock
+  profiles. Build: 4,121 segments (4,090 screened), 142 snapped crashes, 354 VRU crashes, 461 FARS fatal crashes.
+- **SPFs refit** on the regional population (n = 4,090, 139 crashes): three urban site types own a model, five
+  (mostly rural, 0–9 crashes) use the pooled fallback. Methods states the new n, the per-type crash range and the
+  rule that a county view filters the regional ranking rather than refitting.
+- **API**: `county` on `/network`, `/screening`, `/vru`, `/vru/summary`, `/fatal` (slug, name or TxDOT number;
+  unknown → 404), `/counties`, gzip middleware (3.0 MB network → 239 KB), `limit` ≤ 5000; Ask tools and fallback
+  router take a county.
+- **Shell**: Region control (Select) in the rail and the phone top bar, state in `?county=`; nav links carry it;
+  unknown slugs fall back to the region; page headers show the scope as a pill beside the title; Brief title and
+  CSV names follow the county; region views label each row's county; maps frame the county or region from the
+  county extents and draw dashed county lines. Landing verdict and ranked network follow the county.
+- Lubbock itself grows from 443 to 529 segments (the old envelope cut the county's edges), so its headline
+  figures change: 37 of 499 flagged (was 27 of 395), 116 crashes (110), 46 on-system K+A (43).
+- Verified at 1440 and 375, dark and light, console clean; tsc, 76 + 68 + 32 tests, build. Report and per-county
+  table: docs/qa/spag-region.md. Not deployed; curated set must be synced to S3 before the next deploy.
+
+## SPAG follow-up: deploy and header fixes (2026-10-18)
+- Owner review found the Brief title colliding with the actions row and the rail's Region listbox clipped by the rail's scroll box. Fixes: the H1 no longer forces one line (the scope pill and info button wrap under it instead); the Brief title is "Ped/bike safety brief" with the scope pill, like every other sheet; `Select` gains a `portal` mode (listbox at the document root, fixed to the trigger, re-measured on scroll/resize; `useFloatFit` lets a rail-anchored panel sit over the rail).
+- Sweep at 1440/1024/390 over all nine routes: no page overflow, no title/actions/scope intersections; the only wide elements are inside their own scroll regions (charts, tables). Console warnings are OpenFreeMap style filters, not ours.
+- Deployed: curated set synced to S3, RoadScopeStack redeployed (county-aware API + ingest Lambdas, 45 s), live `/counties` returns 15 and gzip is on; frontend deployed to Vercel from this branch.
 ## Site trajectory feed, pedestrians and failure to yield (2026-10-18)
 Goal: make the lab demonstrably ready for the TransTech roadside-LiDAR feed (pedestrian near-misses, failure to yield), not only NGSIM vehicles.
 - **Schema + converter** (`docs/SITE_TRAJECTORY_SCHEMA.md`, `pipeline/roadscope_pipeline/trajectory/site.py`, 10 tests): one folder, `site.json` (id, units m|ft, reference front_bumper|centre, box, crosswalk polygons, source + licence) and `tracks.csv` (site_id, track_id, class incl. pedestrian, t on the 10 Hz grid, x, y, length, width, optional heading/lane). The converter validates (off-grid timestamps, unknown classes, pedestrians without crosswalks all stop the run naming the row), converts to metres and the **front-bumper reference** the renderers assume, smooths with a numpy-only Savitzky–Golay (so the Lambda needs no scipy), derives dir/move/lane/inside, and writes the same curated files as the NGSIM sites. Track ids may be strings; ssm.py and repair.py were made id-agnostic.
@@ -208,6 +238,7 @@ Goal: make the lab demonstrably ready for the TransTech roadside-LiDAR feed (ped
 - **Infra** (`roadscope_stack.py`, `lambda_ingest.py`, 4 tests): bucket EventBridge notifications, `SiteDrop` rule on `sites/*/tracks.csv|json` → the existing ingest function (site path: download pair, convert, upload curated files then index/manifest last, run record job `site`), IAM read on `sites/*`, metric filter `site_ingest_failed` → alarm `roadscope-site-ingest-failed`, dashboard widget. `cdk diff` taken against the synthesised baseline template (AWS session expired) and recorded in docs/DEPLOY.md §11. **Not deployed.**
 - **Frontend**: pedestrians as teal centred discs with a walking tick in plan and 1.7 m capsule figures (and a sparse person-shaped return cloud) in 3D (`lib/lab/classes.ts`, tested; palette `ped`); crosswalk polygons drawn on both sheets; site feeds get a plan sheet from their own box + crosswalks instead of the NGSIM-derived corridor; conflict table and filter carry **Pedestrian** and **Failure to yield** rows (crosswalk, entry speed, distance to the pedestrian, stopping distance in the flag tooltip and CSV); header shows the dataset, class counts and licence, and swaps Worst TTC for **Failures to yield** on pedestrian sites; HUD/readout class icons (Phosphor PersonSimpleWalk); SSM panel adds the pedestrian column and the two rules; Methods adds two catalogue metrics, the rule text, three limitations and four references; Platform gets **Add a site** (drop path, flow, column table, site.json keys, "Defined, not deployed" chip). Spot-speed line now defaults inside the observed extent; the queue panel states when no NB/SB stop bar can be derived. Fixed a plan-view crash when a deep link mounted the canvas before layout.
 - Verified headless (Chromium 1440/390, light/dark): lab plan + 3D on tianjin-sind and peachtree-10th, deep link to a failure-to-yield event, Platform Add-a-site, Methods; console clean after the fix; `tsc`, 75 vitest, 26 + 64 pytest, `vite build` pass.
+- Deploy contention: a sibling session (LiDAR-site ingest, PR #1) redeployed RoadScopeStack at 17:24 and 17:30 UTC and re-published the Lubbock-only curated set, overwriting the county-aware Lambdas and the regional data twice. Resolved by merging main into this branch, rebundling, redeploying (17:31) and re-syncing S3; the sibling session was asked to stop deploying. Vercel production deployment dpl_Bj5UEX11zJW3rDfzvmrSCPexDGFZ (commit 36737c6) serves the SPAG frontend.
 - **Deployed (2026-10-18, owner's go)**: PR #1 merged to main; `cdk deploy` added the SiteDrop rule, metric filter, alarm and bucket notifications; the SinD site folder was dropped under `sites/tianjin-sind/` on S3 and the Lambda published it in 1.5 s (run record job `site`, alarms OK). The first Lambda run reported 3 more rear-end events than the identical local run: a parked bus's direction came from a net displacement at floating-point noise level and flipped between machines. Fixed: tracks displaced < 2 m take their direction from the mean heading vector (test added); local and Lambda now agree at 41 conflicts.
 
 ## Intersection lab 3D rebuilt as a physical street (2026-10-19)

@@ -9,7 +9,9 @@ import numpy as np
 import pytest
 
 from roadscope_pipeline import spf as S
+from roadscope_pipeline.counties import CountyIndex, county_summary
 from roadscope_pipeline.network import douglas_peucker, route_key
+from roadscope_pipeline.sources import COUNTIES, COUNTY_BY_NBR, COUNTY_NBR_BY_FIPS, LAYERS
 from roadscope_pipeline.vru import hour, severity
 
 CURATED = Path(__file__).resolve().parents[2] / "data" / "curated"
@@ -133,11 +135,20 @@ STATION_KEYS = {"dfo", "lanes", "speed_limit", "aadt", "truck_pct", "speed_all",
 @pytest.mark.skipif(not (CURATED / "network.geojson").exists(), reason="run build_network first")
 def test_output_schema():
     net = json.loads((CURATED / "network.geojson").read_text())
-    assert (CURATED / "network.geojson").stat().st_size < 1.5e6
-    assert len(net["features"]) == 443
+    man = json.loads((CURATED / "manifest.json").read_text())
+    assert (CURATED / "network.geojson").stat().st_size < 3.5e6  # ~4,100 regional segments; served gzipped
+    assert len(net["features"]) == man["metrics"]["segments"] >= 4000
     for f in net["features"]:
         assert f["geometry"]["type"] in ("LineString", "MultiLineString")
-        assert NET_KEYS <= f["properties"].keys()
+        assert NET_KEYS | {"county", "county_id"} <= f["properties"].keys()
+        assert f["properties"]["county"] in COUNTY_BY_NBR.values()
+    # every SPAG county holds segments; Lubbock has the most and the corridors stay Lubbock profiles
+    by_county = {c["name"]: c for c in man["metrics"]["by_county"]}
+    assert set(by_county) == {n for n, *_ in COUNTIES} and all(c["segments"] > 50 for c in by_county.values())
+    assert max(by_county.values(), key=lambda c: c["segments"])["name"] == "Lubbock"
+    assert sum(c["segments"] for c in by_county.values()) == len(net["features"])
+    counties = json.loads((CURATED / "counties.geojson").read_text())["features"]
+    assert len(counties) == 15 and all(f["geometry"]["type"] == "Polygon" and "segments_screened" in f["properties"] for f in counties)
     ranks = sorted(f["properties"]["rank"] for f in net["features"] if f["properties"]["rank"])
     assert ranks == list(range(1, len(ranks) + 1))
 
@@ -149,6 +160,8 @@ def test_output_schema():
 
     vru = json.loads((CURATED / "vru_crashes.geojson").read_text())["features"]
     assert vru and all(f["properties"]["severity"] in {"K", "A", "B", "C", "O", None} for f in vru)
+    assert all(f["properties"]["county_nbr"] in COUNTY_BY_NBR for f in vru)
+    assert sum(c["vru_crashes"] for c in by_county.values()) == len(vru)
     assert all(f["properties"]["mode"] in {"ped", "bike", "scooter"} for f in vru)
 
     fatal = json.loads((CURATED / "fatal_crashes.geojson").read_text())["features"]
@@ -173,9 +186,8 @@ def test_output_schema():
         if v["fitted"]:
             assert {"coef", "se", "k", "n", "aic", "spec"} <= v["model"].keys()
 
-    man = json.loads((CURATED / "manifest.json").read_text())
     ids = {s["id"] for s in man["sources"]}
-    assert {"segment_crash", "aadt", "roadway_inventory", "speed_2024", "active_transportation_crashes", "fars_2018"} <= ids
+    assert {"counties", "segment_crash", "aadt", "roadway_inventory", "speed_2024", "active_transportation_crashes", "fars_2018"} <= ids
     assert all(len(s["sha256"]) == 64 for s in man["sources"] if s["id"] in ids and "sha256" in s)
 
 
@@ -204,7 +216,8 @@ def test_corridor_figures_agree_with_segments():
     and every station's crash density equals that of the segment containing it."""
     segs = {f["properties"]["seg_id"]: f["properties"] for f in json.loads((CURATED / "network.geojson").read_text())["features"]}
     for c in json.loads((CURATED / "corridors.json").read_text()):
-        cs = [p for p in segs.values() if p["route"] in c["routes"]]
+        assert c["county_id"] == "lubbock"  # corridor sheets are Lubbock County profiles
+        cs = [p for p in segs.values() if p["route"] in c["routes"] and p["county_id"] == c["county_id"]]
         s, Y = c["summary"], c["summary"]["crash_years"]
         n = sum(p["crashes_total"] for p in cs)
         assert s["crashes_total"] == n and s["crashes_ka"] == sum(p["crashes_ka"] for p in cs)
@@ -216,3 +229,38 @@ def test_corridor_figures_agree_with_segments():
                 p = segs[st["seg_id"]]
                 assert p["dfo_from"] - 1e-6 <= st["dfo"] <= p["dfo_to"] + 1e-6
                 assert st["crashes_per_mi"] == round(p["crashes_total"] / Y / p["len_mi"], 2)
+
+
+# ---------- SPAG region ----------
+def test_region_registry_consistent():
+    assert len(COUNTIES) == 15 and len({n for _, n, _, _ in COUNTIES}) == 15 and len(COUNTY_NBR_BY_FIPS) == 15
+    assert COUNTY_BY_NBR[152] == "Lubbock" and COUNTY_NBR_BY_FIPS[303] == 152  # FARS COUNTY 303 = Lubbock
+    assert COUNTY_BY_NBR[86] == "Garza" and COUNTY_BY_NBR[96] == "Hale" and COUNTY_BY_NBR[111] == "Hockley"  # TxDOT ≠ alphabetical
+    assert "CO IN (" in LAYERS["roadway_inventory"]["where"] and "'LUBBOCK'" in LAYERS["active_transportation_crashes"]["where"]
+    assert LAYERS["segment_crash"]["envelope"] and LAYERS["aadt"]["envelope"]
+
+
+def test_county_index_point_in_polygon():
+    sq = lambda nbr, name, x0, y0: {"attributes": {"CNTY_NBR": nbr, "CNTY_NM": name, "FIPS_ST_CNTY_CD": "48000", "DIST_NBR": 5},
+                                   "geometry": {"rings": [[[x0, y0], [x0 + 1, y0], [x0 + 1, y0 + 1], [x0, y0 + 1], [x0, y0]]]}}
+    idx = CountyIndex([sq(152, "Lubbock", -102, 33), sq(96, "Hale", -102, 34)])
+    assert idx.lookup(-101.5, 33.5)["name"] == "Lubbock"
+    assert idx.lookup(-101.5, 34.5)["name"] == "Hale"
+    assert idx.lookup(-100.5, 33.5) is None  # outside both
+    gj = idx.to_geojson({152: {"segments": 3}})
+    assert gj["features"][0]["properties"]["name"] == "Hale" and gj["features"][1]["properties"]["segments"] == 3
+
+
+def test_county_summary_rollup():
+    segs = [{"county_nbr": 152, "len_mi": 1.0, "crashes_total": 2, "crashes_ka": 1, "rank": 1, "eb_excess": 0.4},
+            {"county_nbr": 152, "len_mi": 0.5, "crashes_total": 0, "crashes_ka": 0, "rank": None, "eb_excess": None},
+            {"county_nbr": 96, "len_mi": 1.0, "crashes_total": 0, "crashes_ka": 0, "rank": 2, "eb_excess": -0.1}]
+    vru = [{"properties": {"county_nbr": 152, "severity": "K", "mode": "ped", "on_system": True}},
+           {"properties": {"county_nbr": 96, "severity": "C", "mode": "bike", "on_system": False}}]
+    fatal = [{"properties": {"county_nbr": 96}}]
+    out = county_summary(segs, vru, fatal)
+    lub, hale = out[152], out[96]
+    assert (lub["segments"], lub["segments_screened"], lub["segments_flagged"], lub["segment_crashes"], lub["segment_crashes_ka"]) == (2, 1, 1, 2, 1)
+    assert lub["segment_miles"] == 1.5 and lub["vru_crashes"] == 1 and lub["vru_ka"] == 1 and lub["vru_on_system_ka"] == 1 and lub["fatal_crashes"] == 0
+    assert hale["segments_flagged"] == 0 and hale["vru_by_mode"] == {"bike": 1} and hale["fatal_crashes"] == 1
+    assert out[9]["segments"] == 0 and out[9]["id"] == "bailey" and len(out) == 15
